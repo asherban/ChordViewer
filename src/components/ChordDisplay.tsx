@@ -56,21 +56,24 @@ export function ChordDisplay({ result, notation, onNotationChange }: Props) {
         {primaryLabel}
       </div>
 
-      {alternatives.length > 0 && (
-        <div className="chord-display__alternatives">
-          also: {alternatives.join(', ')}
-        </div>
-      )}
+      <div
+        className="chord-display__alternatives"
+        style={{ visibility: alternatives.length > 0 ? undefined : 'hidden' }}
+      >
+        also: {alternatives.join(', ')}
+      </div>
 
-      {noteNames.length > 0 && (
-        <div className="chord-display__notes" aria-label="Notes held">
-          {noteNames.map((name) => (
-            <span key={name} className="chord-display__pill">
-              {name}
-            </span>
-          ))}
-        </div>
-      )}
+      <div
+        className="chord-display__notes"
+        aria-label="Notes held"
+        style={{ visibility: noteNames.length > 0 ? undefined : 'hidden' }}
+      >
+        {noteNames.map((name) => (
+          <span key={name} className="chord-display__pill">
+            {name}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
