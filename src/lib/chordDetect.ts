@@ -18,8 +18,11 @@ export function detectChord(activeNotes: Set<number>): ChordResult {
     return { chord: null, candidates: [], noteNames: [] };
   }
 
+  // Sort by MIDI number (lowest to highest) before converting
+  const sortedMidi = [...activeNotes].sort((a, b) => a - b);
+
   // Convert MIDI numbers to pitch class strings (no octave, flats preferred)
-  const noteNames = [...activeNotes].map((n) =>
+  const noteNames = sortedMidi.map((n) =>
     midiToNoteName(n, { pitchClass: true, sharps: false })
   );
 
