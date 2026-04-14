@@ -122,6 +122,44 @@
   outline-offset: 2px;
 }
 
+/* ── Notation Toggle ─────────────────────────────────────────────────────── */
+.chord-display__toolbar {
+  display: flex;
+  justify-content: center;
+}
+
+.notation-toggle {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.notation-toggle__btn {
+  padding: 0.3rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--color-muted);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notation-toggle__btn:first-child {
+  border-right: 1px solid var(--color-border);
+}
+
+.notation-toggle__btn--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.notation-toggle__btn:not(.notation-toggle__btn--active):hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
 /* ── Chord Display ────────────────────────────────────────────────────────── */
 .chord-display {
   display: flex;
