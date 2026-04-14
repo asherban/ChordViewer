@@ -9,6 +9,7 @@ import {
   type MidiInputDescriptor,
 } from './lib/midi';
 import { detectChord } from './lib/chordDetect';
+import { type Notation } from './lib/notation';
 import { StatusMessage } from './components/StatusMessage';
 import { DeviceSelector } from './components/DeviceSelector';
 import { ChordDisplay } from './components/ChordDisplay';
@@ -19,6 +20,7 @@ export default function App() {
   const [inputs, setInputs] = useState<MidiInputDescriptor[]>([]);
   const [selectedInputId, setSelectedInputId] = useState<string | null>(null);
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
+  const [notation, setNotation] = useState<Notation>('regular');
 
   const chordResult = useMemo(() => detectChord(activeNotes), [activeNotes]);
 
@@ -140,7 +142,7 @@ export default function App() {
 
             {selectedInputId ? (
               <div className="app__content">
-                <ChordDisplay result={chordResult} />
+                <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} />
                 <StaffDisplay activeNotes={activeNotes} />
               </div>
             ) : (
