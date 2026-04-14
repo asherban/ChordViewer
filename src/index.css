@@ -1,0 +1,31 @@
+/* ── Reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* ── Design Tokens ────────────────────────────────────────────────────── */
+:root {
+  --color-bg: #0f0f11;
+  --color-surface: #1a1a1f;
+  --color-border: #2e2e38;
+  --color-text: #f0f0f5;
+  --color-muted: #6b6b80;
+  --color-accent: #7c6af7;
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+}
