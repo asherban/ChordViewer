@@ -82,7 +82,10 @@ export function detectChord(activeNotes: Set<number>): ChordResult {
 
   const chord = candidates.length > 0 ? candidates[0] : null;
 
-  return { chord, candidates, noteNames };
+  // Return deduplicated pitch classes so the note pills never show duplicate
+  // or stale entries from React key collisions when the same pitch class
+  // appears in multiple octaves (e.g. C3 and C4 both map to "C").
+  return { chord, candidates, noteNames: pitchClasses };
 }
 
 /**
