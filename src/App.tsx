@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { WebMidi } from 'webmidi';
 import {
   initMidi,
@@ -19,9 +19,16 @@ export default function App() {
   const [midiStatus, setMidiStatus] = useState<MidiStatus | null>(null);
   const [inputs, setInputs] = useState<MidiInputDescriptor[]>([]);
   const [selectedInputId, setSelectedInputId] = useState<string | null>(null);
-  const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
+  const [physicalNotes, setPhysicalNotes] = useState<Set<number>>(new Set());
+  const [sustainedNotes, setSustainedNotes] = useState<Set<number>>(new Set());
+  const [sustainPedalActive, setSustainPedalActive] = useState<boolean>(false);
+  const sustainPedalActiveRef = useRef<boolean>(false);
   const [notation, setNotation] = useState<Notation>('regular');
 
+  const activeNotes = useMemo(
+    () => new Set([...physicalNotes, ...sustainedNotes]),
+    [physicalNotes, sustainedNotes]
+  );
   const chordResult = useMemo(() => detectChord(activeNotes), [activeNotes]);
 
   // Initialize MIDI on mount
@@ -49,7 +56,10 @@ export default function App() {
         setSelectedInputId((prev) => {
           if (prev && !updated.find((i) => i.id === prev)) {
             // Previously selected device is gone
-            setActiveNotes(new Set());
+            setPhysicalNotes(new Set());
+            setSustainedNotes(new Set());
+            setSustainPedalActive(false);
+            sustainPedalActiveRef.current = false;
             return null;
           }
           // Auto-select if this is the first device appearing
@@ -77,23 +87,46 @@ export default function App() {
     if (!input) return;
 
     // Clear stale notes from previous input
-    setActiveNotes(new Set());
+    setPhysicalNotes(new Set());
+    setSustainedNotes(new Set());
+    setSustainPedalActive(false);
+    sustainPedalActiveRef.current = false;
 
     const cleanup = attachNoteListeners(
       input,
       (midiNumber) => {
-        setActiveNotes((prev) => {
+        setPhysicalNotes((prev) => {
           const next = new Set(prev);
           next.add(midiNumber);
           return next;
         });
-      },
-      (midiNumber) => {
-        setActiveNotes((prev) => {
+        setSustainedNotes((prev) => {
+          if (!prev.has(midiNumber)) return prev;
           const next = new Set(prev);
           next.delete(midiNumber);
           return next;
         });
+      },
+      (midiNumber) => {
+        setPhysicalNotes((prev) => {
+          const next = new Set(prev);
+          next.delete(midiNumber);
+          return next;
+        });
+        if (sustainPedalActiveRef.current) {
+          setSustainedNotes((prev) => {
+            const next = new Set(prev);
+            next.add(midiNumber);
+            return next;
+          });
+        }
+      },
+      (active) => {
+        sustainPedalActiveRef.current = active;
+        setSustainPedalActive(active);
+        if (!active) {
+          setSustainedNotes(new Set());
+        }
       }
     );
 
@@ -142,7 +175,7 @@ export default function App() {
 
             {selectedInputId ? (
               <div className="app__content">
-                <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} />
+                <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
                 <StaffDisplay activeNotes={activeNotes} />
               </div>
             ) : (

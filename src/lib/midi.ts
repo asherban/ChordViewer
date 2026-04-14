@@ -36,12 +36,14 @@ export function getInputById(id: string): Input | undefined {
 
 /**
  * Attach noteon/noteoff listeners to the given input.
+ * Optionally accepts an onSustainChange callback for CC 64 (sustain pedal).
  * Returns a cleanup function that removes the listeners.
  */
 export function attachNoteListeners(
   input: Input,
   onNoteOn: (midiNumber: number) => void,
-  onNoteOff: (midiNumber: number) => void
+  onNoteOff: (midiNumber: number) => void,
+  onSustainChange?: (active: boolean) => void
 ): () => void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleNoteOn = (e: any) => onNoteOn(e.note.number as number);
@@ -51,9 +53,24 @@ export function attachNoteListeners(
   input.addListener('noteon', handleNoteOn);
   input.addListener('noteoff', handleNoteOff);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let handleControlChange: ((e: any) => void) | undefined;
+  if (onSustainChange) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handleControlChange = (e: any) => {
+      if (e.controller.number === 64) {
+        onSustainChange(e.rawValue >= 64);
+      }
+    };
+    input.addListener('controlchange', handleControlChange);
+  }
+
   return () => {
     input.removeListener('noteon', handleNoteOn);
     input.removeListener('noteoff', handleNoteOff);
+    if (handleControlChange) {
+      input.removeListener('controlchange', handleControlChange);
+    }
   };
 }
 
