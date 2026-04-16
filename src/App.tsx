@@ -12,10 +12,9 @@ import { detectChord } from './lib/chordDetect';
 import { type Notation } from './lib/notation';
 import { useChordHistory } from './lib/useChordHistory';
 import { StatusMessage } from './components/StatusMessage';
-import { DeviceSelector } from './components/DeviceSelector';
+import { TopBar } from './components/TopBar';
 import { ChordDisplay } from './components/ChordDisplay';
 import { StaffDisplay } from './components/StaffDisplay';
-import { YouTubeInput } from './components/YouTubeInput';
 import { YouTubePanel } from './components/YouTubePanel';
 
 export default function App() {
@@ -144,26 +143,23 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="app__header">
-        <h1 className="app__title">ChordViewer</h1>
-        <YouTubeInput
-          videoId={youtubeVideoId}
-          onLoad={(id, startSec) => {
-            setYoutubeVideoId(id);
-            setYoutubeStartSec(startSec);
-          }}
-          onClear={() => {
-            setYoutubeVideoId(null);
-            setYoutubeStartSec(null);
-          }}
-        />
-      </header>
+      <TopBar
+        midiStatus={midiStatus}
+        inputs={inputs}
+        selectedInputId={selectedInputId}
+        onSelectInput={setSelectedInputId}
+        videoId={youtubeVideoId}
+        onLoadVideo={(id, startSec) => {
+          setYoutubeVideoId(id);
+          setYoutubeStartSec(startSec);
+        }}
+        onClearVideo={() => {
+          setYoutubeVideoId(null);
+          setYoutubeStartSec(null);
+        }}
+      />
 
       <main className="app__main">
-        {midiStatus === null && (
-          <StatusMessage type="loading" message="Requesting MIDI access…" />
-        )}
-
         {midiStatus?.kind === 'unsupported' && (
           <StatusMessage
             type="error"
@@ -178,42 +174,25 @@ export default function App() {
           />
         )}
 
-        {midiStatus?.kind === 'ready' && (
-          <>
-            {inputs.length === 0 ? (
-              <StatusMessage
-                type="warning"
-                message="No MIDI devices detected. Plug in a device and it will appear automatically."
-              />
-            ) : (
-              <DeviceSelector
-                inputs={inputs}
-                selectedInputId={selectedInputId}
-                onSelect={setSelectedInputId}
+        {selectedInputId ? (
+          <div className={`app__content${youtubeVideoId ? ' app__content--split' : ''}`}>
+            <div className="app__content__left">
+              <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
+              <StaffDisplay activeNotes={activeNotes} />
+            </div>
+            {youtubeVideoId && (
+              <YouTubePanel
+                videoId={youtubeVideoId}
+                startSec={youtubeStartSec}
+                history={chordHistory}
+                notation={notation}
               />
             )}
-
-            {selectedInputId ? (
-              <div className={`app__content${youtubeVideoId ? ' app__content--split' : ''}`}>
-                <div className="app__content__left">
-                  <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
-                  <StaffDisplay activeNotes={activeNotes} />
-                </div>
-                {youtubeVideoId && (
-                  <YouTubePanel
-                    videoId={youtubeVideoId}
-                    startSec={youtubeStartSec}
-                    history={chordHistory}
-                    notation={notation}
-                  />
-                )}
-              </div>
-            ) : (
-              inputs.length > 0 && (
-                <StatusMessage type="info" message="Select a MIDI device above to begin." />
-              )
-            )}
-          </>
+          </div>
+        ) : (
+          midiStatus?.kind === 'ready' && inputs.length > 0 && (
+            <StatusMessage type="info" message="Select a MIDI device to begin." />
+          )
         )}
       </main>
     </div>

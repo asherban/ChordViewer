@@ -8,24 +8,206 @@
   gap: 1.5rem;
 }
 
-.app__header {
+/* ── Top Bar ─────────────────────────────────────────────────────────────── */
+.top-bar {
   width: 100%;
   max-width: 1280px;
-  text-align: center;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 1rem;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.75rem;
 }
 
-.app__title {
+.top-bar__title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.top-bar__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.top-bar__icon-btn--active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.top-bar__icon-btn--muted {
+  color: var(--color-muted);
+}
+
+.top-bar__icon-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-muted);
+}
+
+.top-bar__icon-btn--active:hover {
+  border-color: var(--color-accent);
+}
+
+.top-bar__icon-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* ── Dialog ──────────────────────────────────────────────────────────────── */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-width: 320px;
+  max-width: 480px;
+  width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dialog__title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-text);
+}
+
+.dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialog__desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.dialog__input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.dialog__input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dialog__error {
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+.dialog__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.dialog__btn {
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dialog__btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dialog__btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.dialog__btn--primary:hover {
+  opacity: 0.85;
+}
+
+.dialog__btn--danger {
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+.dialog__btn--danger:hover {
+  background: #1e0a0a;
+}
+
+.dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dialog__option {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dialog__option:hover {
+  background: var(--color-surface);
+  border-color: var(--color-muted);
+}
+
+.dialog__option--selected {
+  border-color: var(--color-accent);
   color: var(--color-accent);
 }
 
@@ -67,66 +249,6 @@
   min-width: 0;
 }
 
-/* ── YouTube Input ───────────────────────────────────────────────────────── */
-.youtube-input {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  max-width: 560px;
-}
-
-.youtube-input__field {
-  flex: 1 1 240px;
-  min-width: 0;
-  padding: 0.45rem 0.7rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-.youtube-input__field:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.youtube-input__btn {
-  padding: 0.45rem 1rem;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.youtube-input__btn--clear {
-  background: transparent;
-  color: var(--color-muted);
-  border: 1px solid var(--color-border);
-}
-
-.youtube-input__btn--clear:hover {
-  color: var(--color-text);
-  background: var(--color-surface);
-}
-
-.youtube-input__label {
-  font-size: 0.85rem;
-  color: var(--color-muted);
-}
-
-.youtube-input__error {
-  width: 100%;
-  text-align: center;
-  color: #f87171;
-  font-size: 0.85rem;
-}
 
 /* ── YouTube Panel ───────────────────────────────────────────────────────── */
 .yt-panel {
@@ -263,38 +385,6 @@
   border: 1px solid #1e3a5f;
 }
 
-/* ── Device Selector ─────────────────────────────────────────────────────── */
-.device-selector {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  max-width: 480px;
-}
-
-.device-selector label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-muted);
-  white-space: nowrap;
-}
-
-.device-selector select {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 0.9rem;
-  cursor: pointer;
-  min-width: 0;
-}
-
-.device-selector select:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
 
 /* ── Notation Toggle ─────────────────────────────────────────────────────── */
 .chord-display__toolbar {
