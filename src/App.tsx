@@ -10,10 +10,13 @@ import {
 } from './lib/midi';
 import { detectChord } from './lib/chordDetect';
 import { type Notation } from './lib/notation';
+import { useChordHistory } from './lib/useChordHistory';
 import { StatusMessage } from './components/StatusMessage';
 import { DeviceSelector } from './components/DeviceSelector';
 import { ChordDisplay } from './components/ChordDisplay';
 import { StaffDisplay } from './components/StaffDisplay';
+import { YouTubeInput } from './components/YouTubeInput';
+import { YouTubePanel } from './components/YouTubePanel';
 
 export default function App() {
   const [midiStatus, setMidiStatus] = useState<MidiStatus | null>(null);
@@ -24,12 +27,18 @@ export default function App() {
   const [sustainPedalActive, setSustainPedalActive] = useState<boolean>(false);
   const sustainPedalActiveRef = useRef<boolean>(false);
   const [notation, setNotation] = useState<Notation>('regular');
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
+  const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(null);
 
   const activeNotes = useMemo(
     () => new Set([...physicalNotes, ...sustainedNotes]),
     [physicalNotes, sustainedNotes]
   );
   const chordResult = useMemo(() => detectChord(activeNotes), [activeNotes]);
+  const chordHistory = useChordHistory(chordResult.chord, {
+    maxHistory: 4,
+    stabilityMs: 600,
+  });
 
   // Initialize MIDI on mount
   useEffect(() => {
@@ -137,6 +146,17 @@ export default function App() {
     <div className="app">
       <header className="app__header">
         <h1 className="app__title">ChordViewer</h1>
+        <YouTubeInput
+          videoId={youtubeVideoId}
+          onLoad={(id, startSec) => {
+            setYoutubeVideoId(id);
+            setYoutubeStartSec(startSec);
+          }}
+          onClear={() => {
+            setYoutubeVideoId(null);
+            setYoutubeStartSec(null);
+          }}
+        />
       </header>
 
       <main className="app__main">
@@ -174,9 +194,19 @@ export default function App() {
             )}
 
             {selectedInputId ? (
-              <div className="app__content">
-                <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
-                <StaffDisplay activeNotes={activeNotes} />
+              <div className={`app__content${youtubeVideoId ? ' app__content--split' : ''}`}>
+                <div className="app__content__left">
+                  <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
+                  <StaffDisplay activeNotes={activeNotes} />
+                </div>
+                {youtubeVideoId && (
+                  <YouTubePanel
+                    videoId={youtubeVideoId}
+                    startSec={youtubeStartSec}
+                    history={chordHistory}
+                    notation={notation}
+                  />
+                )}
               </div>
             ) : (
               inputs.length > 0 && (

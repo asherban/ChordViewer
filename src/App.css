@@ -10,10 +10,14 @@
 
 .app__header {
   width: 100%;
-  max-width: 720px;
+  max-width: 1280px;
   text-align: center;
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .app__title {
@@ -27,7 +31,7 @@
 
 .app__main {
   width: 100%;
-  max-width: 720px;
+  max-width: 1280px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -36,10 +40,180 @@
 
 .app__content {
   width: 100%;
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2rem;
+}
+
+.app__content__left {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.app__content--split {
+  max-width: 1280px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.app__content--split .app__content__left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ── YouTube Input ───────────────────────────────────────────────────────── */
+.youtube-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 560px;
+}
+
+.youtube-input__field {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 0.45rem 0.7rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.youtube-input__field:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.youtube-input__btn {
+  padding: 0.45rem 1rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.youtube-input__btn--clear {
+  background: transparent;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+}
+
+.youtube-input__btn--clear:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.youtube-input__label {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.youtube-input__error {
+  width: 100%;
+  text-align: center;
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+/* ── YouTube Panel ───────────────────────────────────────────────────────── */
+.yt-panel {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.yt-panel__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--color-border);
+}
+
+.yt-panel__video iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* ── Chord History ───────────────────────────────────────────────────────── */
+.chord-history {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.chord-history__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.chord-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chord-history__item {
+  padding: 0.35rem 0.9rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chord-history__item--current {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.chord-history__empty {
+  margin: 0;
+  color: var(--color-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .app__content--split {
+    flex-direction: column;
+    align-items: center;
+  }
+  .app__content--split .app__content__left,
+  .app__content--split .yt-panel {
+    width: 100%;
+    max-width: 720px;
+  }
 }
 
 /* ── Status Message ──────────────────────────────────────────────────────── */
