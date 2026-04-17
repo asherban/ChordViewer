@@ -144,30 +144,30 @@ export function TopBar({
           >
             <h2 className="dialog__title">YouTube Video</h2>
             <div className="dialog__body">
-              {videoId && (
-                <div className="dialog__current">
-                  <span className="dialog__current-label">Currently loaded</span>
-                  <button
-                    className="dialog__btn dialog__btn--danger"
-                    onClick={() => { onClearVideo(); setYoutubeOpen(false); }}
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
               <form className="dialog__form" onSubmit={handleYoutubeSubmit}>
-                <input
-                  type="url"
-                  className="dialog__input"
-                  placeholder="Paste YouTube URL"
-                  value={urlText}
-                  onChange={(e) => {
-                    setUrlText(e.target.value);
-                    if (urlError) setUrlError(null);
-                  }}
-                  aria-label="YouTube URL"
-                  autoFocus
-                />
+                <div className="dialog__input-row">
+                  <input
+                    type="url"
+                    className="dialog__input"
+                    placeholder="Paste YouTube URL"
+                    value={urlText}
+                    onChange={(e) => {
+                      setUrlText(e.target.value);
+                      if (urlError) setUrlError(null);
+                    }}
+                    aria-label="YouTube URL"
+                    autoFocus
+                  />
+                  {videoId && (
+                    <button
+                      type="button"
+                      className="dialog__btn dialog__btn--danger"
+                      onClick={() => { onClearVideo(); setYoutubeOpen(false); }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 {urlError && <span className="dialog__error">{urlError}</span>}
                 <div className="dialog__actions">
                   <button type="submit" className="dialog__btn dialog__btn--primary">
