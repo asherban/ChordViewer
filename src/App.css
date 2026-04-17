@@ -221,6 +221,45 @@
   color: var(--color-muted);
 }
 
+.dialog__history-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dialog__history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dialog__history-row .dialog__option {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog__history-delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dialog__history-delete:hover {
+  color: #f87171;
+  border-color: #7f1d1d;
+  background: #1e0a0a;
+}
+
 .dialog__options {
   display: flex;
   flex-direction: column;

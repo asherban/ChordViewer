@@ -4,6 +4,20 @@ export interface VideoHistoryEntry {
   id: string;
   startSec: number | null;
   label: string;
+  title?: string;
+}
+
+export async function fetchVideoTitle(id: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(id)}&format=json`
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { title?: string };
+    return data.title ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function parseYouTubeId(input: string): string | null {

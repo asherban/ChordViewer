@@ -10,7 +10,7 @@ import {
 } from './lib/midi';
 import { detectChord } from './lib/chordDetect';
 import { type Notation } from './lib/notation';
-import { type VideoHistoryEntry } from './lib/youtube';
+import { type VideoHistoryEntry, fetchVideoTitle } from './lib/youtube';
 import { useChordHistory } from './lib/useChordHistory';
 import { StatusMessage } from './components/StatusMessage';
 import { TopBar } from './components/TopBar';
@@ -48,8 +48,10 @@ function loadStoredVideoHistory(): VideoHistoryEntry[] {
 }
 
 function addToHistory(entry: VideoHistoryEntry, history: VideoHistoryEntry[]): VideoHistoryEntry[] {
+  const existing = history.find((h) => h.id === entry.id);
+  const merged = existing?.title && !entry.title ? { ...entry, title: existing.title } : entry;
   const deduped = history.filter((h) => h.id !== entry.id);
-  return [entry, ...deduped].slice(0, 5);
+  return [merged, ...deduped].slice(0, 5);
 }
 
 export default function App() {
@@ -177,6 +179,20 @@ export default function App() {
     return cleanup;
   }, [selectedInputId]);
 
+  // Fetch titles for any history entries that don't have one yet
+  useEffect(() => {
+    videoHistory
+      .filter((e) => !e.title)
+      .forEach((entry) => {
+        fetchVideoTitle(entry.id).then((title) => {
+          if (title) {
+            setVideoHistory((prev) => prev.map((e) => e.id === entry.id ? { ...e, title } : e));
+          }
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.notation, notation);
   }, [notation]);
@@ -206,10 +222,21 @@ export default function App() {
           setYoutubeVideoId(id);
           setYoutubeStartSec(startSec);
           setVideoHistory((prev) => addToHistory({ id, startSec, label }, prev));
+          const alreadyHasTitle = videoHistory.find((e) => e.id === id)?.title;
+          if (!alreadyHasTitle) {
+            fetchVideoTitle(id).then((title) => {
+              if (title) {
+                setVideoHistory((prev) => prev.map((e) => e.id === id ? { ...e, title } : e));
+              }
+            });
+          }
         }}
         onClearVideo={() => {
           setYoutubeVideoId(null);
           setYoutubeStartSec(null);
+        }}
+        onDeleteFromHistory={(id) => {
+          setVideoHistory((prev) => prev.filter((e) => e.id !== id));
         }}
       />
 

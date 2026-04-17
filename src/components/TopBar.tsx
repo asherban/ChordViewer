@@ -11,12 +11,25 @@ interface Props {
   videoHistory: VideoHistoryEntry[];
   onLoadVideo: (id: string, startSec: number | null, label: string) => void;
   onClearVideo: () => void;
+  onDeleteFromHistory: (id: string) => void;
 }
 
 function YouTubeIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
       <path d="M23.5 6.2a3.01 3.01 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3.01 3.01 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.6 5.8a3.01 3.01 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3.01 3.01 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
@@ -41,6 +54,7 @@ export function TopBar({
   videoHistory,
   onLoadVideo,
   onClearVideo,
+  onDeleteFromHistory,
 }: Props) {
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [midiOpen, setMidiOpen] = useState(false);
@@ -167,19 +181,28 @@ export function TopBar({
               {videoHistory.length > 0 && (
                 <div className="dialog__history">
                   <p className="dialog__history-title">Recent videos</p>
-                  <div className="dialog__options">
+                  <div className="dialog__history-rows">
                     {videoHistory.map((entry) => (
-                      <button
-                        key={entry.id}
-                        className={`dialog__option${entry.id === videoId ? ' dialog__option--selected' : ''}`}
-                        title={entry.label}
-                        onClick={() => {
-                          onLoadVideo(entry.id, entry.startSec, entry.label);
-                          setYoutubeOpen(false);
-                        }}
-                      >
-                        {entry.label}
-                      </button>
+                      <div key={entry.id} className="dialog__history-row">
+                        <button
+                          className={`dialog__option${entry.id === videoId ? ' dialog__option--selected' : ''}`}
+                          title={entry.label}
+                          onClick={() => {
+                            onLoadVideo(entry.id, entry.startSec, entry.label);
+                            setYoutubeOpen(false);
+                          }}
+                        >
+                          {entry.title ?? entry.label}
+                        </button>
+                        <button
+                          className="dialog__history-delete"
+                          title="Remove from history"
+                          aria-label="Remove from history"
+                          onClick={() => onDeleteFromHistory(entry.id)}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
