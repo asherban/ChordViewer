@@ -1,73 +1,53 @@
-# React + TypeScript + Vite
+# ChordViewer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**ChordViewer** is a real-time chord detection tool for musicians. Connect a MIDI keyboard, play some notes, and instantly see the chord name displayed — no music theory knowledge required.
 
-Currently, two official plugins are available:
+> **Live demo:** https://asherban.github.io/ChordViewer/
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What it does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Play notes on your MIDI keyboard and ChordViewer:
 
-## Expanding the ESLint configuration
+- **Names the chord** as you play it — C major, F#m7, Bbdim7, and hundreds more
+- **Shows it on a staff** — treble and bass clef notation updates in real time so you can see exactly where the notes sit
+- **Supports sustain pedal** — held notes stay visible while you move to the next chord
+- **Tracks your chord history** — the last four chords you played appear in a sidebar so you can review your progressions
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Practice along with YouTube
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Paste a YouTube link (piano lesson, backing track, tutorial) and the video plays inside the app alongside your chord detection. The chord history panel lets you see what you played while watching — useful for transcribing or checking your accuracy chord by chord.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+![ChordViewer with a piano tutorial video and chord history](docs/screenshot.png)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Two notation styles
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Toggle between standard notation and jazz notation with one click:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Standard | Jazz |
+|----------|------|
+| Cmaj7 | CΔ7 |
+| Dm7b5 | Dø7 |
+| Bdim7 | B°7 |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### MIDI device support
+
+ChordViewer detects any connected MIDI keyboard or controller automatically. If you have multiple devices plugged in, a selector lets you pick which one to use. Devices can be swapped without reloading the page.
+
+---
+
+## Getting started
+
+1. Open https://asherban.github.io/ChordViewer/ in Chrome or Edge (Web MIDI is required)
+2. Connect a MIDI keyboard via USB
+3. Click the MIDI icon in the top bar and select your device
+4. Play a chord — the name and notation appear instantly
+
+To practice with a video, click the YouTube icon, paste a video URL, and hit play.
+
+---
+
+## Browser support
+
+Web MIDI API is required. Chrome and Edge on desktop are fully supported. Firefox and Safari do not support Web MIDI without a browser extension.
