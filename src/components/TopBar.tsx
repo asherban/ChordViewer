@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { MidiStatus, MidiInputDescriptor } from '../lib/midi';
-import { parseYouTubeId, parseYouTubeStart } from '../lib/youtube';
+import { parseYouTubeId, parseYouTubeStart, type VideoHistoryEntry } from '../lib/youtube';
 
 interface Props {
   midiStatus: MidiStatus | null;
@@ -8,7 +8,8 @@ interface Props {
   selectedInputId: string | null;
   onSelectInput: (id: string) => void;
   videoId: string | null;
-  onLoadVideo: (id: string, startSec: number | null) => void;
+  videoHistory: VideoHistoryEntry[];
+  onLoadVideo: (id: string, startSec: number | null, label: string) => void;
   onClearVideo: () => void;
 }
 
@@ -37,6 +38,7 @@ export function TopBar({
   selectedInputId,
   onSelectInput,
   videoId,
+  videoHistory,
   onLoadVideo,
   onClearVideo,
 }: Props) {
@@ -59,7 +61,7 @@ export function TopBar({
       return;
     }
     setUrlError(null);
-    onLoadVideo(id, parseYouTubeStart(urlText));
+    onLoadVideo(id, parseYouTubeStart(urlText), urlText.trim());
     setUrlText('');
     setYoutubeOpen(false);
   }
@@ -127,26 +129,19 @@ export function TopBar({
             aria-label="YouTube Video"
           >
             <h2 className="dialog__title">YouTube Video</h2>
-            {videoId ? (
-              <div className="dialog__body">
-                <p className="dialog__desc">A video is currently loaded.</p>
-                <div className="dialog__actions">
+            <div className="dialog__body">
+              {videoId && (
+                <div className="dialog__current">
+                  <span className="dialog__current-label">Currently loaded</span>
                   <button
                     className="dialog__btn dialog__btn--danger"
-                    onClick={() => {
-                      onClearVideo();
-                      setYoutubeOpen(false);
-                    }}
+                    onClick={() => { onClearVideo(); setYoutubeOpen(false); }}
                   >
-                    Clear video
-                  </button>
-                  <button className="dialog__btn" onClick={handleYoutubeClose}>
-                    Cancel
+                    Clear
                   </button>
                 </div>
-              </div>
-            ) : (
-              <form className="dialog__body" onSubmit={handleYoutubeSubmit}>
+              )}
+              <form className="dialog__form" onSubmit={handleYoutubeSubmit}>
                 <input
                   type="url"
                   className="dialog__input"
@@ -169,7 +164,27 @@ export function TopBar({
                   </button>
                 </div>
               </form>
-            )}
+              {videoHistory.length > 0 && (
+                <div className="dialog__history">
+                  <p className="dialog__history-title">Recent videos</p>
+                  <div className="dialog__options">
+                    {videoHistory.map((entry) => (
+                      <button
+                        key={entry.id}
+                        className={`dialog__option${entry.id === videoId ? ' dialog__option--selected' : ''}`}
+                        title={entry.label}
+                        onClick={() => {
+                          onLoadVideo(entry.id, entry.startSec, entry.label);
+                          setYoutubeOpen(false);
+                        }}
+                      >
+                        {entry.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

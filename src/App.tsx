@@ -10,12 +10,47 @@ import {
 } from './lib/midi';
 import { detectChord } from './lib/chordDetect';
 import { type Notation } from './lib/notation';
+import { type VideoHistoryEntry } from './lib/youtube';
 import { useChordHistory } from './lib/useChordHistory';
 import { StatusMessage } from './components/StatusMessage';
 import { TopBar } from './components/TopBar';
 import { ChordDisplay } from './components/ChordDisplay';
 import { StaffDisplay } from './components/StaffDisplay';
 import { YouTubePanel } from './components/YouTubePanel';
+
+const STORAGE_KEYS = {
+  notation: 'chordviewer_notation',
+  currentVideo: 'chordviewer_current_video',
+  videoHistory: 'chordviewer_video_history',
+} as const;
+
+function loadStoredNotation(): Notation {
+  const v = localStorage.getItem(STORAGE_KEYS.notation);
+  return v === 'jazz' ? 'jazz' : 'regular';
+}
+
+function loadStoredCurrentVideo(): { id: string; startSec: number | null } | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEYS.currentVideo);
+    return v ? (JSON.parse(v) as { id: string; startSec: number | null }) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadStoredVideoHistory(): VideoHistoryEntry[] {
+  try {
+    const v = localStorage.getItem(STORAGE_KEYS.videoHistory);
+    return v ? (JSON.parse(v) as VideoHistoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addToHistory(entry: VideoHistoryEntry, history: VideoHistoryEntry[]): VideoHistoryEntry[] {
+  const deduped = history.filter((h) => h.id !== entry.id);
+  return [entry, ...deduped].slice(0, 5);
+}
 
 export default function App() {
   const [midiStatus, setMidiStatus] = useState<MidiStatus | null>(null);
@@ -25,9 +60,10 @@ export default function App() {
   const [sustainedNotes, setSustainedNotes] = useState<Set<number>>(new Set());
   const [sustainPedalActive, setSustainPedalActive] = useState<boolean>(false);
   const sustainPedalActiveRef = useRef<boolean>(false);
-  const [notation, setNotation] = useState<Notation>('regular');
-  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
-  const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(null);
+  const [notation, setNotation] = useState<Notation>(loadStoredNotation);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(() => loadStoredCurrentVideo()?.id ?? null);
+  const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(() => loadStoredCurrentVideo()?.startSec ?? null);
+  const [videoHistory, setVideoHistory] = useState<VideoHistoryEntry[]>(loadStoredVideoHistory);
 
   const activeNotes = useMemo(
     () => new Set([...physicalNotes, ...sustainedNotes]),
@@ -141,6 +177,22 @@ export default function App() {
     return cleanup;
   }, [selectedInputId]);
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.notation, notation);
+  }, [notation]);
+
+  useEffect(() => {
+    if (youtubeVideoId !== null) {
+      localStorage.setItem(STORAGE_KEYS.currentVideo, JSON.stringify({ id: youtubeVideoId, startSec: youtubeStartSec }));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.currentVideo);
+    }
+  }, [youtubeVideoId, youtubeStartSec]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.videoHistory, JSON.stringify(videoHistory));
+  }, [videoHistory]);
+
   return (
     <div className="app">
       <TopBar
@@ -149,9 +201,11 @@ export default function App() {
         selectedInputId={selectedInputId}
         onSelectInput={setSelectedInputId}
         videoId={youtubeVideoId}
-        onLoadVideo={(id, startSec) => {
+        videoHistory={videoHistory}
+        onLoadVideo={(id, startSec, label) => {
           setYoutubeVideoId(id);
           setYoutubeStartSec(startSec);
+          setVideoHistory((prev) => addToHistory({ id, startSec, label }, prev));
         }}
         onClearVideo={() => {
           setYoutubeVideoId(null);
