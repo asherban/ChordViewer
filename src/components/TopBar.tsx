@@ -1,0 +1,208 @@
+import { useState, type FormEvent } from 'react';
+import type { MidiStatus, MidiInputDescriptor } from '../lib/midi';
+import { parseYouTubeId, parseYouTubeStart } from '../lib/youtube';
+
+interface Props {
+  midiStatus: MidiStatus | null;
+  inputs: MidiInputDescriptor[];
+  selectedInputId: string | null;
+  onSelectInput: (id: string) => void;
+  videoId: string | null;
+  onLoadVideo: (id: string, startSec: number | null) => void;
+  onClearVideo: () => void;
+}
+
+function YouTubeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <path d="M23.5 6.2a3.01 3.01 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3.01 3.01 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.6 5.8a3.01 3.01 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3.01 3.01 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
+    </svg>
+  );
+}
+
+function MidiIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="5.5" y="5" width="2.5" height="8" rx="1" />
+      <rect x="10.75" y="5" width="2.5" height="8" rx="1" />
+      <rect x="16" y="5" width="2.5" height="8" rx="1" />
+    </svg>
+  );
+}
+
+export function TopBar({
+  midiStatus,
+  inputs,
+  selectedInputId,
+  onSelectInput,
+  videoId,
+  onLoadVideo,
+  onClearVideo,
+}: Props) {
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
+  const [midiOpen, setMidiOpen] = useState(false);
+  const [urlText, setUrlText] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  const isConnected = selectedInputId !== null;
+  const hasMultipleDevices = inputs.length > 1;
+  const selectedDevice = inputs.find((i) => i.id === selectedInputId);
+  const midiReady = midiStatus?.kind === 'ready';
+  const midiLoading = midiStatus === null;
+
+  function handleYoutubeSubmit(e: FormEvent) {
+    e.preventDefault();
+    const id = parseYouTubeId(urlText);
+    if (!id) {
+      setUrlError('Not a valid YouTube URL');
+      return;
+    }
+    setUrlError(null);
+    onLoadVideo(id, parseYouTubeStart(urlText));
+    setUrlText('');
+    setYoutubeOpen(false);
+  }
+
+  function handleYoutubeClose() {
+    setYoutubeOpen(false);
+    setUrlText('');
+    setUrlError(null);
+  }
+
+  function handleMidiClick() {
+    if (midiReady && hasMultipleDevices) {
+      setMidiOpen(true);
+    }
+  }
+
+  function getMidiTitle() {
+    if (midiLoading) return 'Connecting to MIDI…';
+    if (!midiReady) return 'MIDI not available';
+    if (!isConnected) return inputs.length === 0 ? 'No MIDI device connected' : 'Select a MIDI device';
+    return selectedDevice?.name ?? 'MIDI connected';
+  }
+
+  const midiIconClass = [
+    'top-bar__icon-btn',
+    isConnected ? 'top-bar__icon-btn--active' : 'top-bar__icon-btn--muted',
+    midiLoading ? 'top-bar__icon-btn--loading' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <header className="top-bar">
+      <h1 className="top-bar__title">ChordViewer</h1>
+
+      <div className="top-bar__actions">
+        <button
+          className={`top-bar__icon-btn${videoId ? ' top-bar__icon-btn--active' : ' top-bar__icon-btn--muted'}`}
+          onClick={() => setYoutubeOpen(true)}
+          title={videoId ? 'YouTube video loaded — click to change or clear' : 'Load YouTube video'}
+          aria-label={videoId ? 'YouTube video loaded' : 'Load YouTube video'}
+        >
+          <YouTubeIcon />
+          {videoId && <span className="top-bar__icon-dot" />}
+        </button>
+
+        <button
+          className={midiIconClass}
+          onClick={handleMidiClick}
+          title={getMidiTitle()}
+          aria-label={getMidiTitle()}
+          style={{ cursor: hasMultipleDevices ? 'pointer' : 'default' }}
+        >
+          <MidiIcon />
+        </button>
+      </div>
+
+      {youtubeOpen && (
+        <div className="dialog-overlay" onClick={handleYoutubeClose}>
+          <div
+            className="dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="YouTube Video"
+          >
+            <h2 className="dialog__title">YouTube Video</h2>
+            {videoId ? (
+              <div className="dialog__body">
+                <p className="dialog__desc">A video is currently loaded.</p>
+                <div className="dialog__actions">
+                  <button
+                    className="dialog__btn dialog__btn--danger"
+                    onClick={() => {
+                      onClearVideo();
+                      setYoutubeOpen(false);
+                    }}
+                  >
+                    Clear video
+                  </button>
+                  <button className="dialog__btn" onClick={handleYoutubeClose}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className="dialog__body" onSubmit={handleYoutubeSubmit}>
+                <input
+                  type="url"
+                  className="dialog__input"
+                  placeholder="Paste YouTube URL"
+                  value={urlText}
+                  onChange={(e) => {
+                    setUrlText(e.target.value);
+                    if (urlError) setUrlError(null);
+                  }}
+                  aria-label="YouTube URL"
+                  autoFocus
+                />
+                {urlError && <span className="dialog__error">{urlError}</span>}
+                <div className="dialog__actions">
+                  <button type="submit" className="dialog__btn dialog__btn--primary">
+                    Load
+                  </button>
+                  <button type="button" className="dialog__btn" onClick={handleYoutubeClose}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {midiOpen && (
+        <div className="dialog-overlay" onClick={() => setMidiOpen(false)}>
+          <div
+            className="dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Select MIDI Input"
+          >
+            <h2 className="dialog__title">Select MIDI Input</h2>
+            <div className="dialog__body">
+              <div className="dialog__options">
+                {inputs.map((input) => (
+                  <button
+                    key={input.id}
+                    className={`dialog__option${selectedInputId === input.id ? ' dialog__option--selected' : ''}`}
+                    onClick={() => {
+                      onSelectInput(input.id);
+                      setMidiOpen(false);
+                    }}
+                  >
+                    {input.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+}
