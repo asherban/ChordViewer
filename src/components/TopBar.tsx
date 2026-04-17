@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import type { MidiStatus, MidiInputDescriptor } from '../lib/midi';
 import { parseYouTubeId, parseYouTubeStart, type VideoHistoryEntry } from '../lib/youtube';
 
@@ -34,6 +34,28 @@ function TrashIcon() {
   );
 }
 
+function FullscreenEnterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </svg>
+  );
+}
+
+function FullscreenExitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="4 14 10 14 10 20" />
+      <polyline points="20 10 14 10 14 4" />
+      <line x1="10" y1="14" x2="3" y2="21" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+    </svg>
+  );
+}
+
 function MidiIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -60,6 +82,23 @@ export function TopBar({
   const [midiOpen, setMidiOpen] = useState(false);
   const [urlText, setUrlText] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  function handleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }
 
   const isConnected = selectedInputId !== null;
   const hasMultipleDevices = inputs.length > 1;
@@ -112,6 +151,15 @@ export function TopBar({
       <h1 className="top-bar__title">ChordViewer</h1>
 
       <div className="top-bar__actions">
+        <button
+          className="top-bar__icon-btn top-bar__icon-btn--muted"
+          onClick={handleFullscreen}
+          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+        </button>
+
         <button
           className={`top-bar__icon-btn${videoId ? ' top-bar__icon-btn--active' : ' top-bar__icon-btn--muted'}`}
           onClick={() => setYoutubeOpen(true)}
