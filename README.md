@@ -2,7 +2,7 @@
 
 **ChordViewer** is a real-time chord detection tool for musicians. Connect a MIDI keyboard, play some notes, and instantly see the chord name displayed — no music theory knowledge required.
 
-> **Live demo:** https://asherban.github.io/ChordViewer/
+> **Live demo:** https://chordviewer.app
 
 ---
 
@@ -18,8 +18,6 @@ Play notes on your MIDI keyboard and ChordViewer:
 ### Practice along with YouTube
 
 Paste a YouTube link (piano lesson, backing track, tutorial) and the video plays inside the app alongside your chord detection. The chord history panel lets you see what you played while watching — useful for transcribing or checking your accuracy chord by chord.
-
-![ChordViewer with a piano tutorial video and chord history](docs/screenshot.png)
 
 ### Two notation styles
 
@@ -39,7 +37,7 @@ ChordViewer detects any connected MIDI keyboard or controller automatically. If 
 
 ## Getting started
 
-1. Open https://asherban.github.io/ChordViewer/ in Chrome or Edge (Web MIDI is required)
+1. Open https://chordviewer.app in Chrome or Edge (Web MIDI is required)
 2. Connect a MIDI keyboard via USB
 3. Click the MIDI icon in the top bar and select your device
 4. Play a chord — the name and notation appear instantly
