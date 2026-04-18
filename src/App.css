@@ -426,6 +426,30 @@
   margin: 0;
 }
 
+.status-message__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-message__action {
+  align-self: flex-start;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.status-message__action:hover {
+  opacity: 1;
+}
+
 .status-message__icon {
   font-size: 1.2rem;
   line-height: 1.5;

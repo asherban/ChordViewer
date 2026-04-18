@@ -62,6 +62,7 @@ export default function App() {
   const [sustainedNotes, setSustainedNotes] = useState<Set<number>>(new Set());
   const [sustainPedalActive, setSustainPedalActive] = useState<boolean>(false);
   const sustainPedalActiveRef = useRef<boolean>(false);
+  const midiListenersSetRef = useRef<boolean>(false);
   const [notation, setNotation] = useState<Notation>(loadStoredNotation);
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(() => loadStoredCurrentVideo()?.id ?? null);
   const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(() => loadStoredCurrentVideo()?.startSec ?? null);
@@ -77,6 +78,32 @@ export default function App() {
     stabilityMs: 600,
   });
 
+  function setupMidiReady(descriptors: MidiInputDescriptor[]) {
+    setInputs(descriptors);
+    if (descriptors.length === 1) setSelectedInputId(descriptors[0].id);
+
+    if (!midiListenersSetRef.current) {
+      midiListenersSetRef.current = true;
+      const onConnectionChange = () => {
+        const updated = getInputDescriptors();
+        setInputs(updated);
+        setSelectedInputId((prev) => {
+          if (prev && !updated.find((i) => i.id === prev)) {
+            setPhysicalNotes(new Set());
+            setSustainedNotes(new Set());
+            setSustainPedalActive(false);
+            sustainPedalActiveRef.current = false;
+            return null;
+          }
+          if (!prev && updated.length === 1) return updated[0].id;
+          return prev;
+        });
+      };
+      WebMidi.addListener('connected', onConnectionChange);
+      WebMidi.addListener('disconnected', onConnectionChange);
+    }
+  }
+
   // Initialize MIDI on mount
   useEffect(() => {
     let cancelled = false;
@@ -84,46 +111,20 @@ export default function App() {
     initMidi().then((status) => {
       if (cancelled) return;
       setMidiStatus(status);
-
-      if (status.kind !== 'ready') return;
-
-      const descriptors = status.inputs;
-      setInputs(descriptors);
-
-      // Auto-select if exactly one device is available
-      if (descriptors.length === 1) {
-        setSelectedInputId(descriptors[0].id);
-      }
-
-      // Listen for device connect/disconnect
-      const onConnectionChange = () => {
-        const updated = getInputDescriptors();
-        setInputs(updated);
-        setSelectedInputId((prev) => {
-          if (prev && !updated.find((i) => i.id === prev)) {
-            // Previously selected device is gone
-            setPhysicalNotes(new Set());
-            setSustainedNotes(new Set());
-            setSustainPedalActive(false);
-            sustainPedalActiveRef.current = false;
-            return null;
-          }
-          // Auto-select if this is the first device appearing
-          if (!prev && updated.length === 1) {
-            return updated[0].id;
-          }
-          return prev;
-        });
-      };
-
-      WebMidi.addListener('connected', onConnectionChange);
-      WebMidi.addListener('disconnected', onConnectionChange);
+      if (status.kind === 'ready') setupMidiReady(status.inputs);
     });
 
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleRetryMidi() {
+    const status = await initMidi();
+    setMidiStatus(status);
+    if (status.kind === 'ready') setupMidiReady(status.inputs);
+  }
 
   // Attach note listeners whenever the selected input changes
   useEffect(() => {
@@ -252,6 +253,7 @@ export default function App() {
           <StatusMessage
             type="error"
             message={`Could not access MIDI devices: ${midiStatus.message}`}
+            action={{ label: 'Request Permission', onClick: handleRetryMidi }}
           />
         )}
 
