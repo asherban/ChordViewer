@@ -54,11 +54,6 @@ function addToHistory(entry: VideoHistoryEntry, history: VideoHistoryEntry[]): V
   return [merged, ...deduped].slice(0, 5);
 }
 
-function isMidiPermissionBlocked(message: string): boolean {
-  const lower = message.toLowerCase();
-  return lower.includes('not allowed') || lower.includes('denied') || lower.includes('security');
-}
-
 export default function App() {
   const [midiStatus, setMidiStatus] = useState<MidiStatus | null>(null);
   const [isRetryingMidi, setIsRetryingMidi] = useState(false);
@@ -128,7 +123,25 @@ export default function App() {
 
   async function handleRetryMidi() {
     setIsRetryingMidi(true);
-    const status = await initMidi();
+
+    // Reset WebMidi's internal state so enable() doesn't short-circuit if it
+    // was left partially-initialized, and so a fresh MIDI access is requested.
+    if (WebMidi.enabled) {
+      try {
+        await WebMidi.disable();
+      } catch {
+        // ignore
+      }
+      midiListenersSetRef.current = false;
+    }
+
+    // Ensure the loading indicator is visible for at least a moment so users
+    // see feedback even when the browser rejects the request instantly.
+    const [status] = await Promise.all([
+      initMidi(),
+      new Promise((resolve) => setTimeout(resolve, 350)),
+    ]);
+
     setIsRetryingMidi(false);
     setMidiStatus(status);
     if (status.kind === 'ready') setupMidiReady(status.inputs);
@@ -264,11 +277,7 @@ export default function App() {
         {!isRetryingMidi && midiStatus?.kind === 'error' && (
           <StatusMessage
             type="error"
-            message={
-              isMidiPermissionBlocked(midiStatus.message)
-                ? 'MIDI permission is blocked. Click the lock icon in the address bar → Site settings → MIDI → Allow, then click below.'
-                : `Could not access MIDI devices: ${midiStatus.message}`
-            }
+            message={`Could not access MIDI devices: ${midiStatus.message}. If the browser has blocked MIDI, reset it via the address-bar lock/tune icon → Site settings → MIDI → Allow, then click below.`}
             action={{ label: 'Request Permission', onClick: handleRetryMidi }}
           />
         )}
