@@ -54,8 +54,14 @@ function addToHistory(entry: VideoHistoryEntry, history: VideoHistoryEntry[]): V
   return [merged, ...deduped].slice(0, 5);
 }
 
+function isMidiPermissionBlocked(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes('not allowed') || lower.includes('denied') || lower.includes('security');
+}
+
 export default function App() {
   const [midiStatus, setMidiStatus] = useState<MidiStatus | null>(null);
+  const [isRetryingMidi, setIsRetryingMidi] = useState(false);
   const [inputs, setInputs] = useState<MidiInputDescriptor[]>([]);
   const [selectedInputId, setSelectedInputId] = useState<string | null>(null);
   const [physicalNotes, setPhysicalNotes] = useState<Set<number>>(new Set());
@@ -121,7 +127,9 @@ export default function App() {
   }, []);
 
   async function handleRetryMidi() {
+    setIsRetryingMidi(true);
     const status = await initMidi();
+    setIsRetryingMidi(false);
     setMidiStatus(status);
     if (status.kind === 'ready') setupMidiReady(status.inputs);
   }
@@ -249,10 +257,18 @@ export default function App() {
           />
         )}
 
-        {midiStatus?.kind === 'error' && (
+        {isRetryingMidi && (
+          <StatusMessage type="loading" message="Requesting MIDI permission…" />
+        )}
+
+        {!isRetryingMidi && midiStatus?.kind === 'error' && (
           <StatusMessage
             type="error"
-            message={`Could not access MIDI devices: ${midiStatus.message}`}
+            message={
+              isMidiPermissionBlocked(midiStatus.message)
+                ? 'MIDI permission is blocked. Click the lock icon in the address bar → Site settings → MIDI → Allow, then click below.'
+                : `Could not access MIDI devices: ${midiStatus.message}`
+            }
             action={{ label: 'Request Permission', onClick: handleRetryMidi }}
           />
         )}
