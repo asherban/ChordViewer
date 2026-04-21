@@ -233,8 +233,8 @@ export function TranscribeView({
                 armedSlot={armed.bar === barIdx ? armed.slot : undefined}
                 onSlotClick={handleSlotClick}
                 onDelete={handleDelete}
-                fontSize={22}
-                minHeight={78}
+                fontSize={30}
+                minHeight={100}
               />
             ))}
           </div>
