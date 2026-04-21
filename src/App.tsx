@@ -90,6 +90,8 @@ export default function App() {
   });
 
   // ── MIDI init ──────────────────────────────────────────────────────────────
+  const onConnectionChangeRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -118,11 +120,19 @@ export default function App() {
         });
       };
 
+      onConnectionChangeRef.current = onConnectionChange;
       WebMidi.addListener('connected', onConnectionChange);
       WebMidi.addListener('disconnected', onConnectionChange);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (onConnectionChangeRef.current) {
+        WebMidi.removeListener('connected', onConnectionChangeRef.current);
+        WebMidi.removeListener('disconnected', onConnectionChangeRef.current);
+        onConnectionChangeRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {

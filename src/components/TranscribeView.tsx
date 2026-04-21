@@ -48,6 +48,10 @@ export function TranscribeView({
   // Armed slot cursor — starts at bar 0 slot 0
   const [armed, setArmed] = useState<Armed>({ bar: 0, slot: 0 });
 
+  // Always-current ref so the commit timer can read the latest chart without a stale closure
+  const chartRef = useRef(chart);
+  useEffect(() => { chartRef.current = chart; }, [chart]);
+
   // MIDI commit debounce state
   const commitTimerRef = useRef<number | null>(null);
   const pendingChordRef = useRef<string | null>(null);
@@ -107,23 +111,31 @@ export function TranscribeView({
       commitTimerRef.current = null;
       const c = pendingChordRef.current;
       if (!c || c !== chord) return;
-      // Commit: armed is read from state at the time of the timeout via closure capture.
-      // We use a ref-based approach below to avoid stale closure.
+
+      // Set before setArmed so no new commit can sneak in while React schedules the update
+      waitingForReleaseRef.current = true;
+
       setArmed((currentArmed) => {
-        const nextBars = bars.map((b) => b.slice());
+        const currentChart = chartRef.current;
+        const nextBars = currentChart.bars.map((b) => b.slice());
         nextBars[currentArmed.bar][currentArmed.slot] = c;
 
         const nextBar = currentArmed.bar + 1;
         if (nextBar >= nextBars.length) {
           nextBars.push([null, null, null, null]);
         }
-        const nextArmed: Armed = { bar: nextBar, slot: 0 };
 
-        onChartChange({ ...chart, bars: nextBars });
-        waitingForReleaseRef.current = true;
-        return nextArmed;
+        onChartChange({ ...currentChart, bars: nextBars });
+        return { bar: nextBar, slot: 0 };
       });
     }, 450);
+
+    return () => {
+      if (commitTimerRef.current !== null) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chordResult.chord]);
 
