@@ -1,6 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import type { MidiStatus, MidiInputDescriptor } from '../lib/midi';
 import { parseYouTubeId, parseYouTubeStart, type VideoHistoryEntry } from '../lib/youtube';
+import type { Notation } from '../lib/notation';
+
+export type AppMode = 'Learn' | 'Transcribe' | 'Play';
 
 interface Props {
   midiStatus: MidiStatus | null;
@@ -12,6 +15,10 @@ interface Props {
   onLoadVideo: (id: string, startSec: number | null, label: string) => void;
   onClearVideo: () => void;
   onDeleteFromHistory: (id: string) => void;
+  mode: AppMode;
+  onModeChange: (m: AppMode) => void;
+  notation: Notation;
+  onNotationChange: (n: Notation) => void;
 }
 
 function YouTubeIcon() {
@@ -77,6 +84,10 @@ export function TopBar({
   onLoadVideo,
   onClearVideo,
   onDeleteFromHistory,
+  mode,
+  onModeChange,
+  notation,
+  onNotationChange,
 }: Props) {
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [midiOpen, setMidiOpen] = useState(false);
@@ -149,6 +160,32 @@ export function TopBar({
   return (
     <header className="top-bar">
       <h1 className="top-bar__title">ChordViewer</h1>
+
+      <div className="top-bar__toggles">
+        <div className="seg-toggle" role="group" aria-label="Notation style">
+          {(['regular', 'jazz'] as const).map((n) => (
+            <button
+              key={n}
+              className={`seg-toggle__btn${notation === n ? ' seg-toggle__btn--active' : ''}`}
+              onClick={() => onNotationChange(n)}
+            >
+              {n === 'regular' ? 'Regular' : 'Jazz'}
+            </button>
+          ))}
+        </div>
+
+        <div className="seg-toggle" role="group" aria-label="App mode">
+          {(['Learn', 'Transcribe', 'Play'] as const).map((m) => (
+            <button
+              key={m}
+              className={`seg-toggle__btn${mode === m ? ' seg-toggle__btn--active' : ''}`}
+              onClick={() => onModeChange(m)}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="top-bar__actions">
         <button

@@ -12,14 +12,16 @@ import { detectChord } from './lib/chordDetect';
 import { type Notation } from './lib/notation';
 import { type VideoHistoryEntry, fetchVideoTitle } from './lib/youtube';
 import { useChordHistory } from './lib/useChordHistory';
+import { loadChart, saveChart, emptyChart, type LeadSheet } from './lib/leadSheet';
 import { StatusMessage } from './components/StatusMessage';
-import { TopBar } from './components/TopBar';
-import { ChordDisplay } from './components/ChordDisplay';
-import { StaffDisplay } from './components/StaffDisplay';
-import { YouTubePanel } from './components/YouTubePanel';
+import { TopBar, type AppMode } from './components/TopBar';
+import { LearnView } from './components/LearnView';
+import { TranscribeView } from './components/TranscribeView';
+import { PlayView } from './components/PlayView';
 
 const STORAGE_KEYS = {
   notation: 'chordviewer_notation',
+  mode: 'chordviewer_mode',
   currentVideo: 'chordviewer_current_video',
   videoHistory: 'chordviewer_video_history',
 } as const;
@@ -27,6 +29,12 @@ const STORAGE_KEYS = {
 function loadStoredNotation(): Notation {
   const v = localStorage.getItem(STORAGE_KEYS.notation);
   return v === 'jazz' ? 'jazz' : 'regular';
+}
+
+function loadStoredMode(): AppMode {
+  const v = localStorage.getItem(STORAGE_KEYS.mode);
+  if (v === 'Transcribe' || v === 'Play') return v;
+  return 'Learn';
 }
 
 function loadStoredCurrentVideo(): { id: string; startSec: number | null } | null {
@@ -62,7 +70,11 @@ export default function App() {
   const [sustainedNotes, setSustainedNotes] = useState<Set<number>>(new Set());
   const [sustainPedalActive, setSustainPedalActive] = useState<boolean>(false);
   const sustainPedalActiveRef = useRef<boolean>(false);
+
   const [notation, setNotation] = useState<Notation>(loadStoredNotation);
+  const [mode, setMode] = useState<AppMode>(loadStoredMode);
+  const [chart, setChart] = useState<LeadSheet>(loadChart);
+
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(() => loadStoredCurrentVideo()?.id ?? null);
   const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(() => loadStoredCurrentVideo()?.startSec ?? null);
   const [videoHistory, setVideoHistory] = useState<VideoHistoryEntry[]>(loadStoredVideoHistory);
@@ -77,41 +89,31 @@ export default function App() {
     stabilityMs: 600,
   });
 
-  // Initialize MIDI on mount
+  // ── MIDI init ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     initMidi().then((status) => {
       if (cancelled) return;
       setMidiStatus(status);
-
       if (status.kind !== 'ready') return;
 
       const descriptors = status.inputs;
       setInputs(descriptors);
+      if (descriptors.length === 1) setSelectedInputId(descriptors[0].id);
 
-      // Auto-select if exactly one device is available
-      if (descriptors.length === 1) {
-        setSelectedInputId(descriptors[0].id);
-      }
-
-      // Listen for device connect/disconnect
       const onConnectionChange = () => {
         const updated = getInputDescriptors();
         setInputs(updated);
         setSelectedInputId((prev) => {
           if (prev && !updated.find((i) => i.id === prev)) {
-            // Previously selected device is gone
             setPhysicalNotes(new Set());
             setSustainedNotes(new Set());
             setSustainPedalActive(false);
             sustainPedalActiveRef.current = false;
             return null;
           }
-          // Auto-select if this is the first device appearing
-          if (!prev && updated.length === 1) {
-            return updated[0].id;
-          }
+          if (!prev && updated.length === 1) return updated[0].id;
           return prev;
         });
       };
@@ -120,19 +122,14 @@ export default function App() {
       WebMidi.addListener('disconnected', onConnectionChange);
     });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Attach note listeners whenever the selected input changes
   useEffect(() => {
     if (!selectedInputId) return;
-
     const input = getInputById(selectedInputId);
     if (!input) return;
 
-    // Clear stale notes from previous input
     setPhysicalNotes(new Set());
     setSustainedNotes(new Set());
     setSustainPedalActive(false);
@@ -141,61 +138,28 @@ export default function App() {
     const cleanup = attachNoteListeners(
       input,
       (midiNumber) => {
-        setPhysicalNotes((prev) => {
-          const next = new Set(prev);
-          next.add(midiNumber);
-          return next;
-        });
-        setSustainedNotes((prev) => {
-          if (!prev.has(midiNumber)) return prev;
-          const next = new Set(prev);
-          next.delete(midiNumber);
-          return next;
-        });
+        setPhysicalNotes((prev) => { const n = new Set(prev); n.add(midiNumber); return n; });
+        setSustainedNotes((prev) => { if (!prev.has(midiNumber)) return prev; const n = new Set(prev); n.delete(midiNumber); return n; });
       },
       (midiNumber) => {
-        setPhysicalNotes((prev) => {
-          const next = new Set(prev);
-          next.delete(midiNumber);
-          return next;
-        });
+        setPhysicalNotes((prev) => { const n = new Set(prev); n.delete(midiNumber); return n; });
         if (sustainPedalActiveRef.current) {
-          setSustainedNotes((prev) => {
-            const next = new Set(prev);
-            next.add(midiNumber);
-            return next;
-          });
+          setSustainedNotes((prev) => { const n = new Set(prev); n.add(midiNumber); return n; });
         }
       },
       (active) => {
         sustainPedalActiveRef.current = active;
         setSustainPedalActive(active);
-        if (!active) {
-          setSustainedNotes(new Set());
-        }
+        if (!active) setSustainedNotes(new Set());
       }
     );
-
     return cleanup;
   }, [selectedInputId]);
 
-  // Fetch titles for any history entries that don't have one yet
-  useEffect(() => {
-    videoHistory
-      .filter((e) => !e.title)
-      .forEach((entry) => {
-        fetchVideoTitle(entry.id).then((title) => {
-          if (title) {
-            setVideoHistory((prev) => prev.map((e) => e.id === entry.id ? { ...e, title } : e));
-          }
-        });
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.notation, notation);
-  }, [notation]);
+  // ── Persistence ────────────────────────────────────────────────────────────
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.notation, notation); }, [notation]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.mode, mode); }, [mode]);
+  useEffect(() => { saveChart(chart); }, [chart]);
 
   useEffect(() => {
     if (youtubeVideoId !== null) {
@@ -209,8 +173,22 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.videoHistory, JSON.stringify(videoHistory));
   }, [videoHistory]);
 
+  useEffect(() => {
+    videoHistory
+      .filter((e) => !e.title)
+      .forEach((entry) => {
+        fetchVideoTitle(entry.id).then((title) => {
+          if (title) setVideoHistory((prev) => prev.map((e) => e.id === entry.id ? { ...e, title } : e));
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const midiConnected = selectedInputId !== null;
+  const selectedDevice = inputs.find((i) => i.id === selectedInputId);
+
   return (
-    <div className="app">
+    <div className={`app${mode !== 'Learn' ? ' app--fullbleed' : ''}`}>
       <TopBar
         midiStatus={midiStatus}
         inputs={inputs}
@@ -225,19 +203,16 @@ export default function App() {
           const alreadyHasTitle = videoHistory.find((e) => e.id === id)?.title;
           if (!alreadyHasTitle) {
             fetchVideoTitle(id).then((title) => {
-              if (title) {
-                setVideoHistory((prev) => prev.map((e) => e.id === id ? { ...e, title } : e));
-              }
+              if (title) setVideoHistory((prev) => prev.map((e) => e.id === id ? { ...e, title } : e));
             });
           }
         }}
-        onClearVideo={() => {
-          setYoutubeVideoId(null);
-          setYoutubeStartSec(null);
-        }}
-        onDeleteFromHistory={(id) => {
-          setVideoHistory((prev) => prev.filter((e) => e.id !== id));
-        }}
+        onClearVideo={() => { setYoutubeVideoId(null); setYoutubeStartSec(null); }}
+        onDeleteFromHistory={(id) => setVideoHistory((prev) => prev.filter((e) => e.id !== id))}
+        mode={mode}
+        onModeChange={setMode}
+        notation={notation}
+        onNotationChange={setNotation}
       />
 
       <main className="app__main">
@@ -247,7 +222,6 @@ export default function App() {
             message="Your browser does not support the Web MIDI API. Please use Chrome, Edge, or another Chromium-based browser."
           />
         )}
-
         {midiStatus?.kind === 'error' && (
           <StatusMessage
             type="error"
@@ -255,25 +229,44 @@ export default function App() {
           />
         )}
 
-        {selectedInputId ? (
-          <div className={`app__content${youtubeVideoId ? ' app__content--split' : ''}`}>
-            <div className="app__content__left">
-              <ChordDisplay result={chordResult} notation={notation} onNotationChange={setNotation} sustainPedalActive={sustainPedalActive} />
-              <StaffDisplay activeNotes={activeNotes} />
-            </div>
-            {youtubeVideoId && (
-              <YouTubePanel
-                videoId={youtubeVideoId}
-                startSec={youtubeStartSec}
-                history={chordHistory}
-                notation={notation}
-              />
-            )}
-          </div>
-        ) : (
-          midiStatus?.kind === 'ready' && inputs.length > 0 && (
-            <StatusMessage type="info" message="Select a MIDI device to begin." />
+        {mode === 'Learn' && (
+          selectedInputId ? (
+            <LearnView
+              chordResult={chordResult}
+              activeNotes={activeNotes}
+              sustainPedalActive={sustainPedalActive}
+              notation={notation}
+              youtubeVideoId={youtubeVideoId}
+              youtubeStartSec={youtubeStartSec}
+              chordHistory={chordHistory}
+            />
+          ) : (
+            midiStatus?.kind === 'ready' && inputs.length > 0 && (
+              <StatusMessage type="info" message="Select a MIDI device to begin." />
+            )
           )
+        )}
+
+        {mode === 'Transcribe' && (
+          <TranscribeView
+            chart={chart}
+            onChartChange={setChart}
+            onClearChart={() => setChart(emptyChart())}
+            chordResult={chordResult}
+            chordHistory={chordHistory}
+            notation={notation}
+            midiDeviceName={selectedDevice?.name ?? null}
+            midiConnected={midiConnected}
+          />
+        )}
+
+        {mode === 'Play' && (
+          <PlayView
+            chart={chart}
+            chordResult={chordResult}
+            notation={notation}
+            midiConnected={midiConnected}
+          />
         )}
       </main>
     </div>
