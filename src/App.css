@@ -814,6 +814,24 @@
   color: #f87171;
 }
 
+.lead-bar__slot--filled {
+  cursor: grab;
+}
+
+.lead-bar__slot--drag-source {
+  opacity: 0.35;
+}
+
+.lead-bar__slot--drag-over {
+  background: rgba(124, 106, 247, 0.22);
+  box-shadow: inset 0 0 0 2px rgba(124, 106, 247, 0.65);
+}
+
+.transcribe-bars--dragging,
+.transcribe-bars--dragging * {
+  cursor: grabbing !important;
+}
+
 /* ── Transcribe View ─────────────────────────────────────────────────────── */
 .transcribe-view {
   width: 100%;

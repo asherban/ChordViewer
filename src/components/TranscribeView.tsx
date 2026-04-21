@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Bar } from './Bar';
 import { ChordPill } from './ChordPill';
@@ -51,6 +52,23 @@ export function TranscribeView({
   // Always-current ref so the commit timer can read the latest chart without a stale closure
   const chartRef = useRef(chart);
   useEffect(() => { chartRef.current = chart; }, [chart]);
+
+  // Drag-and-drop state (refs for event handlers, state for visual feedback)
+  const dragInfoRef = useRef<{
+    fromBar: number;
+    fromSlot: number;
+    chord: string;
+    startX: number;
+    startY: number;
+    isDragging: boolean;
+  } | null>(null);
+  const dragOverRef = useRef<{ bar: number; slot: number } | null>(null);
+  const [dragVisual, setDragVisual] = useState<{
+    fromBar: number;
+    fromSlot: number;
+    overBar: number | null;
+    overSlot: number | null;
+  } | null>(null);
 
   // MIDI commit debounce state
   const commitTimerRef = useRef<number | null>(null);
@@ -172,6 +190,90 @@ export function TranscribeView({
     fillAndAdvance(chord, armed, bars, false);
   }
 
+  function handleSlotPointerDown(barIdx: number, slotIdx: number, chord: string, e: React.PointerEvent<HTMLDivElement>) {
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    dragInfoRef.current = { fromBar: barIdx, fromSlot: slotIdx, chord, startX, startY, isDragging: false };
+    dragOverRef.current = null;
+
+    function onMove(me: PointerEvent) {
+      const drag = dragInfoRef.current;
+      if (!drag) return;
+
+      if (!drag.isDragging && Math.hypot(me.clientX - startX, me.clientY - startY) > 6) {
+        drag.isDragging = true;
+        setDragVisual({ fromBar: barIdx, fromSlot: slotIdx, overBar: null, overSlot: null });
+      }
+
+      if (!drag.isDragging) return;
+      me.preventDefault();
+
+      // Find which bar slot is under the pointer
+      const elements = document.elementsFromPoint(me.clientX, me.clientY);
+      for (const el of elements) {
+        const barStr = (el as HTMLElement).dataset?.barIdx;
+        const slotStr = (el as HTMLElement).dataset?.slotIdx;
+        if (barStr !== undefined && slotStr !== undefined) {
+          const bar = parseInt(barStr);
+          const slot = parseInt(slotStr);
+          const prev = dragOverRef.current;
+          if (!prev || prev.bar !== bar || prev.slot !== slot) {
+            dragOverRef.current = { bar, slot };
+            setDragVisual((v) => v ? { ...v, overBar: bar, overSlot: slot } : null);
+          }
+          return;
+        }
+      }
+      if (dragOverRef.current) {
+        dragOverRef.current = null;
+        setDragVisual((v) => v ? { ...v, overBar: null, overSlot: null } : null);
+      }
+    }
+
+    function onUp() {
+      cleanup();
+      const drag = dragInfoRef.current;
+      const over = dragOverRef.current;
+      dragInfoRef.current = null;
+      dragOverRef.current = null;
+      setDragVisual(null);
+
+      if (!drag?.isDragging) return;
+
+      // Suppress the click event that fires after pointerup so it doesn't arm the slot
+      const suppressClick = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault(); };
+      window.addEventListener('click', suppressClick, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', suppressClick, true), 300);
+
+      if (!over || (over.bar === drag.fromBar && over.slot === drag.fromSlot)) return;
+
+      const currentChart = chartRef.current;
+      const next = currentChart.bars.map((b) => b.slice());
+      // Swap: source gets target's existing chord (null if empty), target gets dragged chord
+      next[drag.fromBar][drag.fromSlot] = next[over.bar][over.slot];
+      next[over.bar][over.slot] = drag.chord;
+      onChartChange({ ...currentChart, bars: next });
+    }
+
+    function cancel() {
+      cleanup();
+      dragInfoRef.current = null;
+      dragOverRef.current = null;
+      setDragVisual(null);
+    }
+
+    function cleanup() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', cancel);
+    }
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', cancel);
+  }
+
   function updateMeta(key: keyof typeof meta, value: string) {
     onChartChange({ ...chart, meta: { ...meta, [key]: value } });
   }
@@ -223,7 +325,7 @@ export function TranscribeView({
       <div className="transcribe-body">
         {/* Main bar grid */}
         <div className="transcribe-main">
-          <div className="transcribe-bars">
+          <div className={`transcribe-bars${dragVisual ? ' transcribe-bars--dragging' : ''}`}>
             {bars.map((bar, barIdx) => (
               <Bar
                 key={barIdx}
@@ -233,6 +335,9 @@ export function TranscribeView({
                 armedSlot={armed.bar === barIdx ? armed.slot : undefined}
                 onSlotClick={handleSlotClick}
                 onDelete={handleDelete}
+                onSlotPointerDown={handleSlotPointerDown}
+                dragSourceSlot={dragVisual?.fromBar === barIdx ? dragVisual.fromSlot : undefined}
+                dragOverSlot={dragVisual?.overBar === barIdx && dragVisual.overSlot !== null ? dragVisual.overSlot : undefined}
                 fontSize={22}
                 minHeight={78}
               />

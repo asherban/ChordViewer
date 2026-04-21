@@ -1,3 +1,4 @@
+import type React from 'react';
 import { JazzChord } from './JazzChord';
 import type { Notation } from '../lib/notation';
 
@@ -15,6 +16,9 @@ interface Props {
   isCurrentLine?: boolean;
   onSlotClick?: (barIdx: number, slotIdx: number) => void;
   onDelete?: (barIdx: number, slotIdx: number) => void;
+  onSlotPointerDown?: (barIdx: number, slotIdx: number, chord: string, e: React.PointerEvent<HTMLDivElement>) => void;
+  dragSourceSlot?: number;
+  dragOverSlot?: number;
   fontSize?: number;
   minHeight?: number;
 }
@@ -30,6 +34,9 @@ export function Bar({
   isCurrentLine = false,
   onSlotClick,
   onDelete,
+  onSlotPointerDown,
+  dragSourceSlot,
+  dragOverSlot,
   fontSize = 24,
   minHeight = 80,
 }: Props) {
@@ -44,6 +51,8 @@ export function Bar({
         const isArmed = armedSlot === slotIdx;
         const isPlaying = playingSlot !== undefined && playingSlot === absIdx;
         const isPast = pastSlots ? pastSlots.has(absIdx) : false;
+        const isDragSource = dragSourceSlot === slotIdx;
+        const isDragOver = dragOverSlot === slotIdx;
 
         return (
           <div key={slotIdx} className="lead-bar__slot-wrapper">
@@ -55,8 +64,16 @@ export function Bar({
                 isPlaying ? 'lead-bar__slot--playing' : '',
                 isPast ? 'lead-bar__slot--past' : '',
                 chord ? 'lead-bar__slot--filled' : '',
+                isDragSource ? 'lead-bar__slot--drag-source' : '',
+                isDragOver ? 'lead-bar__slot--drag-over' : '',
               ].filter(Boolean).join(' ')}
+              data-bar-idx={barIdx}
+              data-slot-idx={slotIdx}
               onClick={() => onSlotClick?.(barIdx, slotIdx)}
+              onPointerDown={chord && onSlotPointerDown ? (e) => {
+                if ((e.target as HTMLElement).closest('.lead-bar__delete')) return;
+                onSlotPointerDown(barIdx, slotIdx, chord, e);
+              } : undefined}
               role={onSlotClick ? 'button' : undefined}
               tabIndex={onSlotClick ? 0 : undefined}
               onKeyDown={(e) => {
