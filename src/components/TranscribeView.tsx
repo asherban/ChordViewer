@@ -64,17 +64,21 @@ export function TranscribeView({
     let nextArmed: Armed | null;
     if (advanceWhole) {
       const nextBar = armed.bar + 1;
-      if (nextBar < next.length) {
-        nextArmed = { bar: nextBar, slot: 0 };
-      } else {
-        nextArmed = null;
+      if (nextBar >= next.length) {
+        next.push([null, null, null, null]);
       }
+      nextArmed = { bar: nextBar, slot: 0 };
     } else {
       nextArmed = findNextEmpty(next, armed.bar, armed.slot + 1);
+      if (!nextArmed) {
+        const newBarIdx = next.length;
+        next.push([null, null, null, null]);
+        nextArmed = { bar: newBarIdx, slot: 0 };
+      }
     }
 
     onChartChange({ ...chart, bars: next });
-    if (nextArmed) setArmed(nextArmed);
+    setArmed(nextArmed);
   }
 
   // Chord detection → commit (450ms stable, then wait for release)
@@ -110,13 +114,14 @@ export function TranscribeView({
         nextBars[currentArmed.bar][currentArmed.slot] = c;
 
         const nextBar = currentArmed.bar + 1;
-        const nextArmed: Armed | null = nextBar < nextBars.length
-          ? { bar: nextBar, slot: 0 }
-          : null;
+        if (nextBar >= nextBars.length) {
+          nextBars.push([null, null, null, null]);
+        }
+        const nextArmed: Armed = { bar: nextBar, slot: 0 };
 
         onChartChange({ ...chart, bars: nextBars });
         waitingForReleaseRef.current = true;
-        return nextArmed ?? currentArmed;
+        return nextArmed;
       });
     }, 450);
   // eslint-disable-next-line react-hooks/exhaustive-deps
