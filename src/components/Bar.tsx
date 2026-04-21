@@ -38,6 +38,7 @@ export function Bar({
       className={`lead-bar${isCurrentLine ? ' lead-bar--current' : ''}`}
       style={{ minHeight }}
     >
+      <span className="lead-bar__bar-number">{barIdx + 1}</span>
       {bar.map((chord, slotIdx) => {
         const absIdx = baseAbsIdx + slotIdx;
         const isArmed = armedSlot === slotIdx;

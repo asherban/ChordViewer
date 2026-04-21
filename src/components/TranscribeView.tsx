@@ -159,12 +159,6 @@ export function TranscribeView({
     onChartChange({ ...chart, meta: { ...meta, [key]: value } });
   }
 
-  // Group bars into rows of 2
-  const rows: number[][] = [];
-  for (let i = 0; i < bars.length; i += 2) {
-    rows.push([i, i + 1].filter((idx) => idx < bars.length));
-  }
-
   const recentChords = chordHistory.map((e) => e.chord);
 
   return (
@@ -213,22 +207,18 @@ export function TranscribeView({
         {/* Main bar grid */}
         <div className="transcribe-main">
           <div className="transcribe-bars">
-            {rows.map((rowBars, rowIdx) => (
-              <div key={rowIdx} className="transcribe-row">
-                {rowBars.map((barIdx) => (
-                  <Bar
-                    key={barIdx}
-                    bar={bars[barIdx]}
-                    barIdx={barIdx}
-                    notation={notation}
-                    armedSlot={armed.bar === barIdx ? armed.slot : undefined}
-                    onSlotClick={handleSlotClick}
-                    onDelete={handleDelete}
-                    fontSize={22}
-                    minHeight={78}
-                  />
-                ))}
-              </div>
+            {bars.map((bar, barIdx) => (
+              <Bar
+                key={barIdx}
+                bar={bar}
+                barIdx={barIdx}
+                notation={notation}
+                armedSlot={armed.bar === barIdx ? armed.slot : undefined}
+                onSlotClick={handleSlotClick}
+                onDelete={handleDelete}
+                fontSize={22}
+                minHeight={78}
+              />
             ))}
           </div>
 
