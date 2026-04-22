@@ -1,3 +1,4 @@
+import React from 'react';
 import { JazzChord } from './JazzChord';
 import type { Notation } from '../lib/notation';
 
@@ -15,6 +16,9 @@ interface Props {
   isCurrentLine?: boolean;
   onSlotClick?: (barIdx: number, slotIdx: number) => void;
   onDelete?: (barIdx: number, slotIdx: number) => void;
+  onSlotPointerDown?: (barIdx: number, slotIdx: number, e: React.PointerEvent) => void;
+  dragSourceSlot?: number;
+  dropTargetSlot?: number;
   fontSize?: number;
   minHeight?: number;
 }
@@ -30,6 +34,9 @@ export function Bar({
   isCurrentLine = false,
   onSlotClick,
   onDelete,
+  onSlotPointerDown,
+  dragSourceSlot,
+  dropTargetSlot,
   fontSize = 24,
   minHeight = 80,
 }: Props) {
@@ -55,8 +62,14 @@ export function Bar({
                 isPlaying ? 'lead-bar__slot--playing' : '',
                 isPast ? 'lead-bar__slot--past' : '',
                 chord ? 'lead-bar__slot--filled' : '',
+                dragSourceSlot === slotIdx ? 'lead-bar__slot--drag-source' : '',
+                dropTargetSlot === slotIdx ? 'lead-bar__slot--drag-over' : '',
               ].filter(Boolean).join(' ')}
+              data-bar={barIdx}
+              data-slot={slotIdx}
               onClick={() => onSlotClick?.(barIdx, slotIdx)}
+              onPointerDown={chord && onSlotPointerDown ? (e) => onSlotPointerDown(barIdx, slotIdx, e) : undefined}
+              onContextMenu={(e) => e.preventDefault()}
               role={onSlotClick ? 'button' : undefined}
               tabIndex={onSlotClick ? 0 : undefined}
               onKeyDown={(e) => {
