@@ -248,18 +248,17 @@ export default function App() {
           <div className={`app__view-container${youtubeVideoId ? ' app__view-container--split' : ''}`}>
             <div className="app__view-container__content">
               {mode === 'Learn' && (
-                selectedInputId ? (
+                <>
                   <LearnView
                     chordResult={chordResult}
                     activeNotes={activeNotes}
                     sustainPedalActive={sustainPedalActive}
                     notation={notation}
                   />
-                ) : (
-                  midiStatus?.kind === 'ready' && inputs.length > 0 && (
+                  {!selectedInputId && midiStatus?.kind === 'ready' && inputs.length > 0 && (
                     <StatusMessage type="info" message="Select a MIDI device to begin." />
-                  )
-                )
+                  )}
+                </>
               )}
               {mode === 'Transcribe' && (
                 <TranscribeView
