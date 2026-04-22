@@ -18,6 +18,7 @@ import { TopBar, type AppMode } from './components/TopBar';
 import { LearnView } from './components/LearnView';
 import { TranscribeView } from './components/TranscribeView';
 import { PlayView } from './components/PlayView';
+import { YouTubePanel } from './components/YouTubePanel';
 
 const STORAGE_KEYS = {
   notation: 'chordviewer_notation',
@@ -78,6 +79,9 @@ export default function App() {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(() => loadStoredCurrentVideo()?.id ?? null);
   const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(() => loadStoredCurrentVideo()?.startSec ?? null);
   const [videoHistory, setVideoHistory] = useState<VideoHistoryEntry[]>(loadStoredVideoHistory);
+
+  // Ref updated by TranscribeView each render so the panel can call palette tap without stale closure
+  const transcribePaletteTapRef = useRef<((chord: string) => void) | null>(null);
 
   const activeNotes = useMemo(
     () => new Set([...physicalNotes, ...sustainedNotes]),
@@ -239,35 +243,49 @@ export default function App() {
           />
         )}
 
-        {mode === 'Learn' && (
-          selectedInputId ? (
-            <LearnView
-              chordResult={chordResult}
-              activeNotes={activeNotes}
-              sustainPedalActive={sustainPedalActive}
-              notation={notation}
-              youtubeVideoId={youtubeVideoId}
-              youtubeStartSec={youtubeStartSec}
-              chordHistory={chordHistory}
-            />
-          ) : (
-            midiStatus?.kind === 'ready' && inputs.length > 0 && (
-              <StatusMessage type="info" message="Select a MIDI device to begin." />
-            )
-          )
-        )}
-
-        {mode === 'Transcribe' && (
-          <TranscribeView
-            chart={chart}
-            onChartChange={setChart}
-            onClearChart={() => setChart(emptyChart())}
-            chordResult={chordResult}
-            chordHistory={chordHistory}
-            notation={notation}
-            midiDeviceName={selectedDevice?.name ?? null}
-            midiConnected={midiConnected}
-          />
+        {/* Persistent wrapper keeps YouTubePanel mounted across Learn ↔ Transcribe switches */}
+        {mode !== 'Play' && (
+          <div className={`app__view-container${youtubeVideoId ? ' app__view-container--split' : ''}`}>
+            <div className="app__view-container__content">
+              {mode === 'Learn' && (
+                selectedInputId ? (
+                  <LearnView
+                    chordResult={chordResult}
+                    activeNotes={activeNotes}
+                    sustainPedalActive={sustainPedalActive}
+                    notation={notation}
+                  />
+                ) : (
+                  midiStatus?.kind === 'ready' && inputs.length > 0 && (
+                    <StatusMessage type="info" message="Select a MIDI device to begin." />
+                  )
+                )
+              )}
+              {mode === 'Transcribe' && (
+                <TranscribeView
+                  chart={chart}
+                  onChartChange={setChart}
+                  onClearChart={() => setChart(emptyChart())}
+                  chordResult={chordResult}
+                  chordHistory={chordHistory}
+                  notation={notation}
+                  midiDeviceName={selectedDevice?.name ?? null}
+                  midiConnected={midiConnected}
+                  hasVideo={!!youtubeVideoId}
+                  paletteTapRef={transcribePaletteTapRef}
+                />
+              )}
+            </div>
+            {youtubeVideoId && (
+              <YouTubePanel
+                videoId={youtubeVideoId}
+                startSec={youtubeStartSec}
+                history={chordHistory}
+                notation={notation}
+                onChordTap={mode === 'Transcribe' ? (chord) => transcribePaletteTapRef.current?.(chord) : undefined}
+              />
+            )}
+          </div>
         )}
 
         {mode === 'Play' && (

@@ -385,6 +385,78 @@
 }
 
 
+/* ── View Container (keeps YouTubePanel mounted across Learn ↔ Transcribe) ── */
+.app__view-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.app__view-container__content {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.app__view-container--split {
+  flex-direction: row;
+  max-width: 1280px;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.app__view-container--split .app__view-container__content {
+  flex: 1 1 0;
+  max-width: none;
+  min-width: 0;
+}
+
+/* Fullbleed mode (Transcribe) — fill the viewport height */
+.app--fullbleed .app__view-container {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+
+.app--fullbleed .app__view-container__content {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  align-items: stretch;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* Panel beside Transcribe view: fixed width with border separator */
+.app--fullbleed .app__view-container--split .yt-panel {
+  flex: 0 0 360px;
+  border-left: 1px solid var(--color-border);
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .app__view-container--split {
+    flex-direction: column;
+    align-items: center;
+  }
+  .app__view-container--split .app__view-container__content,
+  .app__view-container--split .yt-panel {
+    width: 100%;
+    max-width: 720px;
+    flex: none;
+  }
+}
+
 /* ── YouTube Panel ───────────────────────────────────────────────────────── */
 .yt-panel {
   flex: 1 1 0;
@@ -409,6 +481,26 @@
   height: 100%;
   border: 0;
   display: block;
+}
+
+/* ── YouTube Panel Palette ───────────────────────────────────────────────── */
+.yt-panel__palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.yt-panel__palette-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.yt-panel__palette-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 /* ── Chord History ───────────────────────────────────────────────────────── */

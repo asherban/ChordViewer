@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Bar } from './Bar';
 import { ChordPill } from './ChordPill';
 import type { ChordResult } from '../lib/chordDetect';
@@ -20,6 +20,8 @@ interface Props {
   notation: Notation;
   midiDeviceName: string | null;
   midiConnected: boolean;
+  hasVideo?: boolean;
+  paletteTapRef?: React.MutableRefObject<((chord: string) => void) | null>;
 }
 
 // Find next empty slot in reading order from (bar, slot), inclusive.
@@ -42,6 +44,8 @@ export function TranscribeView({
   notation,
   midiDeviceName,
   midiConnected,
+  hasVideo = false,
+  paletteTapRef,
 }: Props) {
   const { meta, bars } = chart;
 
@@ -172,6 +176,9 @@ export function TranscribeView({
     fillAndAdvance(chord, armed, bars, false);
   }
 
+  // Keep ref current so the panel can call this without stale closure
+  if (paletteTapRef) paletteTapRef.current = handlePaletteTap;
+
   function updateMeta(key: keyof typeof meta, value: string) {
     onChartChange({ ...chart, meta: { ...meta, [key]: value } });
   }
@@ -255,9 +262,9 @@ export function TranscribeView({
           </div>
         </div>
 
-        {/* Right rail */}
-        <div className="transcribe-rail">
-          {recentChords.length > 0 && (
+        {/* Right rail — hidden when video panel is present */}
+        {!hasVideo && <div className="transcribe-rail">
+          {!hasVideo && recentChords.length > 0 && (
             <div className="transcribe-rail__section">
               <div className="transcribe-rail__label">Last 4 chords</div>
               <div className="transcribe-rail__pills">
@@ -275,7 +282,7 @@ export function TranscribeView({
             </div>
           )}
 
-          {recentChords.length > 0 && (
+          {!hasVideo && recentChords.length > 0 && (
             <div className="transcribe-rail__section">
               <div className="transcribe-rail__label">Recent · tap to add</div>
               <div className="transcribe-rail__pills">
@@ -292,19 +299,12 @@ export function TranscribeView({
             </div>
           )}
 
-          {recentChords.length === 0 && (
+          {!hasVideo && recentChords.length === 0 && (
             <div className="transcribe-rail__empty">
               Play chords to build the palette…
             </div>
           )}
-
-          <div className="transcribe-rail__hints">
-            <div>· play MIDI → fills armed slot</div>
-            <div>· tap slot → arm / replace</div>
-            <div>· tap × → delete chord</div>
-            <div>· backspace → clear slot</div>
-          </div>
-        </div>
+        </div>}
       </div>
 
       {/* Armed coach mark */}
