@@ -15,13 +15,11 @@ export function ChordDisplay({ result, notation, sustainPedalActive }: Props) {
   let primaryLabel: string;
   let isEmpty = false;
 
-  if (noteNames.length === 0) {
+  if (noteNames.length < 2) {
     primaryLabel = '—';
     isEmpty = true;
   } else if (chord) {
     primaryLabel = fmt(chord);
-  } else if (noteNames.length === 1) {
-    primaryLabel = noteNames[0];
   } else {
     primaryLabel = '?';
   }
