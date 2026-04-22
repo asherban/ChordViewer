@@ -69,6 +69,7 @@ export function Bar({
               data-slot={slotIdx}
               onClick={() => onSlotClick?.(barIdx, slotIdx)}
               onPointerDown={chord && onSlotPointerDown ? (e) => onSlotPointerDown(barIdx, slotIdx, e) : undefined}
+              onContextMenu={(e) => e.preventDefault()}
               role={onSlotClick ? 'button' : undefined}
               tabIndex={onSlotClick ? 0 : undefined}
               onKeyDown={(e) => {
