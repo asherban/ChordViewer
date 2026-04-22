@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bar } from './Bar';
 import { ChordPill } from './ChordPill';
+import { JazzChord } from './JazzChord';
 import type { ChordResult } from '../lib/chordDetect';
 import type { Notation } from '../lib/notation';
 import type { ChordHistoryEntry } from '../lib/useChordHistory';
@@ -10,6 +11,30 @@ interface Armed {
   bar: number;
   slot: number;
 }
+
+interface SlotCoord {
+  bar: number;
+  slot: number;
+}
+
+interface DragTracking {
+  source: SlotCoord;
+  chord: string;
+  startX: number;
+  startY: number;
+  pointerId: number;
+  started: boolean;
+}
+
+interface DragUI {
+  source: SlotCoord;
+  chord: string;
+  ghostX: number;
+  ghostY: number;
+  target: SlotCoord | null;
+}
+
+const DRAG_THRESHOLD_PX = 6;
 
 interface Props {
   chart: LeadSheet;
@@ -172,6 +197,141 @@ export function TranscribeView({
     setArmed({ bar: barIdx, slot: slotIdx });
   }
 
+  // ── Drag-and-drop ──────────────────────────────────────────────────────────
+  const dragRef = useRef<DragTracking | null>(null);
+  const [dragUI, setDragUI] = useState<DragUI | null>(null);
+
+  function handleChordMove(from: SlotCoord, to: SlotCoord) {
+    if (from.bar === to.bar && from.slot === to.slot) return;
+    const currentBars = chartRef.current.bars;
+    const next = currentBars.map((b) => b.slice());
+    const chord = next[from.bar]?.[from.slot];
+    if (!chord) return;
+
+    // Empty source first so the push-right chain terminates naturally if it
+    // wraps back through the source slot (e.g. dragging within the same bar).
+    next[from.bar][from.slot] = null;
+
+    if (!next[to.bar]?.[to.slot]) {
+      next[to.bar][to.slot] = chord;
+      onChartChange({ ...chartRef.current, bars: next });
+      setArmed({ bar: to.bar, slot: to.slot });
+      return;
+    }
+
+    let carry: string | null = chord;
+    let b = to.bar;
+    let s = to.slot;
+    while (carry) {
+      if (b >= next.length) {
+        next.push([null, null, null, null]);
+      }
+      const displaced = next[b][s];
+      next[b][s] = carry;
+      carry = displaced;
+      s += 1;
+      if (s >= next[b].length) {
+        b += 1;
+        s = 0;
+      }
+    }
+
+    onChartChange({ ...chartRef.current, bars: next });
+    setArmed({ bar: to.bar, slot: to.slot });
+  }
+
+  function findSlotAtPoint(x: number, y: number): SlotCoord | null {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const slotEl = (el as Element).closest('[data-bar][data-slot]') as HTMLElement | null;
+    if (!slotEl) return null;
+    const bar = Number(slotEl.dataset.bar);
+    const slot = Number(slotEl.dataset.slot);
+    if (Number.isNaN(bar) || Number.isNaN(slot)) return null;
+    return { bar, slot };
+  }
+
+  function handleSlotPointerDown(barIdx: number, slotIdx: number, e: React.PointerEvent) {
+    // Left mouse button only (ignore right-click, middle-click); all touch/pen.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const chord = chartRef.current.bars[barIdx]?.[slotIdx];
+    if (!chord) return;
+    dragRef.current = {
+      source: { bar: barIdx, slot: slotIdx },
+      chord,
+      startX: e.clientX,
+      startY: e.clientY,
+      pointerId: e.pointerId,
+      started: false,
+    };
+  }
+
+  useEffect(() => {
+    function onPointerMove(e: PointerEvent) {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      if (!d.started) {
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+        d.started = true;
+      }
+      // Prevent scroll/selection while dragging.
+      e.preventDefault();
+      const target = findSlotAtPoint(e.clientX, e.clientY);
+      setDragUI({
+        source: d.source,
+        chord: d.chord,
+        ghostX: e.clientX,
+        ghostY: e.clientY,
+        target,
+      });
+    }
+
+    function onPointerUp(e: PointerEvent) {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      const started = d.started;
+      const source = d.source;
+      dragRef.current = null;
+      if (!started) {
+        setDragUI(null);
+        return;
+      }
+      const target = findSlotAtPoint(e.clientX, e.clientY);
+      setDragUI(null);
+      if (target) {
+        handleChordMove(source, target);
+      }
+    }
+
+    function onPointerCancel(e: PointerEvent) {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      dragRef.current = null;
+      setDragUI(null);
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && dragRef.current) {
+        dragRef.current = null;
+        setDragUI(null);
+      }
+    }
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handlePaletteTap(chord: string) {
     fillAndAdvance(chord, armed, bars, false);
   }
@@ -240,6 +400,9 @@ export function TranscribeView({
                 armedSlot={armed.bar === barIdx ? armed.slot : undefined}
                 onSlotClick={handleSlotClick}
                 onDelete={handleDelete}
+                onSlotPointerDown={handleSlotPointerDown}
+                dragSourceSlot={dragUI && dragUI.source.bar === barIdx ? dragUI.source.slot : undefined}
+                dropTargetSlot={dragUI?.target && dragUI.target.bar === barIdx ? dragUI.target.slot : undefined}
                 fontSize={30}
                 minHeight={100}
               />
@@ -309,12 +472,23 @@ export function TranscribeView({
 
       {/* Armed coach mark */}
       <div className="transcribe-hint" aria-live="polite">
-        {chordResult.chord
+        {dragUI
+          ? 'Drop on a slot to move — dropping on a filled slot pushes right'
+          : chordResult.chord
           ? `Detected: ${chordResult.chord} — hold to commit`
           : armed
-          ? 'Play a chord or tap a pill to fill the armed slot'
+          ? 'Play a chord, tap a pill, or drag a chord to move it'
           : 'All slots filled'}
       </div>
+
+      {dragUI && (
+        <div
+          className="chord-drag-ghost"
+          style={{ left: dragUI.ghostX, top: dragUI.ghostY }}
+        >
+          <JazzChord chord={dragUI.chord} fontSize={30} notation={notation} />
+        </div>
+      )}
     </div>
   );
 }

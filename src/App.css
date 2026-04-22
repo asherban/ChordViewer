@@ -906,6 +906,34 @@
   color: #f87171;
 }
 
+.lead-bar__slot--filled {
+  touch-action: none;
+}
+
+.lead-bar__slot--drag-source {
+  opacity: 0.35;
+}
+
+.lead-bar__slot--drag-over {
+  background: rgba(124, 106, 247, 0.18);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.chord-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--color-border);
+  transform: translate(-50%, -50%) scale(1.04);
+  opacity: 0.95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── Transcribe View ─────────────────────────────────────────────────────── */
 .transcribe-view {
   width: 100%;
