@@ -1,5 +1,4 @@
 import { buildEmbedUrl } from '../lib/youtube';
-import { ChordHistory } from './ChordHistory';
 import { ChordPill } from './ChordPill';
 import type { ChordHistoryEntry } from '../lib/useChordHistory';
 import type { Notation } from '../lib/notation';
@@ -25,10 +24,11 @@ export function YouTubePanel({ videoId, startSec, history, notation, onChordTap 
           allowFullScreen
         />
       </div>
-      <ChordHistory history={history} notation={notation} />
-      {onChordTap && recentChords.length > 0 && (
+      {recentChords.length > 0 && (
         <div className="yt-panel__palette">
-          <div className="yt-panel__palette-label">Recent · tap to add</div>
+          <div className="yt-panel__palette-label">
+            {onChordTap ? 'Recent · tap to add' : 'Recent chords'}
+          </div>
           <div className="yt-panel__palette-pills">
             {recentChords.map((c, i) => (
               <ChordPill
@@ -37,7 +37,7 @@ export function YouTubePanel({ videoId, startSec, history, notation, onChordTap 
                 size="md"
                 active={i === recentChords.length - 1}
                 notation={notation}
-                onClick={() => onChordTap(c)}
+                onClick={onChordTap ? () => onChordTap(c) : undefined}
               />
             ))}
           </div>

@@ -304,13 +304,6 @@ export function TranscribeView({
               Play chords to build the palette…
             </div>
           )}
-
-          <div className="transcribe-rail__hints">
-            <div>· play MIDI → fills armed slot</div>
-            <div>· tap slot → arm / replace</div>
-            <div>· tap × → delete chord</div>
-            <div>· backspace → clear slot</div>
-          </div>
         </div>
       </div>
 
