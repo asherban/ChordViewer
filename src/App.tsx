@@ -80,6 +80,9 @@ export default function App() {
   const [youtubeStartSec, setYoutubeStartSec] = useState<number | null>(() => loadStoredCurrentVideo()?.startSec ?? null);
   const [videoHistory, setVideoHistory] = useState<VideoHistoryEntry[]>(loadStoredVideoHistory);
 
+  // Ref updated by TranscribeView each render so the panel can call palette tap without stale closure
+  const transcribePaletteTapRef = useRef<((chord: string) => void) | null>(null);
+
   const activeNotes = useMemo(
     () => new Set([...physicalNotes, ...sustainedNotes]),
     [physicalNotes, sustainedNotes]
@@ -268,6 +271,8 @@ export default function App() {
                   notation={notation}
                   midiDeviceName={selectedDevice?.name ?? null}
                   midiConnected={midiConnected}
+                  hasVideo={!!youtubeVideoId}
+                  paletteTapRef={transcribePaletteTapRef}
                 />
               )}
             </div>
@@ -277,6 +282,7 @@ export default function App() {
                 startSec={youtubeStartSec}
                 history={chordHistory}
                 notation={notation}
+                onChordTap={mode === 'Transcribe' ? (chord) => transcribePaletteTapRef.current?.(chord) : undefined}
               />
             )}
           </div>

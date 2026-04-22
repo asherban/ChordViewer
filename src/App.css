@@ -483,6 +483,26 @@
   display: block;
 }
 
+/* ── YouTube Panel Palette ───────────────────────────────────────────────── */
+.yt-panel__palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.yt-panel__palette-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.yt-panel__palette-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ── Chord History ───────────────────────────────────────────────────────── */
 .chord-history {
   width: 100%;
