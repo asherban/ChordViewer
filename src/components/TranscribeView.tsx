@@ -262,8 +262,8 @@ export function TranscribeView({
           </div>
         </div>
 
-        {/* Right rail */}
-        <div className="transcribe-rail">
+        {/* Right rail — hidden when video panel is present */}
+        {!hasVideo && <div className="transcribe-rail">
           {!hasVideo && recentChords.length > 0 && (
             <div className="transcribe-rail__section">
               <div className="transcribe-rail__label">Last 4 chords</div>
@@ -304,7 +304,7 @@ export function TranscribeView({
               Play chords to build the palette…
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Armed coach mark */}
