@@ -76,6 +76,8 @@ export function TranscribeView({
   const { meta, bars } = chart;
 
   const [armed, setArmed] = useState<Armed>({ bar: 0, slot: 0 });
+  const armedRef = useRef(armed);
+  useEffect(() => { armedRef.current = armed; }, [armed]);
 
   const chartRef = useRef(chart);
   useEffect(() => { chartRef.current = chart; }, [chart]);
@@ -134,19 +136,18 @@ export function TranscribeView({
 
       waitingForReleaseRef.current = true;
 
-      setArmed((currentArmed) => {
-        const currentChart = chartRef.current;
-        const nextBars = currentChart.bars.map((b) => b.slice());
-        nextBars[currentArmed.bar][currentArmed.slot] = c;
+      const currentArmed = armedRef.current;
+      const currentChart = chartRef.current;
+      const nextBars = currentChart.bars.map((b) => b.slice());
+      nextBars[currentArmed.bar][currentArmed.slot] = c;
 
-        const nextBar = currentArmed.bar + 1;
-        if (nextBar >= nextBars.length) {
-          nextBars.push([null, null, null, null]);
-        }
+      const nextBar = currentArmed.bar + 1;
+      if (nextBar >= nextBars.length) {
+        nextBars.push([null, null, null, null]);
+      }
 
-        onChartChange({ ...currentChart, bars: nextBars });
-        return { bar: nextBar, slot: 0 };
-      });
+      onChartChange({ ...currentChart, bars: nextBars });
+      setArmed({ bar: nextBar, slot: 0 });
     }, 450);
 
     return () => {

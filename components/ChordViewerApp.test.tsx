@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Must mock before importing ChordViewerApp
@@ -69,10 +69,13 @@ beforeEach(() => {
 })
 
 describe('Learn tab', () => {
-  it('shows chord display and staff even without a MIDI device connected', () => {
-    const { container } = render(<ChordViewerApp />)
+  it('shows chord display and staff even without a MIDI device connected', async () => {
+    let container: HTMLElement
+    await act(async () => {
+      ;({ container } = render(<ChordViewerApp />))
+    })
     // LearnView must render in Learn mode regardless of MIDI device state
-    expect(container.querySelector('.chord-display')).toBeInTheDocument()
-    expect(container.querySelector('.staff-display')).toBeInTheDocument()
+    expect(container!.querySelector('.chord-display')).toBeInTheDocument()
+    expect(container!.querySelector('.staff-display')).toBeInTheDocument()
   })
 })
