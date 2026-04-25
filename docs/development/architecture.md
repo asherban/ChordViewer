@@ -9,7 +9,7 @@ ChordViewer is a browser-based MIDI chord assistant. It listens to a connected M
 ## Tech Stack
 
 - **UI**: React 19 (JSX transform, no class components)
-- **Build**: Vite 8 + TypeScript 6, deployed to GitHub Pages via `gh-pages`
+- **Build**: Next.js 16 + TypeScript 6
 - **MIDI**: WebMidi.js v3 (wraps the Web MIDI API; Chromium-only)
 - **Chord detection**: `@tonaljs/chord-detect` + `@tonaljs/midi`
 - **Notation rendering**: VexFlow 5 (grand staff SVG), custom jazz-symbol renderer in `JazzChord`
@@ -93,6 +93,6 @@ Persistence is a side-effect: `App.tsx` has `useEffect` watchers on `notation`, 
 
 ## Configuration
 
-- `vite.config.ts`: `base: '/'` (no subdirectory); Vitest configured inline with jsdom environment and `globals: true`
+- `next.config.ts`: `reactStrictMode: true`; Vitest configured in `vitest.config.ts` with jsdom environment and `globals: true`
 - `tsconfig.app.json`: `erasableSyntaxOnly: true` (TypeScript 6 strict mode), `noUnusedLocals/Parameters: true`
 - CI (`.github/workflows/ci.yml`): runs only `vitest run` — no lint or type-check step in CI
