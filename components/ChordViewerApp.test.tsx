@@ -6,6 +6,14 @@ vi.mock('webmidi', () => ({
   WebMidi: { addListener: vi.fn(), removeListener: vi.fn() },
 }))
 
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      signOut: vi.fn(() => Promise.resolve({ error: null })),
+    },
+  }),
+}))
+
 vi.mock('../lib/midi', () => ({
   initMidi: vi.fn(() => Promise.resolve({ kind: 'ready', inputs: [] })),
   getInputDescriptors: vi.fn(() => []),

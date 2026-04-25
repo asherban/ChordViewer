@@ -15,6 +15,7 @@ import { type Notation } from '../lib/notation';
 import { type VideoHistoryEntry, fetchVideoTitle } from '../lib/youtube';
 import { useChordHistory } from '../lib/useChordHistory';
 import { loadChart, saveChart, emptyChart, type LeadSheet } from '../lib/leadSheet';
+import { createClient } from '@/lib/supabase/client';
 import { StatusMessage } from './StatusMessage';
 import { TopBar, type AppMode } from './TopBar';
 import { LearnView } from './LearnView';
@@ -208,6 +209,12 @@ export function ChordViewerApp() {
   const midiConnected = selectedInputId !== null;
   const selectedDevice = inputs.find((i) => i.id === selectedInputId);
 
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = '/auth/login';
+  }
+
   return (
     <div className={`app${mode !== 'Learn' ? ' app--fullbleed' : ''}`}>
       <TopBar
@@ -234,6 +241,7 @@ export function ChordViewerApp() {
         onModeChange={setMode}
         notation={notation}
         onNotationChange={setNotation}
+        onSignOut={handleSignOut}
       />
 
       <main className="app__main">

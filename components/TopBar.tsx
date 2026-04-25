@@ -21,6 +21,7 @@ interface Props {
   onModeChange: (m: AppMode) => void;
   notation: Notation;
   onNotationChange: (n: Notation) => void;
+  onSignOut?: () => void;
 }
 
 function YouTubeIcon() {
@@ -65,6 +66,16 @@ function FullscreenExitIcon() {
   );
 }
 
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  )
+}
+
 function MidiIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -90,6 +101,7 @@ export function TopBar({
   onModeChange,
   notation,
   onNotationChange,
+  onSignOut,
 }: Props) {
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [midiOpen, setMidiOpen] = useState(false);
@@ -218,6 +230,17 @@ export function TopBar({
         >
           <MidiIcon />
         </button>
+
+        {onSignOut && (
+          <button
+            className="top-bar__icon-btn top-bar__icon-btn--muted"
+            onClick={onSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <SignOutIcon />
+          </button>
+        )}
       </div>
 
       {youtubeOpen && (
