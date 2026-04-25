@@ -16,6 +16,12 @@ import { type VideoHistoryEntry, fetchVideoTitle } from '../lib/youtube';
 import { useChordHistory } from '../lib/useChordHistory';
 import { loadChart, saveChart, emptyChart, type LeadSheet } from '../lib/leadSheet';
 import { createClient } from '@/lib/supabase/client';
+import {
+  pullChart, pushChart,
+  pullNotation, pushNotation,
+  pullVideoHistory, pushVideoHistory,
+  SYNC_STORAGE_KEYS,
+} from '@/lib/sync';
 import { StatusMessage } from './StatusMessage';
 import { TopBar, type AppMode } from './TopBar';
 import { LearnView } from './LearnView';
@@ -23,16 +29,14 @@ import { TranscribeView } from './TranscribeView';
 import { PlayView } from './PlayView';
 import { YouTubePanel } from './YouTubePanel';
 
-const STORAGE_KEYS = {
-  notation: 'cv_notation',
+const LOCAL_KEYS = {
   mode: 'cv_mode',
   currentVideo: 'cv_current_video',
-  videoHistory: 'cv_video_history',
 } as const;
 
 function loadStoredNotation(): Notation {
   try {
-    const v = localStorage.getItem(STORAGE_KEYS.notation);
+    const v = localStorage.getItem(SYNC_STORAGE_KEYS.notation);
     return v === 'jazz' ? 'jazz' : 'regular';
   } catch {
     return 'regular';
@@ -41,7 +45,7 @@ function loadStoredNotation(): Notation {
 
 function loadStoredMode(): AppMode {
   try {
-    const v = localStorage.getItem(STORAGE_KEYS.mode);
+    const v = localStorage.getItem(LOCAL_KEYS.mode);
     if (v === 'Transcribe' || v === 'Play') return v;
     return 'Learn';
   } catch {
@@ -51,7 +55,7 @@ function loadStoredMode(): AppMode {
 
 function loadStoredCurrentVideo(): { id: string; startSec: number | null } | null {
   try {
-    const v = localStorage.getItem(STORAGE_KEYS.currentVideo);
+    const v = localStorage.getItem(LOCAL_KEYS.currentVideo);
     return v ? (JSON.parse(v) as { id: string; startSec: number | null }) : null;
   } catch {
     return null;
@@ -60,7 +64,7 @@ function loadStoredCurrentVideo(): { id: string; startSec: number | null } | nul
 
 function loadStoredVideoHistory(): VideoHistoryEntry[] {
   try {
-    const v = localStorage.getItem(STORAGE_KEYS.videoHistory);
+    const v = localStorage.getItem(SYNC_STORAGE_KEYS.videoHistory);
     return v ? (JSON.parse(v) as VideoHistoryEntry[]) : [];
   } catch {
     return [];
@@ -92,6 +96,8 @@ export function ChordViewerApp() {
   const [videoHistory, setVideoHistory] = useState<VideoHistoryEntry[]>(loadStoredVideoHistory);
 
   const transcribePaletteTapRef = useRef<((chord: string) => void) | null>(null);
+  // Prevents pushing stale localStorage values to Supabase before the initial pull completes
+  const isSyncedRef = useRef(false);
 
   const activeNotes = useMemo(
     () => new Set([...physicalNotes, ...sustainedNotes]),
@@ -104,6 +110,20 @@ export function ChordViewerApp() {
   });
 
   const onConnectionChangeRef = useRef<(() => void) | null>(null);
+
+  // On mount: pull cloud state, reconcile, then enable push effects
+  useEffect(() => {
+    async function pull() {
+      const [cloudChart, cloudNotation, cloudHistory] = await Promise.all([
+        pullChart(), pullNotation(), pullVideoHistory(),
+      ]);
+      isSyncedRef.current = true;
+      setChart(cloudChart);
+      if (cloudNotation) setNotation(cloudNotation);
+      if (cloudHistory.length) setVideoHistory(cloudHistory);
+    }
+    pull();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,20 +199,27 @@ export function ChordViewerApp() {
     return cleanup;
   }, [selectedInputId]);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.notation, notation); }, [notation]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.mode, mode); }, [mode]);
-  useEffect(() => { saveChart(chart); }, [chart]);
+  useEffect(() => {
+    localStorage.setItem(SYNC_STORAGE_KEYS.notation, notation);
+    if (isSyncedRef.current) pushNotation(notation);
+  }, [notation]);
+  useEffect(() => { localStorage.setItem(LOCAL_KEYS.mode, mode); }, [mode]);
+  useEffect(() => {
+    saveChart(chart);
+    if (isSyncedRef.current) pushChart(chart);
+  }, [chart]);
 
   useEffect(() => {
     if (youtubeVideoId !== null) {
-      localStorage.setItem(STORAGE_KEYS.currentVideo, JSON.stringify({ id: youtubeVideoId, startSec: youtubeStartSec }));
+      localStorage.setItem(LOCAL_KEYS.currentVideo, JSON.stringify({ id: youtubeVideoId, startSec: youtubeStartSec }));
     } else {
-      localStorage.removeItem(STORAGE_KEYS.currentVideo);
+      localStorage.removeItem(LOCAL_KEYS.currentVideo);
     }
   }, [youtubeVideoId, youtubeStartSec]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.videoHistory, JSON.stringify(videoHistory));
+    localStorage.setItem(SYNC_STORAGE_KEYS.videoHistory, JSON.stringify(videoHistory));
+    if (isSyncedRef.current) pushVideoHistory(videoHistory);
   }, [videoHistory]);
 
   useEffect(() => {

@@ -6,6 +6,16 @@ vi.mock('webmidi', () => ({
   WebMidi: { addListener: vi.fn(), removeListener: vi.fn() },
 }))
 
+vi.mock('@/lib/sync', () => ({
+  pullChart: vi.fn(() => Promise.resolve(null)),
+  pullNotation: vi.fn(() => Promise.resolve(null)),
+  pullVideoHistory: vi.fn(() => Promise.resolve([])),
+  pushChart: vi.fn(() => Promise.resolve()),
+  pushNotation: vi.fn(() => Promise.resolve()),
+  pushVideoHistory: vi.fn(() => Promise.resolve()),
+  SYNC_STORAGE_KEYS: { notation: 'cv_notation', videoHistory: 'cv_video_history' },
+}))
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
