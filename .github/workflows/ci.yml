@@ -34,15 +34,15 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - name: Start local Supabase
-        run: supabase start
-      - name: Export Supabase credentials
+      - name: Start local Supabase and export credentials
         run: |
-          ANON_KEY=$(supabase status | grep 'anon key' | awk '{ print $NF }')
-          SERVICE_KEY=$(supabase status | grep 'service_role' | awk '{ print $NF }')
-          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> $GITHUB_ENV
+          supabase start
+          STATUS=$(supabase status --output json)
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(echo "$STATUS" | jq -r '.API_URL')" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS" | jq -r '.SERVICE_ROLE_KEY')" >> $GITHUB_ENV
+          echo "--- Supabase status ---"
+          echo "$STATUS" | jq '{API_URL,ANON_KEY: (.ANON_KEY | .[0:20] + "..."), SERVICE_ROLE_KEY: (.SERVICE_ROLE_KEY | .[0:20] + "...")}'
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
