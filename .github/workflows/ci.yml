@@ -31,6 +31,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase
+        run: supabase start
+      - name: Export Supabase credentials
+        run: |
+          ANON_KEY=$(supabase status | grep 'anon key' | awk '{ print $NF }')
+          SERVICE_KEY=$(supabase status | grep 'service_role' | awk '{ print $NF }')
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> $GITHUB_ENV
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -38,9 +50,6 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

@@ -151,11 +151,6 @@ export function ChordViewerApp() {
     const input = getInputById(selectedInputId);
     if (!input) return;
 
-    setPhysicalNotes(new Set());
-    setSustainedNotes(new Set());
-    setSustainPedalActive(false);
-    sustainPedalActiveRef.current = false;
-
     const cleanup = attachNoteListeners(
       input,
       (midiNumber) => {
@@ -174,7 +169,13 @@ export function ChordViewerApp() {
         if (!active) setSustainedNotes(new Set());
       }
     );
-    return cleanup;
+    return () => {
+      cleanup();
+      setPhysicalNotes(new Set());
+      setSustainedNotes(new Set());
+      setSustainPedalActive(false);
+      sustainPedalActiveRef.current = false;
+    };
   }, [selectedInputId]);
 
   useEffect(() => {
