@@ -11,7 +11,16 @@ vi.mock('@/lib/supabase/client', () => ({
 }))
 
 // Import sync functions AFTER vi.mock so they receive the mocked createClient.
-const { pushChart, pullChart, pushNotation, pullNotation, pushVideoHistory, pullVideoHistory } =
+const {
+  pushChart,
+  pullChart,
+  pushNotation,
+  pullNotation,
+  pushPreferences,
+  pullPreferences,
+  pushVideoHistory,
+  pullVideoHistory,
+} =
   await import('@/lib/sync')
 
 let user: TestUser
@@ -67,6 +76,32 @@ describe('pushNotation + pullNotation', () => {
   })
 })
 
+describe('pushPreferences + pullPreferences', () => {
+  it('persists app preferences and reads them back', async () => {
+    await pushPreferences({
+      notation: 'jazz',
+      mode: 'Play',
+      currentVideo: { id: 'abc12345678', startSec: 42 },
+    })
+
+    const rows = await queryRows('user_preferences', { user_id: user.id })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      notation: 'jazz',
+      mode: 'Play',
+      current_video_id: 'abc12345678',
+      current_video_start_sec: 42,
+    })
+
+    const pulled = await pullPreferences()
+    expect(pulled).toEqual({
+      notation: 'jazz',
+      mode: 'Play',
+      currentVideo: { id: 'abc12345678', startSec: 42 },
+    })
+  })
+})
+
 // ── pushVideoHistory / pullVideoHistory ───────────────────────────────────────
 
 describe('pushVideoHistory + pullVideoHistory', () => {
@@ -108,6 +143,24 @@ describe('RLS: users cannot see each other\'s data', () => {
       const pulled = await pullChart()
       // pullChart falls back to emptyChart when no DB row found for this user
       expect(pulled.meta.title).not.toBe('Secret')
+    } finally {
+      getClient = () => user.client
+      await deleteTestUser(userB.id)
+    }
+  })
+
+  it("user A's preferences are invisible to user B", async () => {
+    await pushPreferences({
+      notation: 'jazz',
+      mode: 'Play',
+      currentVideo: { id: 'abc12345678', startSec: 12 },
+    })
+
+    const userB = await createTestUser()
+    try {
+      getClient = () => userB.client
+      const pulled = await pullPreferences()
+      expect(pulled).toEqual({ notation: 'regular', mode: 'Learn', currentVideo: null })
     } finally {
       getClient = () => user.client
       await deleteTestUser(userB.id)

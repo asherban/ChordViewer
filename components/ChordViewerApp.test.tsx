@@ -7,13 +7,16 @@ vi.mock('webmidi', () => ({
 }))
 
 vi.mock('@/lib/sync', () => ({
-  pullChart: vi.fn(() => Promise.resolve(null)),
-  pullNotation: vi.fn(() => Promise.resolve(null)),
+  pullChart: vi.fn(() => Promise.resolve({
+    meta: { title: '', key: '', time: '4/4', tempo: '120' },
+    bars: Array.from({ length: 8 }, () => [null, null, null, null]),
+  })),
+  pullPreferences: vi.fn(() => Promise.resolve({ notation: 'regular', mode: 'Learn', currentVideo: null })),
   pullVideoHistory: vi.fn(() => Promise.resolve([])),
   pushChart: vi.fn(() => Promise.resolve()),
-  pushNotation: vi.fn(() => Promise.resolve()),
+  pushPreferences: vi.fn(() => Promise.resolve()),
   pushVideoHistory: vi.fn(() => Promise.resolve()),
-  SYNC_STORAGE_KEYS: { notation: 'cv_notation', videoHistory: 'cv_video_history' },
+  defaultPreferences: vi.fn(() => ({ notation: 'regular', mode: 'Learn', currentVideo: null })),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -64,9 +67,7 @@ vi.mock('vexflow', () => {
 
 import { ChordViewerApp } from './ChordViewerApp'
 
-beforeEach(() => {
-  localStorage.clear()
-})
+beforeEach(() => vi.clearAllMocks())
 
 describe('Learn tab', () => {
   it('shows chord display and staff even without a MIDI device connected', async () => {

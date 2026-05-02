@@ -10,7 +10,6 @@ export interface LeadSheet {
   bars: (string | null)[][];
 }
 
-const STORAGE_KEY = 'cv_chart';
 const DEFAULT_BAR_COUNT = 8;
 
 export function emptyChart(): LeadSheet {
@@ -18,20 +17,4 @@ export function emptyChart(): LeadSheet {
     meta: { title: '', key: '', time: '4/4', tempo: '120' },
     bars: Array.from({ length: DEFAULT_BAR_COUNT }, () => [null, null, null, null]),
   };
-}
-
-export function loadChart(): LeadSheet {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyChart();
-    return JSON.parse(raw) as LeadSheet;
-  } catch {
-    return emptyChart();
-  }
-}
-
-export function saveChart(chart: LeadSheet): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(chart));
-  } catch { /* localStorage unavailable (SSR / Node) */ }
 }

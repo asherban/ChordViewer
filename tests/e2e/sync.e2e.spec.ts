@@ -13,6 +13,7 @@ test('seeded chart appears in Transcribe view', async ({ page }) => {
     })
 
     await page.goto('/app')
+    await page.waitForLoadState('networkidle')
     // Switch to Transcribe mode
     await page.getByRole('button', { name: 'Transcribe' }).click()
 
@@ -43,6 +44,31 @@ test('toggling notation preference persists to DB', async ({ page }) => {
 
     const prefs = await readPreferences(user.id)
     expect(prefs?.notation).toBe('jazz')
+  } finally {
+    await cleanup()
+  }
+})
+
+test('mode and current YouTube video persist to DB preferences', async ({ page }) => {
+  const { user, cleanup } = await setupTestUser(page)
+
+  try {
+    await page.goto('/app')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('button', { name: 'Play' }).click()
+    await page.getByRole('button', { name: 'Load YouTube video' }).click()
+    await page.getByLabel('YouTube URL').fill('https://youtu.be/abc12345678?t=42')
+    await page.getByRole('button', { name: 'Load', exact: true }).click()
+
+    await page.waitForTimeout(1500)
+
+    const prefs = await readPreferences(user.id)
+    expect(prefs).toMatchObject({
+      mode: 'Play',
+      current_video_id: 'abc12345678',
+      current_video_start_sec: 42,
+    })
   } finally {
     await cleanup()
   }
