@@ -31,5 +31,7 @@ export function loadChart(): LeadSheet {
 }
 
 export function saveChart(chart: LeadSheet): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(chart));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(chart));
+  } catch { /* localStorage unavailable (SSR / Node) */ }
 }
