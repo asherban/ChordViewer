@@ -31,6 +31,11 @@ android {
     }
 
     buildFeatures { compose = true }
+    sourceSets {
+        getByName("main").assets.srcDir(rootProject.file("../../contracts/fixtures"))
+        getByName("test").resources.srcDir(rootProject.file("../../contracts/fixtures"))
+        getByName("test").resources.srcDir(rootProject.file("../../tests/fixtures/music"))
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -47,7 +52,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     testImplementation("junit:junit:4.13.2")
     // Use the real JSON implementation in local relay tests, not Android's stub.
-    testDebugImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

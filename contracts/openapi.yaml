@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: ChordViewer local API
+  version: 1.0.0
+  description: >-
+    M2 foundation endpoints. No authentication, database, account data or score writes
+    are implemented. The server binds only to 127.0.0.1. Public deployment is deferred.
+servers:
+  - url: http://127.0.0.1:3000
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Report local API availability
+      responses:
+        '200':
+          description: API is available; this does not assert database readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, service, apiVersion]
+                properties:
+                  status: { type: string, const: ok }
+                  service: { type: string, const: chordviewer-api }
+                  apiVersion: { type: string, const: '1' }
+  /api/v1/score-example:
+    get:
+      operationId: getScoreExample
+      summary: Return the original shared four-measure notation proof
+      responses:
+        '200':
+          description: The exact shared score fixture, validated before serving.
+          content:
+            application/json:
+              schema:
+                $ref: './src/lead-sheet-v1.schema.json'

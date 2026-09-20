@@ -1,0 +1,3524 @@
+{
+  "fixtureVersion": 1,
+  "description": "Language-neutral score v1 conformance cases. Each score is self-contained. expectedCode identifies one required TypeScript diagnostic; native readers must agree on validity.",
+  "cases": [
+    {
+      "name": "original-four-bar-proof",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "proof-lead-sheet-v1",
+        "title": "First Sketch",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-1",
+            "chords": [
+              {
+                "id": "chord-b1-c",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "C"
+              },
+              {
+                "id": "chord-b1-g7",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "G7"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b1-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-sharp",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 1,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-natural",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b1",
+                "kind": "rest",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              },
+              {
+                "id": "note-b1-g-tie",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-2",
+            "chords": [
+              {
+                "id": "chord-b2-g7",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "G7"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b2-g",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b2-a",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b2-b-flat",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "B",
+                  "alter": -1,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b2-dotted",
+                "kind": "rest",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b2-c",
+                "kind": "note",
+                "offsetTicks": 1800,
+                "duration": {
+                  "denominator": 16,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                }
+              }
+            ]
+          },
+          {
+            "id": "bar-3",
+            "chords": [
+              {
+                "id": "chord-b3-am",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "Am"
+              },
+              {
+                "id": "chord-b3-f",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "F"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b3-e",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 2,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-d-dotted",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-c-tie",
+                "kind": "note",
+                "offsetTicks": 1680,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-4",
+            "chords": [
+              {
+                "id": "chord-b4-c",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b4-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b4-b",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "B",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-a",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-g",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b4",
+                "kind": "rest",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "chord-only",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-measure",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "sparse-melody",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "explicit-false-tie",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": false
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unicode-title-codepoints",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "integer-valued-json-number",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1.0,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsupported-version",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown-top-level-field",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ],
+        "lyrics": "Not part of v1"
+      }
+    },
+    {
+      "name": "unknown-pitch-field",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4,
+                  "velocity": 96
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-string-offset",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": "0",
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "fractional-offset",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0.5,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsupported-note-duration",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 32,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsupported-dot-count",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 2
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing-note-pitch",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "rest-with-pitch",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "rest-with-false-tie",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "tieToNext": false
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "out-of-range-octave",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 7
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "id-with-trailing-newline",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet\n",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlong-id",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlong-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlong-chord-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-measure-list",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": []
+      }
+    },
+    {
+      "name": "id-collision-with-sheet",
+      "valid": false,
+      "expectedCode": "duplicate-id",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "validation-sheet",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-event-id",
+      "valid": false,
+      "expectedCode": "duplicate-id",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "melody-overlap",
+      "valid": false,
+      "expectedCode": "event-overlap",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 240,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "chord-overlap",
+      "valid": false,
+      "expectedCode": "event-overlap",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              },
+              {
+                "id": "chord-b",
+                "offsetTicks": 960,
+                "durationTicks": 480,
+                "symbol": "F"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsorted-melody",
+      "valid": false,
+      "expectedCode": "event-order",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "note-crosses-barline-without-split",
+      "valid": false,
+      "expectedCode": "event-out-of-bar",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1800,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "chord-crosses-barline",
+      "valid": false,
+      "expectedCode": "event-out-of-bar",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 60,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "dotted-whole-exceeds-bar",
+      "valid": false,
+      "expectedCode": "event-out-of-bar",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 1,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-to-rest",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "dangling-tie",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-to-different-pitch",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-a",
+                "kind": "rest",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b",
+                "kind": "note",
+                "offsetTicks": 1200,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              },
+              {
+                "id": "note-c",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-across-gap",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              },
+              {
+                "id": "note-after-gap",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "enharmonic-spellings-cannot-tie",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "validation-sheet",
+        "title": "Validation phrase",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-a",
+            "chords": [
+              {
+                "id": "chord-a",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-a",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 1,
+                  "octave": 4
+                },
+                "tieToNext": true
+              },
+              {
+                "id": "note-enharmonic",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": -1,
+                  "octave": 4
+                },
+                "tieToNext": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "cross-bar-tie-pitch-mismatch",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "proof-lead-sheet-v1",
+        "title": "First Sketch",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-1",
+            "chords": [
+              {
+                "id": "chord-b1-c",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "C"
+              },
+              {
+                "id": "chord-b1-g7",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "G7"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b1-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-sharp",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 1,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-natural",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b1",
+                "kind": "rest",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              },
+              {
+                "id": "note-b1-g-tie",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-2",
+            "chords": [
+              {
+                "id": "chord-b2-g7",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "G7"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b2-g",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b2-a",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b2-b-flat",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "B",
+                  "alter": -1,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b2-dotted",
+                "kind": "rest",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 1
+                }
+              },
+              {
+                "id": "note-b2-c",
+                "kind": "note",
+                "offsetTicks": 1800,
+                "duration": {
+                  "denominator": 16,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                }
+              }
+            ]
+          },
+          {
+            "id": "bar-3",
+            "chords": [
+              {
+                "id": "chord-b3-am",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "Am"
+              },
+              {
+                "id": "chord-b3-f",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "F"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b3-e",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 2,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-d-dotted",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-c-tie",
+                "kind": "note",
+                "offsetTicks": 1680,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-4",
+            "chords": [
+              {
+                "id": "chord-b4-c",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b4-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b4-b",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "B",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-a",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-g",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b4",
+                "kind": "rest",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-cannot-skip-empty-measure",
+      "valid": false,
+      "expectedCode": "invalid-tie",
+      "score": {
+        "schemaVersion": 1,
+        "id": "proof-lead-sheet-v1",
+        "title": "First Sketch",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "bar-1",
+            "chords": [
+              {
+                "id": "chord-b1-c",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "C"
+              },
+              {
+                "id": "chord-b1-g7",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "G7"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b1-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-sharp",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 1,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b1-f-natural",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "F",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b1",
+                "kind": "rest",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              },
+              {
+                "id": "note-b1-g-tie",
+                "kind": "note",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-2",
+            "chords": [
+              {
+                "id": "chord-b2-g7",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "G7"
+              }
+            ],
+            "melody": []
+          },
+          {
+            "id": "bar-3",
+            "chords": [
+              {
+                "id": "chord-b3-am",
+                "offsetTicks": 0,
+                "durationTicks": 960,
+                "symbol": "Am"
+              },
+              {
+                "id": "chord-b3-f",
+                "offsetTicks": 960,
+                "durationTicks": 960,
+                "symbol": "F"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b3-e",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 2,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "E",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-d-dotted",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 1
+                },
+                "pitch": {
+                  "step": "D",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b3-c-tie",
+                "kind": "note",
+                "offsetTicks": 1680,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                },
+                "tieToNext": true
+              }
+            ]
+          },
+          {
+            "id": "bar-4",
+            "chords": [
+              {
+                "id": "chord-b4-c",
+                "offsetTicks": 0,
+                "durationTicks": 1920,
+                "symbol": "C"
+              }
+            ],
+            "melody": [
+              {
+                "id": "note-b4-c",
+                "kind": "note",
+                "offsetTicks": 0,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "C",
+                  "alter": 0,
+                  "octave": 5
+                }
+              },
+              {
+                "id": "note-b4-b",
+                "kind": "note",
+                "offsetTicks": 480,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "B",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-a",
+                "kind": "note",
+                "offsetTicks": 720,
+                "duration": {
+                  "denominator": 8,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "A",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "note-b4-g",
+                "kind": "note",
+                "offsetTicks": 960,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                },
+                "pitch": {
+                  "step": "G",
+                  "alter": 0,
+                  "octave": 4
+                }
+              },
+              {
+                "id": "rest-b4",
+                "kind": "rest",
+                "offsetTicks": 1440,
+                "duration": {
+                  "denominator": 4,
+                  "dots": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

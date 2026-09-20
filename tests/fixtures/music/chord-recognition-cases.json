@@ -1,0 +1,17 @@
+{
+  "fixtureVersion": 1,
+  "description": "Language-neutral musical acceptance cases preserved for M4 recognition work. These describe desired identity, not a library-specific display label or a currently implemented recognizer.",
+  "cases": [
+    { "name": "empty", "midiNotes": [], "expected": { "pitchClasses": [], "bassMidi": null, "chord": null } },
+    { "name": "single-note", "midiNotes": [60], "expected": { "pitchClasses": [0], "bassMidi": 60, "chord": null } },
+    { "name": "same-pitch-in-two-octaves", "midiNotes": [60, 72], "expected": { "pitchClasses": [0], "bassMidi": 60, "chord": null } },
+    { "name": "C-major", "midiNotes": [60, 64, 67], "expected": { "pitchClasses": [0, 4, 7], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "major" } } },
+    { "name": "C-minor-is-distinct", "midiNotes": [60, 63, 67], "expected": { "pitchClasses": [0, 3, 7], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "minor" } } },
+    { "name": "input-order-independent", "midiNotes": [67, 60, 64], "expected": { "pitchClasses": [0, 4, 7], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "major" } } },
+    { "name": "octave-duplicates-preserve-lowest-bass", "midiNotes": [72, 52, 67, 60], "expected": { "pitchClasses": [0, 4, 7], "bassMidi": 52, "chord": { "rootPitchClass": 0, "quality": "major" } } },
+    { "name": "major-seven", "midiNotes": [60, 64, 67, 71], "expected": { "pitchClasses": [0, 4, 7, 11], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "major7" } } },
+    { "name": "major-seven-without-fifth", "midiNotes": [60, 64, 71], "expected": { "pitchClasses": [0, 4, 11], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "major7" } } },
+    { "name": "minor-seven-without-fifth", "midiNotes": [60, 63, 70], "expected": { "pitchClasses": [0, 3, 10], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "minor7" } } },
+    { "name": "dominant-seven-without-fifth", "midiNotes": [60, 64, 70], "expected": { "pitchClasses": [0, 4, 10], "bassMidi": 60, "chord": { "rootPitchClass": 0, "quality": "dominant7" } } }
+  ]
+}

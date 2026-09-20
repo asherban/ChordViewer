@@ -1,0 +1,19 @@
+{
+  "name": "@chordviewer/web",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
+  },
+  "dependencies": {
+    "@chordviewer/contracts": "0.2.0",
+    "@tonaljs/chord-detect": "4.9.1",
+    "@tonaljs/midi": "4.10.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "vexflow": "5.0.0"
+  }
+}

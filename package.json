@@ -1,46 +1,47 @@
 {
-  "name": "chord-viewer",
+  "name": "chordviewer",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+  "workspaces": [
+    "apps/web",
+    "services/api",
+    "contracts"
+  ],
+  "engines": {
+    "node": ">=24.21.0 <25",
+    "npm": ">=11 <12"
   },
-  "dependencies": {
-    "@tonaljs/chord-detect": "^4.9.1",
-    "@tonaljs/midi": "^4.10.2",
-    "gh-pages": "^6.3.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "vexflow": "^5.0.0",
-    "webmidi": "^3.1.16"
+  "scripts": {
+    "dev": "npm run build -w @chordviewer/contracts && concurrently --kill-others --names Contract,API,Web \"tsc -p contracts/tsconfig.json --watch --preserveWatchOutput\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:web": "npm run dev -w @chordviewer/web",
+    "dev:api": "npm run dev -w @chordviewer/api",
+    "build": "npm run build -w @chordviewer/contracts && npm run build -w @chordviewer/api && npm run build -w @chordviewer/web",
+    "test:run": "npm run build -w @chordviewer/contracts && vitest run",
+    "test:web": "playwright test",
+    "lint": "eslint .",
+    "check": "npm run lint && npm run test:run && npm run build"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^24.12.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/ui": "^4.1.5",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "jsdom": "^29.0.2",
-    "typescript": "~6.0.2",
-    "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.4",
-    "vitest": "^4.1.5"
+    "@eslint/js": "9.39.4",
+    "@playwright/test": "1.63.0",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.12.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.1",
+    "concurrently": "9.2.4",
+    "eslint": "9.39.4",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-refresh": "0.5.2",
+    "globals": "17.4.0",
+    "jsdom": "29.0.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tsx": "4.23.15",
+    "typescript": "6.0.2",
+    "typescript-eslint": "8.58.0",
+    "vite": "8.3.0",
+    "vitest": "4.1.11"
   }
 }

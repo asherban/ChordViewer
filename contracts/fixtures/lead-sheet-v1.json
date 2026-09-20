@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "proof-lead-sheet-v1",
+  "title": "First Sketch",
+  "keySignature": "C",
+  "timeSignature": { "numerator": 4, "denominator": 4 },
+  "ticksPerQuarter": 480,
+  "measures": [
+    {
+      "id": "bar-1",
+      "chords": [
+        { "id": "chord-b1-c", "offsetTicks": 0, "durationTicks": 960, "symbol": "C" },
+        { "id": "chord-b1-g7", "offsetTicks": 960, "durationTicks": 960, "symbol": "G7" }
+      ],
+      "melody": [
+        { "id": "note-b1-c", "kind": "note", "offsetTicks": 0, "duration": { "denominator": 4, "dots": 0 }, "pitch": { "step": "C", "alter": 0, "octave": 4 } },
+        { "id": "note-b1-f-sharp", "kind": "note", "offsetTicks": 480, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "F", "alter": 1, "octave": 4 } },
+        { "id": "note-b1-f-natural", "kind": "note", "offsetTicks": 720, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "F", "alter": 0, "octave": 4 } },
+        { "id": "rest-b1", "kind": "rest", "offsetTicks": 960, "duration": { "denominator": 4, "dots": 0 } },
+        { "id": "note-b1-g-tie", "kind": "note", "offsetTicks": 1440, "duration": { "denominator": 4, "dots": 0 }, "pitch": { "step": "G", "alter": 0, "octave": 4 }, "tieToNext": true }
+      ]
+    },
+    {
+      "id": "bar-2",
+      "chords": [{ "id": "chord-b2-g7", "offsetTicks": 0, "durationTicks": 1920, "symbol": "G7" }],
+      "melody": [
+        { "id": "note-b2-g", "kind": "note", "offsetTicks": 0, "duration": { "denominator": 4, "dots": 1 }, "pitch": { "step": "G", "alter": 0, "octave": 4 } },
+        { "id": "note-b2-a", "kind": "note", "offsetTicks": 720, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "A", "alter": 0, "octave": 4 } },
+        { "id": "note-b2-b-flat", "kind": "note", "offsetTicks": 960, "duration": { "denominator": 4, "dots": 0 }, "pitch": { "step": "B", "alter": -1, "octave": 4 } },
+        { "id": "rest-b2-dotted", "kind": "rest", "offsetTicks": 1440, "duration": { "denominator": 8, "dots": 1 } },
+        { "id": "note-b2-c", "kind": "note", "offsetTicks": 1800, "duration": { "denominator": 16, "dots": 0 }, "pitch": { "step": "C", "alter": 0, "octave": 5 } }
+      ]
+    },
+    {
+      "id": "bar-3",
+      "chords": [
+        { "id": "chord-b3-am", "offsetTicks": 0, "durationTicks": 960, "symbol": "Am" },
+        { "id": "chord-b3-f", "offsetTicks": 960, "durationTicks": 960, "symbol": "F" }
+      ],
+      "melody": [
+        { "id": "note-b3-e", "kind": "note", "offsetTicks": 0, "duration": { "denominator": 2, "dots": 0 }, "pitch": { "step": "E", "alter": 0, "octave": 5 } },
+        { "id": "note-b3-d-dotted", "kind": "note", "offsetTicks": 960, "duration": { "denominator": 4, "dots": 1 }, "pitch": { "step": "D", "alter": 0, "octave": 5 } },
+        { "id": "note-b3-c-tie", "kind": "note", "offsetTicks": 1680, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "C", "alter": 0, "octave": 5 }, "tieToNext": true }
+      ]
+    },
+    {
+      "id": "bar-4",
+      "chords": [{ "id": "chord-b4-c", "offsetTicks": 0, "durationTicks": 1920, "symbol": "C" }],
+      "melody": [
+        { "id": "note-b4-c", "kind": "note", "offsetTicks": 0, "duration": { "denominator": 4, "dots": 0 }, "pitch": { "step": "C", "alter": 0, "octave": 5 } },
+        { "id": "note-b4-b", "kind": "note", "offsetTicks": 480, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "B", "alter": 0, "octave": 4 } },
+        { "id": "note-b4-a", "kind": "note", "offsetTicks": 720, "duration": { "denominator": 8, "dots": 0 }, "pitch": { "step": "A", "alter": 0, "octave": 4 } },
+        { "id": "note-b4-g", "kind": "note", "offsetTicks": 960, "duration": { "denominator": 4, "dots": 0 }, "pitch": { "step": "G", "alter": 0, "octave": 4 } },
+        { "id": "rest-b4", "kind": "rest", "offsetTicks": 1440, "duration": { "denominator": 4, "dots": 0 } }
+      ]
+    }
+  ]
+}

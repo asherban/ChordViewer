@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.chordviewer.midi.MidiNote
 import com.chordviewer.midi.MidiSnapshot
+import com.chordviewer.score.LeadSheetPreview
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +35,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF087F6D))) {
                 var snapshot by remember { mutableStateOf(MidiSnapshot()) }
+                var showScore by remember { mutableStateOf(true) }
                 Scaffold { insets ->
                     Column(
                         modifier = Modifier.fillMaxSize().padding(insets)
@@ -40,6 +43,10 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         Text("ChordViewer", style = MaterialTheme.typography.headlineLarge)
+                        OutlinedButton(onClick = { showScore = !showScore }) {
+                            Text(if (showScore) "Show MIDI monitor" else "Show score sample")
+                        }
+                        if (showScore) LeadSheetPreview()
                         Text("MIDI input monitor", style = MaterialTheme.typography.titleLarge)
                         MidiInputControls(intent) { snapshot = it }
                         Card(modifier = Modifier.fillMaxWidth()) {
