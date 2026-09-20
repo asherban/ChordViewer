@@ -12,26 +12,28 @@ Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setu
 | Note input | A temporary native Windows sender sent MIDI notes 60, 64 and 67 at velocity 96. The app displayed `CM` and `C E G`. |
 | Sustain | Sending CC64 = 127 followed by note-offs kept the chord visible and showed Sustain. Sending CC64 = 0 cleared the notes. |
 | Alternate note-off | Note 62 followed by note-on with velocity zero left no stuck note. |
-| Android tools | Android Studio, SDK and AVD directories were absent from the checked standard locations; `adb` and `emulator` were not found on the normal shell path. No emulator test was run. |
+| Android tools | Studio 2026.1.4 Patch 1, JDK 21, SDK 35 and Emulator 37.1.11 are installed. WHPX acceleration and a tablet emulator using host graphics work; see the [local setup guide](../development/local-setup.md). |
+| Native emulator | The real LoopBe fixture passed through the Windows bridge to native MIDI processing: notes, sustain, zero-velocity note-off, channels, clear and reconnect reset. Native UI rendering and background cleanup also passed; see the [verification record](../development/m1-verification.md). |
+| Windows bridge | The committed bridge passed real LoopBe round-trip tests in PowerShell 5.1 and 7: byte ordering, timestamps, sustain, channel separation, reconnect reset, authentication, malformed input, credential ACL and cleanup. |
 | Other installed software | MIDIculous 4.1.13 is installed. Its MIDI configuration was not altered or used for this test. |
 
-This was a real Windows-driver-to-Web-MIDI smoke test against the current application, not an injected browser event or mocked chord result. It establishes the local input path; it does not test the planned rebuilt editor, every MIDI case or device hot-plug behavior. The sender was a temporary diagnostic probe, not a committed automated test runner.
+This was a real Windows-driver-to-Web-MIDI smoke test against the current application, not an injected browser event or mocked chord result. It establishes the local input path; it does not test the planned rebuilt editor, every MIDI case or device hot-plug behavior. The original sender was a temporary diagnostic probe. M1 now provides a committed [fixture sender and bridge test](../../scripts/midi/README.md); the rebuilt web client still needs its own acceptance run when it replaces the old application.
 
-## Proposed test routes
+## Test routes
 
 ```mermaid
 flowchart LR
     sender[Local MIDI sender or sequence replay] --> loop[LoopBe Internal MIDI]
     loop --> web[Chrome Web MIDI input]
     web --> webcore[Web MIDI processing and UI]
-    loop -. planned .-> bridge[Windows MIDI bridge]
-    bridge -. local network connection .-> adapter[Android debug input adapter]
-    adapter -. planned .-> native[Native MIDI processing and UI in emulator]
+    loop --> bridge[Windows MIDI bridge]
+    bridge -->|local authenticated connection| adapter[Android debug input adapter]
+    adapter --> native[Native MIDI processing and UI in emulator]
 ```
 
 For the web client, use the real browser MIDI input. A small sender or suitably configured MIDI application writes to the LoopBe output, and the web app listens to its input. LoopBe1 is designed to transfer MIDI between applications and supports multiple readers, so the browser and future bridge can receive the same stream. Receivers must not echo it back into the same LoopBe port. [LoopBe1 documentation](https://www.nerds.de/en/loopbe1.html).
 
-For Android, do not assume the Windows port appears automatically in Android's device list. Google's documented emulator limitations include USB, while its networking documentation supports communication with the host. Our proposed solution is to forward LoopBe events over a local connection to a debug adapter in the native app. This is an architecture inference from those capabilities; the bridge still needs implementation and validation. [Emulator limitations](https://developer.android.com/studio/run/advanced-emulator-usage), [emulator networking](https://developer.android.com/studio/run/emulator-networking).
+For Android, the Windows port does not appear automatically in Android's device list. Google's documented emulator limitations include USB, while its networking documentation supports communication with the host. The implemented bridge forwards LoopBe events over a loopback-only TCP connection through `adb reverse` to a debug adapter in the native app. Both Windows-side tests and end-to-end native emulator validation pass. [Emulator limitations](https://developer.android.com/studio/run/advanced-emulator-usage), [emulator networking](https://developer.android.com/studio/run/emulator-networking).
 
 ## Android bridge design
 
@@ -60,7 +62,7 @@ These cases are planned coverage, not claims that they already pass. Normal CI c
 
 ## Remaining work and limits
 
-The next setup milestone is to install the Android tools and an accelerated tablet-shaped AVD, then prove the bridge with a minimal native MIDI diagnostic. Run the backend and database on the same workstation. With 16 GB RAM, begin with one emulator, tune resource allocations and start only services needed for the current test. NAS deployment is deferred until after complete local validation and is not required for this setup.
+Android tools, the native diagnostic and real emulator fixture test are verified. Use the documented host-graphics profile; software rendering stalled on this workstation. Initial concurrent Gradle/emulator execution put the 16 GB workstation under memory pressure, so finish the build and stop its daemons before starting the emulator. Run only the services needed for the current test; local backend/database integration follows in M3. NAS deployment is deferred until after complete local validation and is not required for this setup.
 
 Neither a piano nor tablet is required for this workflow. It validates musical logic, editing, application state and native UI behavior. Physical USB/Bluetooth discovery, real-device latency, cable/power behavior and Samsung-specific behavior remain outside its coverage. Record those as unverified rather than claiming emulator results prove hardware compatibility.
 

@@ -2,7 +2,7 @@
 
 **ChordViewer** is a real-time chord detection tool for musicians. Connect a MIDI keyboard, play some notes, and instantly see the chord name displayed — no music theory knowledge required.
 
-> **Planned rebuild:** The [architecture plan, selected mockups and milestone roadmap](docs/architecture/README.md) describe the upcoming backend, web and native Android product. The rest of this README describes the existing application.
+> **Rebuild in progress:** The [architecture plan, selected mockups and milestone roadmap](docs/architecture/README.md) describe the upcoming backend, web and native Android product. Start with the [local development guide](docs/development/local-setup.md) for Android tools and LoopBe MIDI testing. The rest of this README describes the existing web application, which M2 will replace.
 
 > **Live demo:** https://chordviewer.app
 

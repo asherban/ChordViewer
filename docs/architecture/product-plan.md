@@ -116,7 +116,7 @@ Both clients connect directly to the piano and communicate with the backend for 
 
 ## Proposed development and deployment path
 
-The concrete workstation audit, Android installation milestones, preservation steps and repository cleanup inventory are recorded in [Development setup and repository cleanup](setup-and-cleanup.md). Android installation and repository cleanup have not been performed during planning.
+The workstation audit, preservation steps and cleanup inventory are recorded in [Development setup and repository cleanup](setup-and-cleanup.md). The [local development guide](../development/local-setup.md) tracks the installed Android tools and implemented MIDI test setup; product features and source replacement follow the milestone sequence.
 
 - Build, debug and test the web client, native Android emulator, backend and database on the development machine. Use a repeatable local container setup for backend services and package releases as versioned container images.
 - Complete local feature and release validation before deploying to the NAS. Then run the web/HTTPS gateway, backend and database with Docker Compose on the NAS as a private deployment rehearsal.
@@ -135,7 +135,7 @@ The concrete workstation audit, Android installation milestones, preservation st
 5. Import formats and the minimum direct-editing controls needed at launch.
 6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.
 7. Offline draft synchronization and simultaneous edits from two devices.
-8. Select the Android emulator configuration and local service resource allocation. Verify NAS capacity when the later deployment milestone begins. Exact tablet model and physical piano compatibility remain unverified hardware details, but do not block the local test workflow.
+8. Measure combined local service resource use as backend work is added. M1 selected and verified the tablet emulator configuration in the [local setup guide](../development/local-setup.md). Verify NAS capacity when the later deployment milestone begins. Exact tablet model and physical piano compatibility remain unverified hardware details, but do not block the local test workflow.
 
 ## Mockup notes
 

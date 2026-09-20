@@ -12,6 +12,30 @@ dist
 dist-ssr
 *.local
 
+# Local state and development credentials
+.local/
+.env
+.env.*
+!.env.example
+!**/.env.example
+.claude/settings.local.json
+
+# Generated build/test output
+.next/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Android tooling, machine paths and signing material
+**/.gradle/
+**/.kotlin/
+**/build/
+**/local.properties
+*.jks
+*.keystore
+*.hprof
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

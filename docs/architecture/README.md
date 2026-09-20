@@ -8,6 +8,8 @@ Planning baseline: 2026-09-20. This folder is the reference for the planned rebu
 | [Development setup and repository cleanup](setup-and-cleanup.md) | Workstation audit, Android tooling, local development, later private NAS deployment, preservation and cleanup boundaries. |
 | [Local MIDI testing](local-midi-testing.md) | Verified Windows loopback/web test and the proposed bridge to the Android emulator, without a piano or tablet. |
 | [Milestone roadmap](milestones.md) | Delivery outcomes, completion criteria and decisions needed before each stage. |
+| [Local development guide](../development/local-setup.md) | Installed Android tools, build commands, emulator and real LoopBe MIDI test workflow. |
+| [M1 verification record](../development/m1-verification.md) | Passed builds/tests/reviews, working emulator configuration and native MIDI evidence. |
 | [Mockup gallery](mockups/README.md) | Selected layout A, melody notation, creation exploration, Library and Practice images. |
 | [Saved mockup prompts](mockups/prompts.md) | Available generation and revision briefs for future design changes. |
 
@@ -27,6 +29,6 @@ The product plan distinguishes accepted direction from proposed interaction deta
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
-Only the documentation baseline is complete. Application implementation, Android installation, repository cleanup and deployment remain planned. The [existing application architecture](../development/architecture.md) describes the earlier implementation and is not the target architecture.
+M0 and M1 are complete: planning, Android builds, unit tests, code/security reviews and real LoopBe input in the native emulator are verified. The [local development guide](../development/local-setup.md) records the working hardware-graphics setup. A private baseline was preserved before removing obsolete generated output; replacement of the old application source belongs to M2. The [existing application architecture](../development/architecture.md) describes the earlier implementation and is not the target architecture. Deployment remains deferred.
 
 All mockup assets and internal document links are stored within the repository. Update this folder as decisions are made so future implementation work uses the same plan.

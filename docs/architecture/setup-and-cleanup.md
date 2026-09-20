@@ -1,6 +1,8 @@
 # ChordViewer: development setup and repository cleanup
 
-Planning date: 2026-09-20. This is a proposed execution plan. No Android tools have been installed and no repository files have been removed during this planning pass.
+Planning date: 2026-09-20. This page preserves the original setup audit and cleanup plan. Implementation has begun; see the [local development guide](../development/local-setup.md) for installed tools and executable commands.
+
+Implementation update: M1 is complete. Android Studio, JDK 21, SDK 35 and an accelerated tablet AVD are installed; native builds and real emulator MIDI acceptance pass. Use the host-graphics configuration in the local guide. A private baseline preserves source and local configuration outside the repository. Verified generated remnants (`.next`, `dist`, Playwright output and TypeScript build metadata) and inactive Supabase temporary metadata were removed after preservation. Active source replacement remains M2 work. Docker's Linux engine is now reachable.
 
 See the [product plan](product-plan.md) for target behavior and the [milestone roadmap](milestones.md) for delivery outcomes. The observations below are a dated audit and should be rechecked when implementation begins.
 
@@ -59,7 +61,7 @@ See [Local MIDI testing](local-midi-testing.md) for the routing design and limit
 
 The tooling milestone is complete when:
 
-1. The same minimal native application builds from Android Studio and the project Gradle wrapper in a normal terminal.
+1. The minimal native application builds with the checked-in Gradle wrapper and selected build JDK in a normal terminal. Android Studio uses the same project and JDK configuration; record any graphical IDE import/build checks separately from this repeatable build acceptance.
 2. The debug application installs and launches in the local tablet-shaped emulator, with logs available.
 3. A local sender drives LoopBe1 and a bridge carries its events into the native application's debug input adapter.
 4. A small MIDI diagnostic screen receives note-on, note-off and sustain events, and recovers from bridge disconnect/reconnect without stuck notes. Equivalent events reach the web client through its normal Web MIDI input.
