@@ -2,9 +2,9 @@
 
 Create lead sheets at the piano, keep a YouTube lesson beside the score, and practice on the web or a native Android tablet.
 
-**Rebuild status: M2 foundation.** The personal Library starts empty. Both clients render the same original score example with chords, one treble melody voice, rests, accidentals, dotted notes and ties. Web MIDI and the Android debug MIDI relay are available for local testing. Editing, accounts, saving, tutorial playback and practice advancement arrive in later milestones; the example is not saved to your Library.
+**Rebuild status: M3 local accounts and persistence.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Create a blank sheet or explicitly copy the original example, reopen it, and save its title and YouTube tutorial link. Both clients render chords and a treble melody voice. Note/chord editing, embedded tutorial playback and practice advancement arrive in later milestones.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. The [M2 verification record](docs/development/m2-verification.md) contains checks and screenshots; [notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. The [M3 verification record](docs/development/m3-verification.md) contains checks and screenshots; [notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -12,7 +12,8 @@ The [product plan, selected mockups and milestones](docs/architecture/README.md)
 | --- | --- |
 | `apps/web` | React/TypeScript browser client and direct Web MIDI input. |
 | `apps/android` | Native Kotlin/Compose app, notation renderer and debug MIDI adapter. |
-| `services/api` | Fastify API; M2 serves health and an immutable score example only. |
+| `services/api` | Fastify API, Better Auth accounts and owner-scoped PostgreSQL sheet storage. |
+| `infra/backend` | Local API/database containers, pinned images and persistent volumes. |
 | `contracts` | Versioned score schema, TypeScript validation, OpenAPI and shared fixtures. |
 | `scripts/development`, `scripts/midi` | Workstation setup, emulator launch helpers and real LoopBe tests. |
 | `tests` | Browser acceptance and language-independent musical reference cases. |
@@ -20,7 +21,7 @@ The [product plan, selected mockups and milestones](docs/architecture/README.md)
 
 ## Developer setup on this Windows computer
 
-Run commands from the repository root. You need the pinned Node 24 version from `.node-version`, npm 11, and Chrome or Edge for Web MIDI. Android requires JDK 21, Android SDK 35, Build Tools 35.0.0, Platform Tools, Emulator and the API 35 default x86_64 system image. These tools and LoopBe1 are installed on this workstation; see the [installation record](docs/development/local-setup.md) for exact versions and paths. Docker is required starting with M3, not for this foundation.
+Run commands from the repository root. You need the pinned Node 24 version from `.node-version`, npm 11, Docker Desktop with its Linux engine running, and Chrome or Edge for Web MIDI. Android requires JDK 21, Android SDK 35, Build Tools 35.0.0, Platform Tools, Emulator and the API 35 default x86_64 system image. These tools and LoopBe1 are installed on this workstation; see the [installation record](docs/development/local-setup.md) for exact versions and paths.
 
 Start a development PowerShell. This changes execution policy only for the new process:
 
@@ -43,15 +44,16 @@ npm ci
 
 ## Start the web client and API
 
-In the initialized terminal:
+Start Docker Desktop, then run in the initialized terminal:
 
 ```powershell
+.\scripts\development\Start-LocalBackend.ps1
 npm run dev
 ```
 
-Keep this terminal running. Open **http://127.0.0.1:5173/** in Chrome or Edge. The API listens on **http://127.0.0.1:3000/**. Both bind to loopback; the web development server proxies `/api` and `/health`. No database, NAS, login or environment secrets are needed in M2.
+The helper generates private local credentials once, builds the API image and starts PostgreSQL and the API in the background. Keep the `npm run dev` terminal running for the web server and contract watcher. Open **http://127.0.0.1:5173/** in Chrome or Edge; this is the configured browser origin. The API is at **http://127.0.0.1:3000/**, and Vite proxies `/api` and `/health` to it. PostgreSQL has no published host port. No NAS is required.
 
-The Library is empty. Choose **Explore the score preview** to see the shared example, toggle **Chords + melody / Chords only**, and enable MIDI. Create and Practice are clearly labeled previews, not working editors yet. The API connection indicator reports when the bundled sample is being used because the API is unavailable.
+Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; copying the example is an explicit action. Save details with the Save button. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write. Music entry/editing and full Library/Practice features remain future work.
 
 To check the API from another terminal:
 
@@ -60,17 +62,27 @@ Invoke-RestMethod http://127.0.0.1:3000/health
 Invoke-RestMethod http://127.0.0.1:3000/api/v1/score-example
 ```
 
-Stop development with **Ctrl+C**. The command stops its contract watcher, API and web processes together. Ports 3000 and 5173 must be free; startup fails rather than silently choosing another port.
+After backend changes, rerun `Start-LocalBackend.ps1` to rebuild/recreate the API and apply explicit migrations. Data and credentials persist. Stop the web server/watcher with **Ctrl+C**, then stop the backend without deleting its database:
+
+```powershell
+.\scripts\development\Stop-LocalBackend.ps1
+```
+
+Ports 3000 and 5173 must be free. Private settings live in ignored `.local/backend/development.env`; keep this file with its existing database volume. Do not replace credentials while retaining the volume. See [local container setup](docs/development/m3-containers.md) for isolation, resources and troubleshooting.
 
 ## Build and check
 
 ```powershell
 npm run check
 npx playwright install chromium
+.\scripts\development\Start-LocalBackend.ps1 -Environment test
 npm run test:web
+npm run test:persistence
+npm run test:api
+.\scripts\development\Stop-LocalBackend.ps1 -Environment test
 ```
 
-`check` runs lint, unit/contract/API tests and web/API builds. Install Chromium once for browser acceptance. `test:web` starts and stops its own local services, so stop `npm run dev` first. Browser tests cover the empty Library, API score rendering, display switching and invalid/unavailable API responses. They do not replace the real LoopBe check below.
+`check` runs lint, unit/contract tests and web/API builds. Install Chromium once. `test:web` starts/stops its own Vite server, so stop `npm run dev` first; it uses the separate test API on **127.0.0.1:3001**. The integration suites create random accounts in the test database and check persistence, isolation, conflicts and failures. Windows-only `test:persistence` checks session renewal/expiry and restarts, rebuilds and recreates the labelled test containers while retaining their volume. Close interactive test clients before that suite; it does not operate on development containers. Run suites sequentially: API throttling tests deliberately exhaust sign-in limits for up to 60 seconds. These checks do not replace real LoopBe testing below.
 
 Additional commands:
 
@@ -78,10 +90,9 @@ Additional commands:
 npm run lint
 npm run test:run
 npm run build
-npm run start --workspace @chordviewer/api
 ```
 
-The last command runs the compiled API after a build. The web output is `apps/web/dist`; API output is `services/api/dist`. Container packaging and PostgreSQL persistence begin in M3. There is no publish/deploy command in this milestone.
+The web output is `apps/web/dist`; API output is `services/api/dist`. The normal backend workflow uses Compose; direct `dev:api`/workspace `start` commands require all explicit backend environment settings and database connectivity. There is no public publish/deploy command in this milestone.
 
 ## Android: prepare and build
 
@@ -89,7 +100,7 @@ In a development PowerShell from the repository root:
 
 ```powershell
 . .\scripts\development\Initialize-AndroidEnvironment.ps1
-.\scripts\development\Test-Prerequisites.ps1
+.\scripts\development\Test-Prerequisites.ps1 -RequireContainers
 .\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
 .\apps\android\gradlew.bat -p apps/android --stop
 ```
@@ -118,14 +129,27 @@ adb devices
 adb -s emulator-5554 shell getprop sys.boot_completed
 ```
 
-Continue when the last command returns `1`. Use the actual serial from `adb devices` if it differs. Install and launch the native preview:
+Continue when the last command returns `1`. Use the actual serial from `adb devices` if it differs. With the development backend running, install the app, forward its local API and launch:
 
 ```powershell
 adb -s emulator-5554 install -r -t apps/android/app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 reverse tcp:3000 tcp:3000
 adb -s emulator-5554 shell am start -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-The native preview loads the exact same score fixture from its packaged assets and draws it natively; no WebView or running API is needed for M2. Backend connectivity arrives in M3. The MIDI monitor is also available on the screen.
+Sign in with the same account as the browser to open and save the same sheets. The app renders notation natively. Android session credentials stay in memory; restarting the app process requires signing in again. Switch to the MIDI monitor for input diagnostics. Only debug builds permit loopback HTTP; the release API remains unconfigured pending a later HTTPS deployment.
+
+To run native backend acceptance against the isolated test environment:
+
+```powershell
+.\scripts\development\Start-LocalBackend.ps1 -Environment test
+adb -s emulator-5554 reverse tcp:3001 tcp:3001
+adb -s emulator-5554 install -r -t apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.LibraryIntegrationTest -e libraryApi true -e apiPort 3001 com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 reverse --remove tcp:3001
+```
+
+For an interactive native UI against test data, map `adb -s emulator-5554 reverse tcp:3000 tcp:3001`. Restore the development mapping before using your personal library. [Native development](apps/android/README.md) explains session and network boundaries.
 
 ## MIDI testing without a piano or tablet
 
@@ -135,7 +159,7 @@ LoopBe1 must expose **LoopBe Internal MIDI**. For the browser, open the score pr
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Speed 0.25
 ```
 
-Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI input never edits the M2 sample. Switching inputs, disconnecting, or hiding the page clears input; select the device to resume after returning. This setup does not generate audio.
+Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI input does not yet edit saved scores. Switching inputs, disconnecting, or hiding the page clears input; select the device to resume after returning. This setup does not generate audio.
 
 For the Android emulator, keep the MIDI bridge running in a separate terminal:
 
@@ -163,6 +187,7 @@ When finished, stop the bridge with Ctrl+C in its terminal, then:
 
 ```powershell
 adb -s emulator-5554 reverse --remove tcp:39173
+adb -s emulator-5554 reverse --remove tcp:3000
 adb -s emulator-5554 emu kill
 ```
 
@@ -170,4 +195,4 @@ The debug bridge is excluded from the Android release build. Emulator testing do
 
 ## Next milestones
 
-M3 adds local containers, PostgreSQL, accounts and sheet persistence. M4 adds MIDI authoring; M5 melody editing/import; M6 the full Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).
+M4 adds MIDI authoring; M5 melody editing/import; M6 the full Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).

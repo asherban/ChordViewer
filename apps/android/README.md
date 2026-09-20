@@ -1,6 +1,38 @@
 # Native Android development
 
-The native Kotlin / Jetpack Compose app includes a developer score preview and a MIDI input monitor. The score preview reads the same original JSON fixture as the web client; it is not a saved personal sheet. The monitor separates physically held keys from sounding notes and sustain, including channel identity. Sheet authoring and practice will build on these boundaries in later milestones.
+The native Kotlin / Jetpack Compose app signs in to the shared local backend and manages each account's persistent library. It creates blank sheets or explicit copies of the original example, opens saved notation, and saves title/tutorial changes with revision conflict detection. Note/chord editing and practice remain later milestones. The separate MIDI monitor retains held/sounding notes, sustain and channel identity.
+
+## Local accounts and library
+
+Start the backend using the [root README](../../README.md), install the debug APK, and forward its loopback API port:
+
+```powershell
+adb -s emulator-5554 reverse tcp:3000 tcp:3000
+adb -s emulator-5554 shell am start -n com.chordviewer.debug/com.chordviewer.MainActivity
+```
+
+Create an account in **Library** or sign in with the same account used on the web. A new account starts empty. **Copy example** makes a real, separately saved sheet only when selected explicitly. The tutorial field accepts an HTTPS YouTube watch or youtu.be link; the server normalizes it without loading the video. If another client saves first, reopen the sheet after a conflict before trying again.
+
+Session tokens remain only in the activity's ViewModel. Rotation preserves the session; process death or force-stop requires sign-in again. Passwords and tokens are never written to saved instance state, preferences, files or logs. Sign-out clears local account data immediately and requests server revocation; a failed revocation is shown explicitly. The app does not automatically retry a failed write. Unsaved title and tutorial edits stay in the ViewModel when switching to the MIDI monitor or rotating the device; Back, Refresh and Sign out ask before discarding them. Failed saves retain the draft and the last saved revision. An unavailable library is shown as not loaded, rather than empty.
+
+Only the debug source set permits HTTP, restricted to `127.0.0.1` through `adb reverse`. Release networking requires HTTPS and has no API origin configured until public hosting is selected. Redirects are rejected so credentials cannot follow a server redirect to another host. Requests have connection/read timeouts; response reads stop at 2 MiB and score writes at 1 MiB. Android's normal certificate verification applies to HTTPS.
+
+The implementation separates `library/LibraryApi.kt` (bounded HTTP), `LibraryModels.kt` (validated contracts), `LibraryViewModel.kt` (session and request lifetime), and `LibraryScreen.kt` (Compose UI). It uses the platform HTTP client and the existing AndroidX lifecycle family; no third-party HTTP or credential-storage implementation was added.
+
+### Real backend instrumentation
+
+Run this only against the isolated test API/database: the test creates new random test accounts and sheets. It does not reset a developer database. Build the test APK before starting the emulator, establish the reverse mapping, and install both APKs:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest
+adb -s emulator-5554 reverse tcp:3001 tcp:3001
+adb -s emulator-5554 install -r -t app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.LibraryIntegrationTest -e libraryApi true -e apiPort 3001 com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 reverse --remove tcp:3001
+```
+
+The test checks an empty account, example/blank creation, score reading and updates, canonical tutorial URLs, stale revision conflicts, persisted data after a new login, cross-account denial, and server session revocation. Without `libraryApi=true`, it is skipped and does not provide evidence of backend coverage. Credentials are generated in the test process and are not printed.
 
 ## Build
 
@@ -29,7 +61,7 @@ Send the fixture through LoopBe1. Held notes should appear immediately, note-off
 
 - `src/main` contains the transport-independent MIDI byte parser and native monitor UI.
 - `src/debug` contains all TCP transport, authentication token handling, relay framing and connection controls. It connects only to `127.0.0.1:39173` through `adb reverse`; it has no configurable remote endpoint. A reset must precede ordered MIDI frames; malformed input closes the connection and clears notes.
-- `src/release` provides a placeholder for future device MIDI input. The release manifest has no Internet permission, relay endpoint, token field or debug transport. USB and Bluetooth transport are not implemented in this milestone.
+- `src/release` provides a placeholder for future device MIDI input and an unconfigured public API origin. Release includes Internet permission for future HTTPS API use, but has no relay endpoint, relay token field, debug cleartext exception or debug transport. USB and Bluetooth transport are not implemented in this milestone.
 - Local tests exercise fragmented and running-status MIDI, interleaved realtime messages, note-on with zero velocity, sustain and channel separation, panic/reset behavior, bounded framing and out-of-order or malformed relay data.
 
 The debug relay processes every MIDI frame but coalesces screen updates to avoid an unbounded UI queue. Future automatic insertion must recognize gestures before that UI update boundary, so a quick press/release can never disappear from the authoring model.
@@ -44,6 +76,6 @@ Build references: [AGP 8.13 compatibility](https://developer.android.com/build/r
 
 The app decodes `contracts/fixtures/lead-sheet-v1.json` directly through Gradle asset and test-resource source directories. There is no copied Android-only score file. The v1 reader validates the agreed C-major, 4/4, single-treble-voice subset, including independent chord timing, rhythmic duration, globally unique IDs, bar boundaries and ties between adjacent equal spelled pitches.
 
-Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Accidentals persist within each bar and a natural cancels an earlier alteration. Dense measures scroll horizontally; rows contain one or two measures according to available width. The canvas exposes a textual score description for accessibility. This is a notation feasibility proof; advanced engraving, beaming, multiple voices, lyrics, editing and saved-library behavior remain later work.
+Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Accidentals persist within each bar and a natural cancels an earlier alteration. Dense measures scroll horizontally; rows contain one or two measures according to available width. The canvas exposes a textual score description for accessibility. Advanced engraving, beaming, multiple voices, lyrics and note/chord editing remain later work. M3 reuses this native renderer for validated saved-library scores.
 
 Bravura is unmodified and licensed under SIL Open Font License 1.1. The license is bundled in `app/src/main/assets/licenses/Bravura-OFL.txt`. Source: [Steinberg Bravura commit 37b1943](https://github.com/steinbergmedia/bravura/tree/37b194378b710cc40e406ab6c4b07608bb9548ae). `bravura.otf` SHA256: `cdf0f893ee1fdb64b7f6713d71ee0dcfc349c0ac01429a8e451b01a9e79f5f3b`.

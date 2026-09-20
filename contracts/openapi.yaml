@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
   title: ChordViewer local API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
-    M2 foundation endpoints. No authentication, database, account data or score writes
-    are implemented. The server binds only to 127.0.0.1. Public deployment is deferred.
+    M3 workstation API. Browser authentication uses HttpOnly cookies and a trusted Origin;
+    native clients use signed bearer sessions from set-auth-token. Public deployment is deferred.
+    Sheet writes are limited to 1 MiB and libraries to 100 sheets per account.
 servers:
   - url: http://127.0.0.1:3000
 paths:
@@ -14,17 +15,18 @@ paths:
       summary: Report local API availability
       responses:
         '200':
-          description: API is available; this does not assert database readiness.
+          description: API and migrated database are ready. Unavailable database returns 503.
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [status, service, apiVersion]
+                required: [status, service, apiVersion, database]
                 properties:
                   status: { type: string, const: ok }
                   service: { type: string, const: chordviewer-api }
                   apiVersion: { type: string, const: '1' }
+                  database: { type: string, const: ready }
   /api/v1/score-example:
     get:
       operationId: getScoreExample
@@ -36,3 +38,186 @@ paths:
             application/json:
               schema:
                 $ref: './src/lead-sheet-v1.schema.json'
+  /api/auth/sign-up/email:
+    post:
+      summary: Create a local email/password account and sign in
+      description: >-
+        Body contains name (1–100 characters), email (up to 254), and password (12–128).
+        Sets the browser cookie. Requests without Origin receive the signed set-auth-token
+        header for native use. JSON never contains a raw token. Email verification/recovery
+        and external authentication are not enabled in this private milestone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 12, maxLength: 128, writeOnly: true }
+      responses:
+        '200': { description: Account created and session established. }
+        '400': { description: Invalid input or registration rejected. }
+        '403': { description: Invalid request origin or Fetch Metadata. }
+        '429': { description: Authentication rate limit reached. }
+  /api/auth/sign-in/email:
+    post:
+      summary: Sign in to an existing local account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 12, maxLength: 128, writeOnly: true }
+      responses:
+        '200': { description: Session established; same cookie/native-header behavior as registration. }
+        '401': { description: Sign-in failed. }
+        '429': { description: Authentication rate limit reached. }
+  /api/auth/sign-out:
+    post:
+      summary: Revoke the current session
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200': { description: Current session revoked and browser cookie cleared. }
+  /api/v1/me:
+    get:
+      summary: Return the authenticated account's id, name and email
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      responses:
+        '200': { description: 'Object with user: {id, name, email}; no session credential.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/sheets:
+    get:
+      summary: List this account's sheets, newest update first
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      responses:
+        '200':
+          description: Metadata only; a new account receives an empty sheets array.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sheets]
+                properties:
+                  sheets:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/SheetSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a blank sheet or an explicit copy of the original example
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, template]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                template: { type: string, enum: [blank, example] }
+                tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
+      responses:
+        '201': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid title, template, tutorial or extra fields. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: 'sheet_limit: account already has 100 sheets.' }
+  /api/v1/sheets/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Read a sheet owned by the authenticated account
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Unknown sheet or sheet belongs to another account. }
+    put:
+      summary: Save a complete validated score and tutorial against its current revision
+      description: >-
+        The score ID is immutable. Updates compare expectedRevision atomically, then increment it.
+        Browser cookie writes require a trusted Origin; native writes require a signed bearer token.
+        Successful responses reflect the authoritative saved state. Clients must not retry creates
+        automatically when the network outcome is unknown.
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [score, tutorialUrl, expectedRevision]
+              properties:
+                score: { $ref: './src/lead-sheet-v1.schema.json' }
+                tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
+                expectedRevision: { type: integer, minimum: 1, maximum: 2147483646 }
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid score, identity, revision or tutorial. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown sheet or sheet belongs to another account. }
+        '409': { description: 'revision_conflict: reload before another save.' }
+        '413': { description: Request exceeds 1 MiB. }
+components:
+  securitySchemes:
+    browserSession: { type: apiKey, in: cookie, name: chordviewer.session_token }
+    nativeSession: { type: http, scheme: bearer, bearerFormat: Signed opaque database session }
+  responses:
+    Unauthorized:
+      description: Missing, invalid, expired or revoked session.
+    Saved:
+      description: Persisted sheet and current revision.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SavedSheet' }
+  schemas:
+    Tutorial:
+      type: [string, 'null']
+      maxLength: 500
+      description: >-
+        Null for no video; HTTPS youtube.com, www.youtube.com, m.youtube.com watch?v=ID
+        or youtu.be/ID with an eleven-character video ID. Stored in canonical www.youtube.com/watch form.
+        No backend URL fetching occurs.
+    SheetMetadata:
+      type: object
+      required: [id, tutorialUrl, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
+        revision: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SheetSummary:
+      allOf:
+        - { $ref: '#/components/schemas/SheetMetadata' }
+        - type: object
+          required: [title]
+          properties:
+            title: { type: string, minLength: 1, maxLength: 200 }
+    SavedSheet:
+      allOf:
+        - { $ref: '#/components/schemas/SheetMetadata' }
+        - type: object
+          required: [score]
+          properties:
+            score: { $ref: './src/lead-sheet-v1.schema.json' }

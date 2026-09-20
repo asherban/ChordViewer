@@ -11,6 +11,9 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [Local development guide](../development/local-setup.md) | Installed Android tools, build commands, emulator and real LoopBe MIDI test workflow. |
 | [M1 verification record](../development/m1-verification.md) | Passed builds/tests/reviews, working emulator configuration and native MIDI evidence. |
 | [M2 verification record](../development/m2-verification.md) | Clean rebuild, shared notation, web/native MIDI checks, reviews and screenshots. |
+| [M3 verification record](../development/m3-verification.md) | Shared account libraries, container persistence, session/isolation checks and native/browser evidence. |
+| [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
+| [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |
 | [Score/API contract](score-contract.md) | Versioned data, notation scope, semantic validation and shared client fixtures. |
 | [Implemented foundation](../development/architecture.md) | Web/API/native boundaries, rendering approach and development configuration. |
 | [Mockup gallery](mockups/README.md) | Selected layout A, melody notation, creation exploration, Library and Practice images. |
@@ -28,10 +31,10 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 
 ## How to read this plan
 
-The product plan distinguishes accepted direction from proposed interaction details. M2 selects React/VexFlow, native Kotlin/Compose Canvas and Fastify, with PostgreSQL and Better Auth planned for M3. Cloud provider, import scope, billing and several authoring details remain open. The milestone roadmap includes decision points rather than treating these as settled choices.
+The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Cloud provider, import scope, billing and several authoring details remain open. The milestone roadmap includes decision points rather than treating these as settled choices.
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
-M0–M2 are complete. The old active client has been replaced by the three-part foundation and shared score proof. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. M3 adds local persistence and accounts; deployment remains deferred.
+The old active client has been replaced by the three-part foundation, shared score proof and M3 account libraries. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. Deployment remains deferred.
 
 All mockup assets and internal document links are stored within the repository. Update this folder as decisions are made so future implementation work uses the same plan.
