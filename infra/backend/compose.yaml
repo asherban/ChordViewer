@@ -1,0 +1,70 @@
+services:
+  database:
+    image: postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: chordviewer
+      POSTGRES_PASSWORD: ${CHORDVIEWER_DB_ADMIN_PASSWORD:?Initialize the local backend settings first}
+      APP_DB_PASSWORD: ${CHORDVIEWER_DB_PASSWORD:?Initialize the local backend settings first}
+    volumes:
+      - database:/var/lib/postgresql
+      - ./initialize-database.sh:/docker-entrypoint-initdb.d/01-application-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chordviewer"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+  api:
+    image: chordviewer-api:local
+    build:
+      context: ../..
+      dockerfile: infra/backend/Dockerfile
+    init: true
+    environment:
+      NODE_ENV: production
+      LOCAL_DEVELOPMENT: "true"
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: postgresql://chordviewer:${CHORDVIEWER_DB_PASSWORD:?Initialize the local backend settings first}@database:5432/chordviewer
+      BETTER_AUTH_SECRET: ${CHORDVIEWER_AUTH_SECRET:?Initialize the local backend settings first}
+      AUTH_BASE_URL: http://127.0.0.1:${CHORDVIEWER_API_PORT:?Initialize the local backend settings first}
+      TRUSTED_ORIGINS: http://127.0.0.1:5173
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${CHORDVIEWER_API_PORT}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+volumes:
+  database:

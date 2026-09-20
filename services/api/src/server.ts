@@ -1,17 +1,21 @@
 import { buildApp } from './app.js';
+import { configuration } from './config.js';
+import { createPool } from './database.js';
 
-const app = buildApp();
 try {
-  // This milestone is local-only; later deployment configuration must make public exposure explicit.
-  await app.listen({ host: '127.0.0.1', port: 3000 });
-  console.info('ChordViewer API is listening at http://127.0.0.1:3000');
-} catch (error) {
-  console.error('API startup failed:', error instanceof Error ? error.message : 'Unknown error');
-  await app.close();
-  process.exitCode = 1;
-}
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.once(signal, () => {
-    void app.close().catch(() => { process.exitCode = 1; });
-  });
-}
+  const config = configuration();
+  const pool = createPool(config);
+  const app = buildApp(pool, config);
+  app.addHook('onClose', async () => { await pool.end(); });
+  try {
+    await app.listen({ host: config.host, port: config.port });
+    console.info('ChordViewer local API is ready.');
+  } catch {
+    console.error('API startup failed. Check the local configuration and database availability.');
+    await app.close();
+    process.exitCode = 1;
+  }
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => { void app.close().catch(() => { process.exitCode = 1; }); });
+  }
+} catch { console.error('API configuration is invalid. Run the documented local setup.'); process.exitCode = 1; }

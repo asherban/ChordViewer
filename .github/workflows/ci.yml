@@ -21,8 +21,31 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium
+      - name: Prepare isolated backend settings
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, secrets
+          os.umask(0o077)
+          directory = pathlib.Path('.local/backend')
+          directory.mkdir(parents=True, exist_ok=True)
+          values = {'CHORDVIEWER_API_PORT': '3001'}
+          for key in ('CHORDVIEWER_DB_PASSWORD', 'CHORDVIEWER_DB_ADMIN_PASSWORD', 'CHORDVIEWER_AUTH_SECRET'):
+              values[key] = secrets.token_hex(32)
+          (directory / 'test.env').write_text(''.join(f'{key}={value}\n' for key, value in values.items()))
+          PY
+      - name: Start isolated backend
+        run: docker compose --project-name chordviewer-test --env-file .local/backend/test.env --file infra/backend/compose.yaml up --detach --build --wait --wait-timeout 120
       - run: npm run test:web
+      - run: npm run test:api
       - run: npm audit --audit-level=high
+      - name: Stop isolated backend
+        if: always()
+        shell: bash
+        run: |
+          if [ -f .local/backend/test.env ]; then
+            docker compose --project-name chordviewer-test --env-file .local/backend/test.env --file infra/backend/compose.yaml down
+          fi
 
   android:
     runs-on: ubuntu-latest

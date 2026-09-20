@@ -43,7 +43,7 @@ fun LeadSheetPreview() {
     var showMelody by remember { mutableStateOf(true) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Developer score sample", style = MaterialTheme.typography.titleLarge)
-        Text("Your personal library is empty. This original sample checks the shared score format.")
+        Text("This original sample checks the shared score format. It is separate from your personal library.")
         val sheet = sample.getOrNull()
         if (sheet == null) {
             Text("The score sample could not be loaded.")

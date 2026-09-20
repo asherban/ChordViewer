@@ -13,12 +13,14 @@
     "npm": ">=11 <12"
   },
   "scripts": {
-    "dev": "npm run build -w @chordviewer/contracts && concurrently --kill-others --names Contract,API,Web \"tsc -p contracts/tsconfig.json --watch --preserveWatchOutput\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "npm run build -w @chordviewer/contracts && concurrently --kill-others --names Contract,Web \"tsc -p contracts/tsconfig.json --watch --preserveWatchOutput\" \"npm:dev:web\"",
     "dev:web": "npm run dev -w @chordviewer/web",
     "dev:api": "npm run dev -w @chordviewer/api",
     "build": "npm run build -w @chordviewer/contracts && npm run build -w @chordviewer/api && npm run build -w @chordviewer/web",
     "test:run": "npm run build -w @chordviewer/contracts && vitest run",
     "test:web": "playwright test",
+    "test:api": "node --test --test-concurrency=1 tests/api/storage.test.mjs",
+    "test:persistence": "node --test tests/api/persistence.test.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm run test:run && npm run build"
   },
@@ -27,6 +29,7 @@
     "@playwright/test": "1.63.0",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.12.2",
+    "@types/pg": "8.23.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.1",

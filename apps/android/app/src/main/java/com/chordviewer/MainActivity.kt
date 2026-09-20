@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,15 +28,22 @@ import androidx.compose.ui.unit.dp
 import com.chordviewer.midi.MidiNote
 import com.chordviewer.midi.MidiSnapshot
 import com.chordviewer.score.LeadSheetPreview
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chordviewer.library.LibraryScreen
+import com.chordviewer.library.LibraryViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val library = ViewModelProvider(this)[LibraryViewModel::class.java]
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF087F6D))) {
                 var snapshot by remember { mutableStateOf(MidiSnapshot()) }
-                var showScore by remember { mutableStateOf(true) }
+                var showTools by remember { mutableStateOf(intent.hasExtra("chordviewer.midi.token")) }
+                var showScore by remember { mutableStateOf(false) }
+                val libraryState by library.state.collectAsStateWithLifecycle()
                 Scaffold { insets ->
                     Column(
                         modifier = Modifier.fillMaxSize().padding(insets)
@@ -43,8 +51,14 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         Text("ChordViewer", style = MaterialTheme.typography.headlineLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { showTools = false }) { Text("Library") }
+                            OutlinedButton(onClick = { showTools = true }) { Text("MIDI monitor") }
+                        }
+                        if (!showTools) LibraryScreen(libraryState, library)
+                        else {
                         OutlinedButton(onClick = { showScore = !showScore }) {
-                            Text(if (showScore) "Show MIDI monitor" else "Show score sample")
+                            Text(if (showScore) "Hide score sample" else "Show score sample")
                         }
                         if (showScore) LeadSheetPreview()
                         Text("MIDI input monitor", style = MaterialTheme.typography.titleLarge)
@@ -60,7 +74,8 @@ class MainActivity : ComponentActivity() {
                                 Text("MIDI messages: ${snapshot.messagesReceived}")
                             }
                         }
-                        Text("Local development diagnostic. Sheet creation and practice are upcoming milestones.")
+                        Text("Local MIDI diagnostic. Automatic note and chord entry is planned for the next milestone.")
+                        }
                     }
                 }
             }

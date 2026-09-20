@@ -1,0 +1,2 @@
+infra/backend/*.sh text eol=lf
+apps/android/gradlew text eol=lf
