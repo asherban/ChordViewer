@@ -1,6 +1,6 @@
 # Native Android development
 
-This first milestone is a native Kotlin / Jetpack Compose MIDI input monitor. It separates physically held keys from sounding notes and sustain, including channel identity. Sheet authoring and practice will build on this input boundary in later milestones.
+The native Kotlin / Jetpack Compose app includes a developer score preview and a MIDI input monitor. The score preview reads the same original JSON fixture as the web client; it is not a saved personal sheet. The monitor separates physically held keys from sounding notes and sustain, including channel identity. Sheet authoring and practice will build on these boundaries in later milestones.
 
 ## Build
 
@@ -14,14 +14,14 @@ The build pins AGP 8.13.2, Gradle 8.14.5, Kotlin / Compose compiler 2.3.21, Comp
 
 ## Emulator MIDI input
 
-Start the [Windows bridge](../../scripts/midi/README.md) on the development machine, then run:
+Build before booting the emulator, then start the [Windows bridge](../../scripts/midi/README.md) on the development machine. From the repository root in an initialized Android shell, run:
 
 ```powershell
-adb reverse tcp:39173 tcp:39173
-.\gradlew.bat :app:installDebug
+adb -s emulator-5554 install -r -t apps/android/app/build/outputs/apk/debug/app-debug.apk
+.\scripts\development\Connect-AndroidMidi.ps1 -Serial emulator-5554
 ```
 
-Launch **ChordViewer** in the emulator, paste the session token from the bridge's ignored `.local/midi/bridge.json` file into the masked field and press **Connect**. The root development launcher can pass the same token through the debug-only `chordviewer.midi.token` intent extra. The debug application ID is `com.chordviewer.debug`; its activity is `com.chordviewer.MainActivity`.
+The first command installs the built debug APK. The helper establishes `adb reverse` and launches **ChordViewer** with the private session token without printing it. Use the actual serial from `adb devices` if it differs. The debug application ID is `com.chordviewer.debug`; its activity is `com.chordviewer.MainActivity`. The [root README](../../README.md) gives the full build, boot, test and shutdown commands.
 
 Send the fixture through LoopBe1. Held notes should appear immediately, note-off should clear held notes, and sustain should retain only sounding notes until pedal release. **Disconnect / clear** and backgrounding the app clear state. Restarting the bridge requires a fresh connection and may require its new token. This setup does not create sound or send notes back to the loopback device.
 
@@ -39,3 +39,11 @@ M1 builds, 17 JVM tests and real LoopBe/emulator instrumentation passed on 2026-
 `LoopbackRelayTest` is an opt-in instrumentation integration test. Install the debug and Android test APKs, establish `adb reverse`, and run `AndroidJUnitRunner` with the `midiToken` argument read from the current bridge metadata (do not log it). Once the runner emits `MIDI_RELAY_READY`, send the host smoke fixture within 30 seconds at its default speed. The test verifies held C major, sustained release, zero-velocity note-off, channel separation, final clear, explicit disconnect reset and reconnect reset through the actual socket and native parser. Without the token it is skipped, so an ordinary skipped run is not evidence of emulator loopback coverage.
 
 Build references: [AGP 8.13 compatibility](https://developer.android.com/build/releases/agp-8-13-0-release-notes), [Kotlin compatibility](https://kotlinlang.org/docs/gradle-configure-project.html), [Gradle security advisory](https://github.com/gradle/gradle/security/advisories/GHSA-w78c-w6vf-rw82), [Compose compiler setup](https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler), [Compose BOM mapping](https://developer.android.com/develop/ui/compose/bom/bom-mapping).
+
+## Native score proof
+
+The app decodes `contracts/fixtures/lead-sheet-v1.json` directly through Gradle asset and test-resource source directories. There is no copied Android-only score file. The v1 reader validates the agreed C-major, 4/4, single-treble-voice subset, including independent chord timing, rhythmic duration, globally unique IDs, bar boundaries and ties between adjacent equal spelled pitches.
+
+Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Accidentals persist within each bar and a natural cancels an earlier alteration. Dense measures scroll horizontally; rows contain one or two measures according to available width. The canvas exposes a textual score description for accessibility. This is a notation feasibility proof; advanced engraving, beaming, multiple voices, lyrics, editing and saved-library behavior remain later work.
+
+Bravura is unmodified and licensed under SIL Open Font License 1.1. The license is bundled in `app/src/main/assets/licenses/Bravura-OFL.txt`. Source: [Steinberg Bravura commit 37b1943](https://github.com/steinbergmedia/bravura/tree/37b194378b710cc40e406ab6c4b07608bb9548ae). `bravura.otf` SHA256: `cdf0f893ee1fdb64b7f6713d71ee0dcfc349c0ac01429a8e451b01a9e79f5f3b`.

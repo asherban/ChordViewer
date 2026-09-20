@@ -1,0 +1,5 @@
+# Shared musical fixtures
+
+`score-validation-cases.json` is the language-neutral M2 score contract suite. Each case supplies a complete input object, its expected validity and, for invalid inputs, one required TypeScript issue code. Android checks the same validity without depending on TypeScript exception messages. The canonical visual proof is [lead-sheet-v1.json](../../../contracts/fixtures/lead-sheet-v1.json).
+
+`chord-recognition-cases.json` preserves useful recognition expectations for M4. It describes pitch classes, lowest played MIDI note and musical quality independently of display notation or a particular recognition library. M2's web monitor retains basic chord detection; this reference suite is not yet an executable cross-client authoring test. In particular, major and minor must remain distinct; blindly lowercasing `CM` and `Cm` loses that distinction. Enharmonic spelling and jazz presentation belong to presentation rules, and slash characters inside chord qualities must not be mistaken for bass-note separators.

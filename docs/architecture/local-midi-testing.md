@@ -8,7 +8,8 @@ Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setu
 | --- | --- |
 | Windows driver | LoopBe1 is installed; Windows reports the device as `nerds.de LoopBe1 - Internal Midi Port (WDM)`. |
 | MIDI ports | WinMM enumerates `LoopBe Internal MIDI` as both an input and an output. |
-| Existing web app | Started locally at `http://127.0.0.1:5173/` and tested in Chrome after the user enabled MIDI permission. The app selected `LoopBe Internal MIDI`. |
+| Original web reference (M1) | Started locally at `http://127.0.0.1:5173/` and tested in Chrome after the user enabled MIDI permission. The app selected `LoopBe Internal MIDI`. |
+| Rebuilt web client (M2) | The real LoopBe fixture passed in Chrome: C major, sustain, zero-velocity note-off, channel 2, final clear and reselecting the active input. See the [M2 verification record](../development/m2-verification.md). |
 | Note input | A temporary native Windows sender sent MIDI notes 60, 64 and 67 at velocity 96. The app displayed `CM` and `C E G`. |
 | Sustain | Sending CC64 = 127 followed by note-offs kept the chord visible and showed Sustain. Sending CC64 = 0 cleared the notes. |
 | Alternate note-off | Note 62 followed by note-on with velocity zero left no stuck note. |
@@ -17,7 +18,7 @@ Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setu
 | Windows bridge | The committed bridge passed real LoopBe round-trip tests in PowerShell 5.1 and 7: byte ordering, timestamps, sustain, channel separation, reconnect reset, authentication, malformed input, credential ACL and cleanup. |
 | Other installed software | MIDIculous 4.1.13 is installed. Its MIDI configuration was not altered or used for this test. |
 
-This was a real Windows-driver-to-Web-MIDI smoke test against the current application, not an injected browser event or mocked chord result. It establishes the local input path; it does not test the planned rebuilt editor, every MIDI case or device hot-plug behavior. The original sender was a temporary diagnostic probe. M1 now provides a committed [fixture sender and bridge test](../../scripts/midi/README.md); the rebuilt web client still needs its own acceptance run when it replaces the old application.
+These are real Windows-driver-to-Web-MIDI checks. The original reference used a temporary sender; M2 uses the committed [fixture sender](../../scripts/midi/README.md). Both the rebuilt web client and the native M2 app now pass their local input acceptance checks. This establishes the input path; it does not yet test an editor, every MIDI case or physical device hot-plug behavior.
 
 ## Test routes
 

@@ -112,7 +112,8 @@ Both clients connect directly to the piano and communicate with the backend for 
 - Use a local draft and explicit synchronization status so a temporary server connection loss does not interrupt creation. Conflict behavior remains to be designed.
 - Use one versioned API contract for web and Android. Native Android has its own UI and MIDI integration; shared behavior does not imply shared UI code.
 - Keep each client's MIDI processing separable from its input transport. Web tests can use the real Web MIDI path through LoopBe1; Android emulator tests will use a local bridge and debug input adapter feeding the same native processing used by device input. The adapter remains outside release builds. See [Local MIDI testing](local-midi-testing.md) for verified results and remaining work.
-- A simple backend and PostgreSQL are the current proposal. Framework and authentication choices remain open.
+- M2 selects a TypeScript/Fastify backend and PostgreSQL for M3 persistence. Authentication will use self-hosted Better Auth email/password with database-backed sessions; web uses secure HttpOnly cookies and native session storage/transport must pass its M3 review. Authentication and storage are not implemented by the M2 diagnostic API.
+- The first melody scope is one treble voice with chord symbols, rests, accidentals, dotted notes and ties, confirmed by the user during M2. Web uses VexFlow; Android draws natively with Compose Canvas and a bundled music font. The foundation proof intentionally supports C key signature and 4/4; additional keys/meters are future contract extensions.
 
 ## Proposed development and deployment path
 
@@ -130,7 +131,7 @@ The workstation audit, preservation steps and cleanup inventory are recorded in 
 
 1. Automatic insertion gesture details: define physical key release, overlapping notes, rolled chords and sustain behavior so entry captures the intended event once and preserves the selected duration.
 2. Rhythm entry: defaults and touch controls for chord/note lengths, rests, dotted values and ties; how the user changes duration with hands at the piano.
-3. First-release melody scope: one melodic voice on a treble staff is the current visual proposal; tuplets, multiple voices and more complex notation are not yet agreed.
+3. First-release melody scope: one treble voice with rests, accidentals, dots and ties is agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope; additional keys/meters must be specified before authoring is complete.
 4. How to resolve alternate chord names and enharmonic spellings without slowing entry.
 5. Import formats and the minimum direct-editing controls needed at launch.
 6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.

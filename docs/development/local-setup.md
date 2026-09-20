@@ -1,6 +1,6 @@
 # Local development
 
-The rebuild starts with local browser and Android MIDI testing. The backend and database arrive in M3; NAS deployment remains M8. See the [milestones](../architecture/milestones.md) for the current delivery boundary.
+The root [README](../../README.md) contains the complete developer commands. M2 adds the web/API/native foundation and shared notation proof; accounts, persistent storage and the database arrive in M3. NAS deployment remains M8. See the [milestones](../architecture/milestones.md) for the current delivery boundary.
 
 **M1 verified:** Android builds, all 17 JVM tests and the real LoopBe-to-emulator instrumentation test pass. Use the hardware-graphics profile below; software graphics stalled on this workstation. See the [M1 verification record](m1-verification.md) for evidence and limits.
 
@@ -30,7 +30,7 @@ The environment helper prefers an SDK specified by `ANDROID_HOME`, then `Develop
 
 ## Check and build
 
-Use a normal PowerShell terminal in the repository root, with Node/npm and Docker available. If local scripts are blocked by the default execution policy, start a development shell with the following command. It changes only the child process policy; machine and user policy stay unchanged:
+Use a normal PowerShell terminal in the repository root, with the pinned Node/npm selected using the README's fnm commands. Docker becomes required in M3; the prerequisite checker only checks containers when passed `-RequireContainers`. If local scripts are blocked by the default execution policy, start a development shell with the following command. It changes only the child process policy; machine and user policy stay unchanged:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass
@@ -46,14 +46,14 @@ The Android helper changes only the current process environment:
 
 The first build downloads Gradle and Maven dependencies. Subsequent builds reuse the user's Gradle cache. On this 16 GB machine, finish the build before booting the emulator and release build-daemon memory with `apps/android/gradlew.bat -p apps/android --stop`. Build outputs, SDK paths, credentials and local test logs are ignored by version control.
 
-The existing browser application remains the web MIDI reference until M2 replaces it:
+The rebuilt web and API run together after selecting the pinned Node version:
 
 ```powershell
 npm ci
-npm run dev -- --host 127.0.0.1
+npm run dev
 ```
 
-Open the printed localhost URL in Chrome or Edge, allow MIDI access, and select `LoopBe Internal MIDI`. No physical instrument is needed. Do not forward received events back to the same LoopBe output.
+Open `http://127.0.0.1:5173/` in Chrome or Edge, choose Explore the score preview, enable MIDI and select `LoopBe Internal MIDI`. The API listens at `127.0.0.1:3000`; neither service needs secrets or a database yet. No physical instrument is needed. Do not forward received events back to the same LoopBe output.
 
 ## Run the tablet emulator
 

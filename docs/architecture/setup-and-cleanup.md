@@ -2,9 +2,9 @@
 
 Planning date: 2026-09-20. This page preserves the original setup audit and cleanup plan. Implementation has begun; see the [local development guide](../development/local-setup.md) for installed tools and executable commands.
 
-Implementation update: M1 is complete. Android Studio, JDK 21, SDK 35 and an accelerated tablet AVD are installed; native builds and real emulator MIDI acceptance pass. Use the host-graphics configuration in the local guide. A private baseline preserves source and local configuration outside the repository. Verified generated remnants (`.next`, `dist`, Playwright output and TypeScript build metadata) and inactive Supabase temporary metadata were removed after preservation. Active source replacement remains M2 work. Docker's Linux engine is now reachable.
+Implementation update: M1 and M2 are complete. Android Studio, JDK 21, SDK 35 and an accelerated tablet AVD are installed; native builds and real emulator MIDI acceptance pass. Use the host-graphics configuration in the local guide. A private baseline preserves source and local configuration outside the repository. Generated remnants and inactive Supabase metadata were removed in M1. M2 replaced the active legacy client with separate web/API/native boundaries, retaining useful musical behavior and removing 46 obsolete tracked files only after their hashes matched the baseline. Node 24.21.0 is pinned, developer commands are in the [root README](../../README.md), and the [M2 verification record](../development/m2-verification.md) records the cleanup and checks. Docker's Linux engine is reachable; container development begins in M3.
 
-See the [product plan](product-plan.md) for target behavior and the [milestone roadmap](milestones.md) for delivery outcomes. The observations below are a dated audit and should be rechecked when implementation begins.
+See the [product plan](product-plan.md) for target behavior and the [milestone roadmap](milestones.md) for delivery outcomes. The observations and phases below preserve the original planning audit; the implementation update above and verification records describe current completion.
 
 ## Observed workstation state
 

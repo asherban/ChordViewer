@@ -1,6 +1,6 @@
 # ChordViewer rebuild plan
 
-Planning baseline: 2026-09-20. This folder is the reference for the planned rebuild. It records agreed direction, proposed behavior and unresolved decisions; it does not describe an implemented replacement application.
+Planning baseline: 2026-09-20. This folder records agreed direction, proposed behavior, implementation decisions and unresolved questions. The milestone roadmap distinguishes working foundations from future product workflows.
 
 | Document | Contents |
 | --- | --- |
@@ -10,6 +10,9 @@ Planning baseline: 2026-09-20. This folder is the reference for the planned rebu
 | [Milestone roadmap](milestones.md) | Delivery outcomes, completion criteria and decisions needed before each stage. |
 | [Local development guide](../development/local-setup.md) | Installed Android tools, build commands, emulator and real LoopBe MIDI test workflow. |
 | [M1 verification record](../development/m1-verification.md) | Passed builds/tests/reviews, working emulator configuration and native MIDI evidence. |
+| [M2 verification record](../development/m2-verification.md) | Clean rebuild, shared notation, web/native MIDI checks, reviews and screenshots. |
+| [Score/API contract](score-contract.md) | Versioned data, notation scope, semantic validation and shared client fixtures. |
+| [Implemented foundation](../development/architecture.md) | Web/API/native boundaries, rendering approach and development configuration. |
 | [Mockup gallery](mockups/README.md) | Selected layout A, melody notation, creation exploration, Library and Practice images. |
 | [Saved mockup prompts](mockups/prompts.md) | Available generation and revision briefs for future design changes. |
 
@@ -25,10 +28,10 @@ Planning baseline: 2026-09-20. This folder is the reference for the planned rebu
 
 ## How to read this plan
 
-The product plan distinguishes accepted direction from proposed interaction details. Frameworks, cloud provider, import scope, billing and several MIDI/notation details remain open. The milestone roadmap includes decision points rather than treating these as settled choices.
+The product plan distinguishes accepted direction from proposed interaction details. M2 selects React/VexFlow, native Kotlin/Compose Canvas and Fastify, with PostgreSQL and Better Auth planned for M3. Cloud provider, import scope, billing and several authoring details remain open. The milestone roadmap includes decision points rather than treating these as settled choices.
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
-M0 and M1 are complete: planning, Android builds, unit tests, code/security reviews and real LoopBe input in the native emulator are verified. The [local development guide](../development/local-setup.md) records the working hardware-graphics setup. A private baseline was preserved before removing obsolete generated output; replacement of the old application source belongs to M2. The [existing application architecture](../development/architecture.md) describes the earlier implementation and is not the target architecture. Deployment remains deferred.
+M0–M2 are complete. The old active client has been replaced by the three-part foundation and shared score proof. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. M3 adds local persistence and accounts; deployment remains deferred.
 
 All mockup assets and internal document links are stored within the repository. Update this folder as decisions are made so future implementation work uses the same plan.
