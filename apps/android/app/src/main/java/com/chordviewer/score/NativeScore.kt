@@ -6,20 +6,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -33,31 +25,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.chordviewer.R
-
-@Composable
-fun LeadSheetPreview() {
-    val context = LocalContext.current
-    val sample = remember {
-        runCatching { context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) } }
-    }
-    var showMelody by remember { mutableStateOf(true) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Developer score sample", style = MaterialTheme.typography.titleLarge)
-        Text("This original sample checks the shared score format. It is separate from your personal library.")
-        val sheet = sample.getOrNull()
-        if (sheet == null) {
-            Text("The score sample could not be loaded.")
-        } else {
-            Text(sheet.title, style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Switch(checked = showMelody, onCheckedChange = { showMelody = it },
-                    modifier = Modifier.semantics { contentDescription = "Show melody notation" })
-                Text(if (showMelody) "Chords and melody · C major · 4/4" else "Chords only · C major · 4/4")
-            }
-            NativeScore(sheet, showMelody)
-        }
-    }
-}
 
 @Composable
 fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {

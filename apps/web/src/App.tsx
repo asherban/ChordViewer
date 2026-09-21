@@ -5,6 +5,9 @@ import { AccountForm } from "./library/AccountForm";
 import { NewSheetForm } from "./library/NewSheetForm";
 import { SheetWorkspace } from "./library/SheetWorkspace";
 import { useLibrary } from "./library/useLibrary";
+import { useMidiInput } from "./midi/useMidiInput";
+import { FullscreenToggle } from "./layout/FullscreenToggle";
+import { AppDialog } from "./layout/AppDialog";
 import type { NewSheet } from "./library/api";
 
 type Mode = "Library" | "Create" | "Practice";
@@ -12,45 +15,36 @@ const sample = parseScore(example);
 
 export function App() {
   const library = useLibrary();
+  const midi = useMidiInput();
   const [mode, setMode] = useState<Mode>("Library");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState(false);
   function mayLeave() {
-    return (
-      !library.selected ||
-      !editing ||
-      window.confirm("Discard the unsaved changes to this sheet?")
-    );
+    return !library.selected || !editing || window.confirm("Discard the unsaved changes to this sheet?");
   }
   function navigate(destination: Mode) {
-    if (destination === "Practice" && library.selected) {
-      setMode("Practice");
+    // Switching modes keeps the current workspace mounted, including its draft.
+    setMode(destination);
+    setCreating(false);
+    if (!library.user && destination !== "Library") setPreview(true);
+    if (destination === "Create" && library.user && !library.selected && canCreate) setCreating(true);
+  }
+  async function openSheet(id: string, destination: Mode = "Create") {
+    if (library.selected?.id === id) {
+      setMode(destination);
       return;
     }
     if (!mayLeave()) return;
-    setEditing(false);
-    if (destination === "Library" || destination === "Create")
-      library.closeSheet();
-    if (destination === "Create" && library.user) {
-      setMode("Library");
-      setCreating(true);
-      setPreview(false);
-    } else {
-      setMode(destination);
-      setCreating(false);
-      setPreview(destination !== "Library");
-    }
-  }
-  async function openSheet(id: string) {
     if (await library.openSheet(id)) {
       setEditing(false);
       setCreating(false);
       setPreview(false);
-      setMode("Create");
+      setMode(destination);
     }
   }
   async function createSheet(fields: NewSheet) {
+    if (!mayLeave()) return;
     if (await library.createSheet(fields)) {
       setEditing(false);
       setCreating(false);
@@ -64,270 +58,143 @@ export function App() {
     setCreating(false);
     setPreview(false);
     setEditing(false);
+    midi.disconnect();
     await library.signOut();
   }
   const viewing = library.user && library.selected;
-  const showWorkspace = Boolean(viewing) || (preview && mode !== "Library");
+  const hasWorkspace = Boolean(viewing) || preview;
+  const showWorkspace = hasWorkspace && mode !== "Library";
+  const canCreate = !library.busy && library.sheets !== null && library.sheets.length < 100;
+  const sheetCount = library.sheets?.length;
   return (
     <div className="app-shell">
       <header className="app-header">
-        <a
-          className="brand"
-          href="#"
-          onClick={(event) => {
-            event.preventDefault();
-            if (!library.busy) navigate("Library");
-          }}
-          aria-label="ChordViewer library"
-        >
-          <span className="brand-mark" aria-hidden="true">
-            ♮
-          </span>
-          Chord<span>Viewer</span>
-        </a>
+        <a className="brand" href="#" aria-label="ChordViewer library" onClick={(event) => {
+          event.preventDefault();
+          if (!library.busy) navigate("Library");
+        }}>ChordViewer</a>
         <nav aria-label="Main navigation">
           {(["Library", "Create", "Practice"] as const).map((item) => (
-            <button
-              className={mode === item ? "nav-button active" : "nav-button"}
-              aria-current={mode === item ? "page" : undefined}
-              key={item}
-              disabled={
-                library.busy ||
-                library.checking ||
-                library.authBusy ||
-                (item === "Create" &&
-                  !!library.user &&
-                  (library.sheets === null || library.sheets.length >= 100))
-              }
-              onClick={() => navigate(item)}
-            >
-              {item}
-            </button>
+            <button className={mode === item ? "nav-button active" : "nav-button"}
+              aria-current={mode === item ? "page" : undefined} key={item}
+              disabled={library.busy || library.checking || library.authBusy}
+              onClick={() => navigate(item)}>{item}</button>
           ))}
         </nav>
-        {library.user ? (
-          <div className="account-menu">
-            <span title={library.user.email}>{library.user.name}</span>
-            <button className="text-button" onClick={() => void signOut()}>
-              Sign out
-            </button>
-          </div>
-        ) : (
-          <span className="build-badge">LOCAL DEVELOPMENT</span>
-        )}
-      </header>
-      <main>
-        <div className="page-heading">
-          <div>
-            <div className="eyebrow">YOUR SPACE TO PLAY</div>
-            <h1>
-              {mode === "Library"
-                ? "Your library"
-                : mode === "Create"
-                  ? "A place for your next idea"
-                  : "Make time for the music"}
-            </h1>
-            <p>
-              {mode === "Library"
-                ? "Your lead sheets, ready when you are."
-                : "Your sheet, with the piano right beside it."}
-            </p>
-          </div>
+        <div className="header-tools">
+          <span className="midi-connection" title={midi.selected ? "MIDI input connected" : "Connect MIDI from a sheet"}>
+            <span className={midi.selected ? "status-dot connected" : "status-dot"} />
+            {midi.selected ? "MIDI connected" : "MIDI off"}
+          </span>
+          <FullscreenToggle />
           {library.user && (
-            <span className="api-status">
-              Personal library · {library.user.email}
-            </span>
+            <div className="account-menu">
+              <span title={library.user.email}>{library.user.name}</span>
+              <button className="text-button" onClick={() => void signOut()}>Sign out</button>
+            </div>
           )}
         </div>
-        {library.error && (
-          <div className="error-message" role="alert">
-            {library.error}
+      </header>
+      <main className="app-main">
+        {(library.error || library.message || library.signOutPending) && (
+          <div className="app-feedback">
+            {library.error && !creating && <div className="error-message" role="alert">{library.error}</div>}
+            {library.message && <p className="success-message" role="status">{library.message}</p>}
+            {library.signOutPending && <button className="secondary" disabled={library.authBusy}
+              onClick={() => void signOut()}>{library.authBusy ? "Signing out…" : "Retry sign out"}</button>}
           </div>
         )}
-        {library.message && (
-          <p className="success-message" role="status">
-            {library.message}
-          </p>
-        )}
-        {library.checking ? (
-          <p role="status">Checking your account…</p>
-        ) : (
+        {library.checking ? <p className="loading-state" role="status">Checking your account…</p> : (
           <>
-            {library.signOutPending && (
-              <div className="retry-signout">
-                <button
-                  className="secondary"
-                  disabled={library.authBusy}
-                  onClick={() => void signOut()}
-                >
-                  {library.authBusy ? "Signing out…" : "Retry sign out"}
-                </button>
-              </div>
-            )}
-            {mode === "Library" && !library.user && (
-              <>
-                <AccountForm
-                  busy={library.authBusy || library.signOutPending}
-                  onSubmit={library.authenticate}
-                />
-                <div className="sample-invitation">
-                  <p>Want to try the layout and your MIDI input first?</p>
-                  <button
-                    className="secondary"
-                    onClick={() => navigate("Create")}
-                  >
-                    Explore the score preview ↗
+            <div className="library-view" hidden={showWorkspace}>
+              <div className="view-toolbar">
+                <div className="view-title">
+                  <h1>{mode === "Library" ? "My library" : mode === "Practice" ? "Choose a sheet to practice" : "Create a sheet"}</h1>
+                  {library.user && sheetCount !== undefined && <span className="sheet-count">
+                    {sheetCount + (sheetCount === 1 ? " sheet" : " sheets")}
+                  </span>}
+                </div>
+                {library.user && <div className="actions">
+                  <button className="secondary" disabled={library.loadingLibrary || library.busy}
+                    onClick={() => void library.loadLibrary()}>{library.loadingLibrary ? "Refreshing…" : "Refresh library"}</button>
+                  <button className="primary" disabled={!canCreate} onClick={() => setCreating(true)}>
+                    <span aria-hidden="true">＋</span> New sheet
                   </button>
-                </div>
-              </>
-            )}
-            {mode === "Library" && library.user && (
-              <>
-                <div className="library-toolbar">
-                  <p>
-                    {library.sheets
-                      ? `${library.sheets.length} ${library.sheets.length === 1 ? "sheet" : "sheets"}`
-                      : "Your library has not loaded yet."}
-                  </p>
-                  <div className="actions">
-                    <button
-                      className="secondary"
-                      disabled={library.loadingLibrary || library.busy}
-                      onClick={() => void library.loadLibrary()}
-                    >
-                      {library.loadingLibrary
-                        ? "Refreshing…"
-                        : "Refresh library"}
-                    </button>
-                    <button
-                      className="primary"
-                      disabled={
-                        library.busy ||
-                        library.sheets === null ||
-                        library.sheets.length >= 100
-                      }
-                      onClick={() => setCreating(true)}
-                    >
-                      New sheet
-                    </button>
+                </div>}
+              </div>
+              {library.user && <div className="library-context">
+                <span className="small">Personal library · {library.user.email}</span>
+                {editing && <span className="draft-badge">Unsaved changes in your open sheet</span>}
+              </div>}
+              {!library.user ? (
+                <div className="account-view">
+                  <AccountForm busy={library.authBusy || library.signOutPending} onSubmit={library.authenticate} />
+                  <div className="sample-invitation">
+                    <span>Try the score and MIDI input without an account.</span>
+                    <button className="text-button" onClick={() => navigate("Create")}>Explore the score preview ↗</button>
                   </div>
                 </div>
-                {creating && (
-                  <NewSheetForm
-                    busy={library.busy}
-                    onCreate={createSheet}
-                    onCancel={() => setCreating(false)}
-                  />
-                )}
-                {library.sheets === null ? (
-                  <section className="library-empty" aria-label="Your sheets">
-                    <h2>Your library is unavailable</h2>
-                    <p>
-                      Refresh to load your saved sheets. A connection problem
-                      does not mean your library is empty.
-                    </p>
-                  </section>
-                ) : library.sheets.length === 0 ? (
-                  <section className="library-empty" aria-label="Your sheets">
-                    <div className="empty-staff" aria-hidden="true">
-                      <span>♪</span>
-                    </div>
-                    <div className="eyebrow">A FRESH START</div>
-                    <h2>Your first sheet starts here</h2>
-                    <p>
-                      Your library is empty. Start with a blank sheet or choose
-                      a copy of the original example.
-                    </p>
-                    {!creating && (
-                      <button
-                        className="primary"
-                        onClick={() => setCreating(true)}
-                      >
-                        Create your first sheet
-                      </button>
-                    )}
-                  </section>
-                ) : (
-                  <section className="library-grid" aria-label="Your sheets">
-                    {library.sheets.map((sheet) => (
-                      <article className="library-sheet" key={sheet.id}>
-                        <div className="eyebrow">LEAD SHEET</div>
-                        <h2>{sheet.title}</h2>
-                        <p className="small">
-                          {sheet.tutorialUrl
-                            ? "YouTube tutorial linked"
-                            : "No tutorial linked"}
-                        </p>
-                        <p className="small">
-                          Updated{" "}
-                          {new Date(sheet.updatedAt).toLocaleDateString()} ·
-                          revision {sheet.revision}
-                        </p>
-                        <button
-                          className="secondary"
-                          disabled={library.busy}
-                          onClick={() => void openSheet(sheet.id)}
-                          aria-label={`Open ${sheet.title}`}
-                        >
-                          Open sheet ↗
-                        </button>
-                      </article>
-                    ))}
-                  </section>
-                )}
-              </>
-            )}
-            {showWorkspace && (
-              <>
-                {!viewing && library.user && (
-                  <div className="sample-actions">
-                    <button
-                      className="secondary"
-                      disabled={
-                        library.busy ||
-                        library.sheets === null ||
-                        library.sheets.length >= 100
-                      }
-                      onClick={() =>
-                        void createSheet({
-                          title: "First Sketch",
-                          template: "example",
-                        })
-                      }
-                    >
-                      Save an example copy to my library
-                    </button>
-                  </div>
-                )}
+              ) : library.sheets === null ? (
+                <section className="library-empty" aria-label="Your sheets">
+                  <h2>Your library is unavailable</h2>
+                  <p>Refresh to load your saved sheets. A connection problem does not mean your library is empty.</p>
+                </section>
+              ) : library.sheets.length === 0 ? (
+                <section className="library-empty" aria-label="Your sheets">
+                  <div className="empty-staff" aria-hidden="true"><span>♪</span></div>
+                  <h2>Your first sheet starts here</h2>
+                  <p>Your library is empty. Start with a blank sheet or choose a copy of the original example.</p>
+                  <button className="primary" disabled={!canCreate} onClick={() => setCreating(true)}>Create your first sheet</button>
+                </section>
+              ) : (
+                <section className="library-grid" aria-label="Your sheets">
+                  {library.sheets.map((sheet) => (
+                    <article className="library-sheet" key={sheet.id}>
+                      <div className="card-topline">
+                        <span className="sheet-icon" aria-hidden="true">♩</span>
+                        <span className="saved-label"><span className="status-dot connected" />Saved</span>
+                      </div>
+                      <h2>{sheet.title}</h2>
+                      <p className="sheet-meta">C major · 4/4</p>
+                      <div className="card-tags"><span className="tag">{sheet.tutorialUrl ? "Tutorial linked" : "No tutorial"}</span>
+                        {viewing?.id === sheet.id && <span className="tag">{editing ? "Unsaved details" : "Open sheet"}</span>}
+                      </div>
+                      <p className="small card-updated">Updated {new Date(sheet.updatedAt).toLocaleDateString()} · revision {sheet.revision}</p>
+                      <div className="card-actions">
+                        <button className="primary" disabled={library.busy} aria-label={"Practice " + sheet.title}
+                          onClick={() => void openSheet(sheet.id, "Practice")}><span aria-hidden="true">▷</span> Practice</button>
+                        <button className="secondary" disabled={library.busy} aria-label={"Open " + sheet.title}
+                          onClick={() => void openSheet(sheet.id)}>Open sheet</button>
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              )}
+            </div>
+            {hasWorkspace && (
+              <div className="workspace-container" hidden={!showWorkspace}>
                 <SheetWorkspace
-                  key={viewing ? `${library.user?.id}:${viewing.id}` : "sample"}
-                  score={viewing ? viewing.score : sample}
-                  saved={viewing || null}
-                  busy={library.busy}
-                  conflict={library.conflict}
-                  onDirty={setEditing}
+                  key={viewing ? library.user?.id + ":" + viewing.id : "sample"}
+                  score={viewing ? viewing.score : sample} saved={viewing || null}
+                  mode={mode === "Practice" ? "Practice" : "Create"} midi={midi}
+                  busy={library.busy} conflict={library.conflict} onDirty={setEditing}
                   onSave={async (title, tutorial) => {
-                    if (await library.saveSheet(title, tutorial))
-                      setEditing(false);
+                    if (await library.saveSheet(title, tutorial)) setEditing(false);
                   }}
                   onReload={async () => {
-                    if (viewing && mayLeave()) {
-                      if (await library.openSheet(viewing.id))
-                        setEditing(false);
-                    }
+                    if (viewing && mayLeave() && await library.openSheet(viewing.id)) setEditing(false);
                   }}
+                  onSaveExample={library.user && !viewing ? () => void createSheet({ title: "First Sketch", template: "example" }) : undefined}
+                  canCreate={canCreate}
                 />
-              </>
+              </div>
             )}
-            {!showWorkspace && mode !== "Library" && !library.user && (
-              <p>Your session has ended. Return to Library to sign in.</p>
-            )}
+            {creating && library.user && <AppDialog title="New sheet" onClose={() => setCreating(false)} busy={library.busy}>
+              {library.error && <p className="error-message" role="alert">{library.error}</p>}
+              <NewSheetForm busy={library.busy} onCreate={createSheet} onCancel={() => setCreating(false)} />
+            </AppDialog>}
           </>
         )}
-        <footer className="app-footer">
-          <span>Made for the moments at your piano.</span>
-          <span>Local accounts & saved sheets · M3</span>
-        </footer>
       </main>
     </div>
   );

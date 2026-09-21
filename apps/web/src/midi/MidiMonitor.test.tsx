@@ -8,6 +8,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { MidiMonitor } from "./MidiMonitor";
+import { useMidiInput } from "./useMidiInput";
+
+function MonitorHarness() {
+  return <MidiMonitor midi={useMidiInput()} />;
+}
 
 afterEach(() => {
   cleanup();
@@ -31,7 +36,7 @@ it("keeps the existing listener when the selected input is selected again", asyn
     value: vi.fn().mockResolvedValue(midi),
   });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
-  render(<MidiMonitor />);
+  render(<MonitorHarness />);
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Enable MIDI" }));
   });
@@ -68,7 +73,7 @@ it("does not resume input when a permission response arrives after the page was 
     inputs: new Map([["loopback", device]]),
     onstatechange: null,
   } as unknown as MIDIAccess;
-  render(<MidiMonitor />);
+  render(<MonitorHarness />);
   fireEvent.click(screen.getByRole("button", { name: "Enable MIDI" }));
   hidden.mockReturnValue(true);
   fireEvent(document, new Event("visibilitychange"));
@@ -95,7 +100,7 @@ it("detaches a previous access handler when reconnecting and clears the active h
     value: vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second),
   });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
-  const view = render(<MidiMonitor />);
+  const view = render(<MonitorHarness />);
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Enable MIDI" }));
   });

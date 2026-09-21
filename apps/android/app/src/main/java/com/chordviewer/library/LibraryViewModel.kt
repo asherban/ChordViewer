@@ -12,12 +12,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+enum class LibraryMode(val label: String) { LIBRARY("Library"), CREATE("Create"), PRACTICE("Practice") }
+
 data class LibraryState(
     val configured: Boolean = true,
     val user: Account? = null,
     val sheets: List<SheetSummary> = emptyList(),
     val libraryLoaded: Boolean = false,
     val selected: SavedSheet? = null,
+    val mode: LibraryMode = LibraryMode.LIBRARY,
     val draftTitle: String = "",
     val draftTutorial: String = "",
     val busy: Boolean = false,
@@ -67,9 +70,13 @@ class LibraryViewModel(
         mutableState.value.copy(sheets = sheets, libraryLoaded = true, selected = null, draftTitle = "", draftTutorial = "", busy = false, message = null)
     }
 
-    fun open(id: String) = authenticated { client, token ->
+    fun changeMode(mode: LibraryMode) {
+        if (!mutableState.value.busy) mutableState.value = mutableState.value.copy(mode = mode)
+    }
+
+    fun open(id: String, mode: LibraryMode = LibraryMode.CREATE) = authenticated { client, token ->
         val sheet = withContext(io) { client.get(token, id) }
-        mutableState.value.copy(selected = sheet, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = null)
+        mutableState.value.copy(selected = sheet, mode = mode, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = null)
     }
 
     fun create(title: String, example: Boolean) {
@@ -80,7 +87,7 @@ class LibraryViewModel(
         authenticated { client, token ->
             val sheet = withContext(io) { client.create(token, title, example) }
             mutableState.value.copy(sheets = listOf(sheet.summary()) + mutableState.value.sheets,
-                selected = sheet, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = "Sheet created.")
+                selected = sheet, mode = LibraryMode.CREATE, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = "Sheet created.")
         }
     }
 
@@ -99,10 +106,6 @@ class LibraryViewModel(
             mutableState.value.copy(sheets = mutableState.value.sheets.map { if (it.id == sheet.id) sheet.summary() else it },
                 selected = sheet, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = "Changes saved.")
         }
-    }
-
-    fun closeSheet() {
-        if (!mutableState.value.busy) mutableState.value = mutableState.value.copy(selected = null, draftTitle = "", draftTutorial = "", message = null)
     }
 
     fun signOut() {

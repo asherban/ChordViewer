@@ -44,6 +44,7 @@ async function create(page: Page, title: string, example = false) {
     "data-rendered",
     "true",
   );
+  await page.getByRole("button", { name: "Sheet details", exact: true }).click();
 }
 
 test("accounts keep separate libraries and saved details reopen in another browser session", async ({
@@ -95,6 +96,7 @@ test("accounts keep separate libraries and saved details reopen in another brows
         exact: true,
       })
       .click();
+    await secondPage.getByRole("button", { name: "Sheet details", exact: true }).click();
     await expect(secondPage.getByLabel("YouTube tutorial link")).toHaveValue(
       "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     );
@@ -146,6 +148,7 @@ test("a real revision conflict retains unsaved fields until the user reloads", a
         exact: true,
       })
       .click();
+    await secondPage.getByRole("button", { name: "Sheet details", exact: true }).click();
     await expect(
       secondPage.getByLabel("Sheet title", { exact: true }),
     ).toHaveValue("Shared across my devices");

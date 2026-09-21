@@ -127,7 +127,28 @@ class LibraryViewModelTest {
         assertEquals(1, model.state.value.selected!!.revision)
         assertEquals("Unsaved title", model.state.value.draftTitle)
         assertTrue(model.state.value.hasUnsavedChanges)
-        model.closeSheet()
+    }
+
+    @Test fun switchingProductModesKeepsSelectedSheetAndUnsavedDetails() = runTest(dispatcher) {
+        val gateway = FakeGateway()
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.authenticate("one@example.test", "a-long-password", null)
+        advanceUntilIdle()
+        model.open(gateway.sheet.id, LibraryMode.PRACTICE)
+        advanceUntilIdle()
+        assertEquals(LibraryMode.PRACTICE, model.state.value.mode)
+        model.updateDraft("Kept draft", "https://youtu.be/dQw4w9WgXcQ")
+        listOf(LibraryMode.LIBRARY, LibraryMode.CREATE, LibraryMode.PRACTICE).forEach { mode ->
+            model.changeMode(mode)
+            assertEquals(mode, model.state.value.mode)
+            assertEquals(gateway.sheet.id, model.state.value.selected!!.id)
+            assertEquals("Kept draft", model.state.value.draftTitle)
+            assertTrue(model.state.value.hasUnsavedChanges)
+        }
+        model.signOut()
+        advanceUntilIdle()
+        assertEquals(LibraryMode.LIBRARY, model.state.value.mode)
+        assertNull(model.state.value.selected)
         assertEquals("", model.state.value.draftTitle)
     }
 

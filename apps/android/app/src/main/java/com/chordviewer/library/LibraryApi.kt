@@ -106,7 +106,7 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
             404 -> "This sheet is no longer available. Refresh your library."
             409 -> if (method == "POST" && path == "/api/v1/sheets")
                 "Your library has reached the current limit of 100 sheets. No new sheet was created."
-                else "This sheet changed elsewhere. Reopen it from the library before saving again."
+                else "This sheet changed elsewhere. Open Library, choose Refresh, then reopen the sheet before saving again."
             429 -> "Too many requests. Wait a moment before trying again."
             else -> "The local service could not complete this request. Please try again."
         }

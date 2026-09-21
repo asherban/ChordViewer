@@ -7,6 +7,6 @@ import com.chordviewer.midi.MidiSnapshot
 
 @Composable
 @Suppress("UNUSED_PARAMETER")
-fun MidiInputControls(initialIntent: Intent, onSnapshot: (MidiSnapshot) -> Unit) {
-    Text("Device MIDI connection will be added in a later milestone.")
+fun rememberMidiInput(initialIntent: Intent): MidiInputState = MidiInputState(MidiSnapshot(), "Not connected", false, {}) {
+    Text("USB and Bluetooth MIDI support will be available in a later version.")
 }

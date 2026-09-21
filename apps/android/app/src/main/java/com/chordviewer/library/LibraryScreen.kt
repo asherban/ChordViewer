@@ -1,132 +1,134 @@
 package com.chordviewer.library
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import com.chordviewer.score.NativeScore
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import com.chordviewer.MidiInputState
+import com.chordviewer.score.LeadSheetReader
+import com.chordviewer.ui.*
 
 @Composable
-fun LibraryScreen(state: LibraryState, model: LibraryViewModel) {
+fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputState) {
+    var showAccount by remember { mutableStateOf(false) }
+    var showNew by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
+    var showMidi by remember { mutableStateOf(false) }
+    var showSample by remember(state.user?.id) { mutableStateOf(false) }
+    var showMelody by remember(state.selected?.id) { mutableStateOf(true) }
+    var previousUserId by remember { mutableStateOf(state.user?.id) }
     var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
-    fun leave(action: () -> Unit) {
-        if (state.hasUnsavedChanges) pendingLeave = action else action()
+    val context = LocalContext.current
+    val sample = remember { runCatching {
+        context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) }
+    }.getOrNull() }
+    fun leave(action: () -> Unit) { if (state.hasUnsavedChanges) pendingLeave = action else action() }
+    fun open(id: String, mode: LibraryMode) {
+        if (state.selected?.id == id) model.changeMode(mode)
+        else leave { model.open(id, mode) }
     }
-    BackHandler(enabled = state.selected != null && !state.busy) { leave(model::closeSheet) }
-    if (pendingLeave != null) AlertDialog(
-        onDismissRequest = { pendingLeave = null },
-        title = { Text("Discard unsaved changes?") },
-        text = { Text("Your title and tutorial edits have not been saved.") },
-        confirmButton = { TextButton(onClick = { val action = pendingLeave; pendingLeave = null; action?.invoke() }) { Text("Discard changes") } },
-        dismissButton = { TextButton(onClick = { pendingLeave = null }) { Text("Keep editing") } },
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("My library", style = MaterialTheme.typography.headlineMedium)
-        state.message?.let { Text(it, modifier = Modifier.semantics { contentDescription = "Library status: $it" }) }
-        if (!state.configured) {
-            Text("Public hosting is not configured for this release. Use the debug app with the local development service.")
-        } else if (state.user == null) {
-            AccountForm(state.busy, model::authenticate)
-        } else {
-            Text("Signed in as ${state.user.name} · ${state.user.email}")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { leave(model::refresh) }, enabled = !state.busy) { Text("Refresh library") }
-                OutlinedButton(onClick = { leave(model::signOut) }) { Text("Sign out") }
+    fun newSheet() { if (state.user == null) showAccount = true else leave { showNew = true } }
+    LaunchedEffect(state.selected?.id) { showNew = false; showDetails = false; showSample = false }
+    LaunchedEffect(state.user?.id) {
+        if (previousUserId != null && state.user == null) midi.disconnect()
+        previousUserId = state.user?.id
+        showAccount = false; showNew = false; showDetails = false; pendingLeave = null
+    }
+    BackHandler(enabled = state.mode != LibraryMode.LIBRARY && !state.busy && !showDetails && !showMidi) {
+        model.changeMode(LibraryMode.LIBRARY)
+    }
+    Scaffold(containerColor = CanvasColor) { insets ->
+        Column(Modifier.fillMaxSize().padding(insets)) {
+            AppHeader(state, midi, model::changeMode, { showMidi = true }, { showAccount = true })
+            HorizontalDivider(color = BorderColor)
+            if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            state.message?.let { message ->
+                Surface(color = SageColor, modifier = Modifier.fillMaxWidth()) {
+                    Text(message, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                }
             }
-            val selected = state.selected
-            if (selected == null) {
-                NewSheetForm(state.busy, model::create)
-                if (state.libraryLoaded && state.sheets.isEmpty()) Text("Your library is empty. Create a blank sheet or copy the original example to begin.")
-                if (!state.libraryLoaded && !state.busy) Text("Your library has not loaded. Use Refresh library to try again.")
-                state.sheets.forEach { sheet ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(sheet.title, style = MaterialTheme.typography.titleMedium)
-                            Text("Revision ${sheet.revision}" + if (sheet.tutorialUrl != null) " · Tutorial linked" else "")
-                            OutlinedButton(onClick = { model.open(sheet.id) }, enabled = !state.busy) { Text("Open ${sheet.title}") }
-                        }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (state.mode == LibraryMode.LIBRARY) {
+                    if (state.user == null) AccountLanding(state, model::authenticate, {
+                        showSample = true; model.changeMode(LibraryMode.PRACTICE)
+                    })
+                    else LibraryCards(state, { leave(model::refresh) }, ::newSheet, ::open)
+                } else {
+                    val score = state.selected?.score ?: if (showSample) sample else null
+                    if (score == null) WorkspacePicker(state, ::newSheet,
+                        { model.changeMode(LibraryMode.LIBRARY) }, { showSample = true })
+                    else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
+                        { showMidi = true }, { showDetails = true }, { model.changeMode(LibraryMode.CREATE) })
+                }
+            }
+        }
+    }
+    if (showAccount) AccountDialog(state, model::authenticate, {
+        showAccount = false; leave { midi.disconnect(); model.signOut() }
+    }, { showAccount = false })
+    if (showNew) NewSheetDialog(state, model::create) { showNew = false }
+    if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraft, model::save) { showDetails = false }
+    if (showMidi) AlertDialog(
+        onDismissRequest = { showMidi = false }, title = { Text("MIDI connection") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            midi.controls()
+            Text("Received ${midi.snapshot.messagesReceived} messages", style = MaterialTheme.typography.bodySmall)
+        } },
+        confirmButton = { TextButton(onClick = { showMidi = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
+    )
+    if (pendingLeave != null) AlertDialog(
+        onDismissRequest = { pendingLeave = null }, title = { Text("Discard unsaved details?") },
+        text = { Text("Your title and tutorial changes have not been saved.") },
+        confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Discard changes") } },
+        dismissButton = { TextButton(onClick = { pendingLeave = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep editing") } },
+    )
+}
+
+@Composable
+private fun AppHeader(state: LibraryState, midi: MidiInputState, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
+    Surface(color = PaperColor) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val wide = maxWidth >= 840.dp
+            val compact = maxWidth < 600.dp
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 20.dp)) {
+                    Text("ChordViewer", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = if (compact) 24.sp else 28.sp, color = InkColor)
+                    if (wide) ModeTabs(state, navigate)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = openMidi, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(if (midi.connected) { if (compact) "● MIDI" else "●  MIDI connected" } else "○  MIDI", color = if (midi.connected) AccentColor else MutedColor)
+                    }
+                    TextButton(onClick = account, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(if (state.user != null) "Account" else "Sign in", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            } else SavedSheetScreen(state, model::updateDraft, model::save) { leave(model::closeSheet) }
+                if (!wide) ModeTabs(state, navigate)
+            }
         }
-        if (state.busy) CircularProgressIndicator(Modifier.semantics { contentDescription = "Loading library" })
     }
 }
 
 @Composable
-private fun AccountForm(busy: Boolean, authenticate: (String, String, String?) -> Unit) {
-    var createAccount by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    // Deliberately not rememberSaveable: credentials never enter saved instance state.
-    var password by remember { mutableStateOf("") }
-    Text("Sign in to use your sheets on the web and Android. Sessions last only while this app process stays open.")
-    if (createAccount) OutlinedTextField(name, { name = it.take(200) }, label = { Text("Name") }, singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(email, { email = it.take(254) }, label = { Text("Email") }, singleLine = true, enabled = !busy,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(password, { password = it.take(128) }, label = { Text("Password (12–128 characters)") }, singleLine = true, enabled = !busy,
-        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { val submitted = password; password = ""; authenticate(email, submitted, if (createAccount) name else null) }, enabled = !busy) {
-            Text(if (createAccount) "Create account" else "Sign in")
+private fun ModeTabs(state: LibraryState, navigate: (LibraryMode) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        LibraryMode.entries.forEach { mode ->
+            TextButton(onClick = { navigate(mode) }, enabled = !state.busy,
+                modifier = Modifier.heightIn(min = 48.dp).semantics { selected = state.mode == mode },
+                shape = MaterialTheme.shapes.small,
+                colors = ButtonDefaults.textButtonColors(containerColor = if (state.mode == mode) SageColor else PaperColor, contentColor = InkColor)) {
+                Text(mode.label, Modifier.padding(horizontal = 12.dp), fontWeight = if (state.mode == mode) FontWeight.SemiBold else FontWeight.Normal)
+            }
         }
-        OutlinedButton(onClick = { createAccount = !createAccount; password = "" }, enabled = !busy) { Text(if (createAccount) "Use existing account" else "New account") }
     }
-}
-
-@Composable
-private fun NewSheetForm(busy: Boolean, create: (String, Boolean) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    OutlinedTextField(title, { title = it.take(400) }, label = { Text("New sheet title") }, singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { create(title, false) }, enabled = !busy && title.isNotBlank()) { Text("Create blank sheet") }
-        OutlinedButton(onClick = { create(title, true) }, enabled = !busy && title.isNotBlank()) { Text("Copy example") }
-    }
-}
-
-@Composable
-private fun SavedSheetScreen(state: LibraryState, update: (String, String) -> Unit, save: () -> Unit, close: () -> Unit) {
-    val sheet = requireNotNull(state.selected)
-    val busy = state.busy
-    val title = state.draftTitle
-    val tutorial = state.draftTutorial
-    var melody by remember(sheet.id) { mutableStateOf(true) }
-    Text(sheet.score.title, style = MaterialTheme.typography.titleLarge)
-    OutlinedTextField(title, { update(it, tutorial) }, label = { Text("Sheet title") }, singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(tutorial, { update(title, it) }, label = { Text("YouTube tutorial URL (optional)") }, singleLine = true, enabled = !busy,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = save, enabled = !busy && title.isNotBlank()) { Text("Save changes") }
-        OutlinedButton(onClick = close, enabled = !busy) { Text("Back to library") }
-    }
-    Text("Revision ${sheet.revision} · Note and chord editing arrives in the next milestone.")
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Switch(melody, { melody = it }, modifier = Modifier.semantics { contentDescription = "Show melody notation" })
-        Text(if (melody) "Chords and melody · C major · 4/4" else "Chords only · C major · 4/4")
-    }
-    NativeScore(sheet.score, melody)
 }

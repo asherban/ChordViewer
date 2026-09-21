@@ -259,13 +259,6 @@ export function useLibrary() {
     }
   }
 
-  function closeSheet() {
-    opening.current++;
-    setSelected(null);
-    setConflict(false);
-    setError("");
-    setMessage("");
-  }
   return {
     user,
     checking,
@@ -284,6 +277,5 @@ export function useLibrary() {
     openSheet,
     createSheet,
     saveSheet,
-    closeSheet,
   };
 }

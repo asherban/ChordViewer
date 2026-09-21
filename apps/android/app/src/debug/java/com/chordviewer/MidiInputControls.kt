@@ -16,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -31,19 +30,19 @@ import com.chordviewer.midi.MidiSnapshot
 private const val TOKEN_EXTRA = "chordviewer.midi.token"
 
 @Composable
-fun MidiInputControls(initialIntent: Intent, onSnapshot: (MidiSnapshot) -> Unit) {
+fun rememberMidiInput(initialIntent: Intent): MidiInputState {
     val initialToken = remember {
         initialIntent.getStringExtra(TOKEN_EXTRA).orEmpty().also { initialIntent.removeExtra(TOKEN_EXTRA) }
     }
     var token by remember { mutableStateOf(initialToken) }
     var status by remember { mutableStateOf("Disconnected") }
     var connected by remember { mutableStateOf(false) }
-    val updateSnapshot by rememberUpdatedState(onSnapshot)
+    var snapshot by remember { mutableStateOf(MidiSnapshot()) }
     val relay = remember {
         DebugMidiRelay { update ->
             status = update.status
             connected = update.connected
-            updateSnapshot(update.snapshot)
+            snapshot = update.snapshot
         }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -60,7 +59,7 @@ fun MidiInputControls(initialIntent: Intent, onSnapshot: (MidiSnapshot) -> Unit)
     LaunchedEffect(relay) {
         if (initialToken.matches(Regex("[a-fA-F0-9]{64}"))) relay.connect(initialToken)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    return MidiInputState(snapshot, status, connected, relay::disconnect) { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Debug input · LoopBe1 bridge")
         Text(status)
         OutlinedTextField(
@@ -80,5 +79,5 @@ fun MidiInputControls(initialIntent: Intent, onSnapshot: (MidiSnapshot) -> Unit)
             ) { Text("Connect") }
             OutlinedButton(onClick = { relay.disconnect() }) { Text("Disconnect / clear") }
         }
-    }
+    } }
 }
