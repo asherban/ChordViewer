@@ -1,0 +1,106 @@
+{
+  "fixtureVersion": 1,
+  "description": "M4 web/native parity. Capture steps are ordered raw MIDI, never UI snapshots. A missing gesture on a byte step means no completion. resetHeld uses channel*128+note identities and disables capture. Recognition symbols are in exact preferred/alternative order.",
+  "recognition": [
+    { "name": "major", "midiNotes": [60, 64, 67], "symbols": ["C"] },
+    { "name": "minor", "midiNotes": [60, 63, 67], "symbols": ["Cm"] },
+    { "name": "first-inversion-and-octave-duplicates", "midiNotes": [72, 52, 67, 60, 64], "symbols": ["C/E"] },
+    { "name": "enharmonic-root-alternatives", "midiNotes": [61, 65, 68], "symbols": ["Db", "C#"] },
+    { "name": "enharmonic-slash-alternatives", "midiNotes": [56, 61, 65], "symbols": ["Db/Ab", "C#/G#"] },
+    { "name": "sixth-or-minor-seventh", "midiNotes": [60, 64, 67, 69], "symbols": ["C6", "Am7/C"] },
+    { "name": "same-set-with-minor-root-in-bass", "midiNotes": [57, 60, 64, 67], "symbols": ["Am7", "C6/A"] },
+    { "name": "suspension-alternatives", "midiNotes": [60, 62, 67], "symbols": ["Csus2", "Gsus4/C"] },
+    { "name": "major-seventh-without-fifth", "midiNotes": [60, 64, 71], "symbols": ["Cmaj7"] },
+    { "name": "minor-seventh-without-fifth", "midiNotes": [60, 63, 70], "symbols": ["Cm7"] },
+    { "name": "dominant-seventh-without-fifth", "midiNotes": [60, 64, 70], "symbols": ["C7"] },
+    { "name": "major-ninth-without-fifth", "midiNotes": [60, 62, 64, 71], "symbols": ["Cmaj9"] },
+    { "name": "thirteenth-compact-voicing", "midiNotes": [60, 64, 69, 70], "symbols": ["C13"] },
+    { "name": "power-fifth", "midiNotes": [60, 67, 72], "symbols": ["C5"] },
+    { "name": "unrecognized-cluster", "midiNotes": [60, 61, 62], "symbols": [] },
+    { "name": "single-note-is-not-a-chord", "midiNotes": [60, 72], "symbols": [] },
+    { "name": "empty", "midiNotes": [], "symbols": [] }
+  ],
+  "capture": [
+    { "name": "instant-chord-completes-on-last-physical-release", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [144, 67, 90] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] }, { "bytes": [128, 67, 0], "gesture": [60, 64, 67] }
+    ] },
+    { "name": "sustain-and-zero-velocity-release", "steps": [
+      { "enable": true }, { "bytes": [176, 64, 127] }, { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] },
+      { "bytes": [144, 60, 0] }, { "bytes": [144, 64, 0], "gesture": [60, 64] }, { "bytes": [176, 64, 0] }
+    ] },
+    { "name": "rolled-and-overlapping-notes-form-one-gesture", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [128, 60, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 64, 0] }, { "bytes": [128, 67, 0], "gesture": [60, 64, 67] }
+    ] },
+    { "name": "same-pitch-on-different-channels-has-separate-releases", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [145, 60, 90] },
+      { "bytes": [128, 60, 0] }, { "bytes": [129, 60, 0], "gesture": [60] }
+    ] },
+    { "name": "duplicate-note-on-does-not-require-two-releases", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [144, 60, 95] },
+      { "bytes": [128, 60, 0], "gesture": [60] }, { "bytes": [128, 60, 0] }
+    ] },
+    { "name": "arming-while-held-waits-for-every-key", "steps": [
+      { "bytes": [144, 60, 90] }, { "enable": true }, { "bytes": [144, 64, 90] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] }
+    ] },
+    { "name": "disarming-and-rearming-cancels-partial-gesture", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "enable": false }, { "enable": true },
+      { "bytes": [144, 64, 90] }, { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 60, 90] }, { "bytes": [128, 60, 0], "gesture": [60] }
+    ] },
+    { "name": "new-subscriber-seeded-with-held-keys-waits", "steps": [
+      { "resetHeld": [60, 188] }, { "enable": true }, { "bytes": [128, 60, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [129, 60, 0] }, { "bytes": [128, 67, 0] },
+      { "bytes": [144, 64, 90] }, { "bytes": [128, 64, 0], "gesture": [64] }
+    ] },
+    { "name": "all-notes-off-cancels-without-inserting", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] },
+      { "bytes": [176, 123, 0] }, { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] }
+    ] },
+    { "name": "all-sound-off-cancels-across-channels-until-remaining-release", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [145, 64, 90] },
+      { "bytes": [176, 120, 0] }, { "bytes": [144, 67, 90] }, { "bytes": [129, 64, 0] }, { "bytes": [128, 67, 0] },
+      { "bytes": [144, 60, 90] }, { "bytes": [128, 60, 0], "gesture": [60] }
+    ] },
+    { "name": "reset-controllers-does-not-end-a-physical-gesture", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [176, 121, 0] },
+      { "bytes": [144, 64, 90] }, { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0], "gesture": [60, 64] }
+    ] },
+    { "name": "disconnect-clears-and-disables-capture", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "resetHeld": [] }, { "bytes": [128, 60, 0] },
+      { "bytes": [144, 64, 90] }, { "bytes": [128, 64, 0] }, { "enable": true },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] }
+    ] },
+    { "name": "two-gestures-with-sustain-still-down", "steps": [
+      { "enable": true }, { "bytes": [176, 64, 127] },
+      { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [144, 67, 90] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] }, { "bytes": [128, 67, 0], "gesture": [60, 64, 67] },
+      { "bytes": [144, 62, 90] }, { "bytes": [144, 65, 90] }, { "bytes": [144, 69, 90] },
+      { "bytes": [128, 62, 0] }, { "bytes": [128, 65, 0] }, { "bytes": [128, 69, 0], "gesture": [62, 65, 69] },
+      { "bytes": [176, 64, 0] }
+    ] },
+    { "name": "channel-mode-controllers-cancel-without-insertion", "steps": [
+      { "enable": true },
+      { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [176, 124, 0] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] },
+      { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [176, 125, 0] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] },
+      { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [176, 126, 1] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] },
+      { "bytes": [144, 60, 90] }, { "bytes": [144, 64, 90] }, { "bytes": [176, 127, 0] },
+      { "bytes": [128, 60, 0] }, { "bytes": [128, 64, 0] },
+      { "bytes": [144, 67, 90] }, { "bytes": [128, 67, 0], "gesture": [67] }
+    ] },
+    { "name": "wrong-channel-release-does-not-end-gesture", "steps": [
+      { "enable": true }, { "bytes": [144, 60, 90] }, { "bytes": [129, 60, 0] },
+      { "bytes": [128, 60, 0], "gesture": [60] }
+    ] }
+  ]
+}

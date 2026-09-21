@@ -38,21 +38,21 @@ fun WorkspacePicker(state: LibraryState, newSheet: () -> Unit, library: () -> Un
 
 @Composable
 fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi: MidiInputState, melody: Boolean, changeMelody: (Boolean) -> Unit,
-    setupMidi: () -> Unit, details: () -> Unit, createMode: () -> Unit) {
+    setupMidi: () -> Unit, details: () -> Unit, createMode: () -> Unit, model: LibraryViewModel) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(20.dp)) {
         if (maxWidth >= 900.dp) {
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Column(Modifier.width(280.dp).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     TutorialPanel(state.selected?.tutorialUrl, !sample && state.mode == LibraryMode.CREATE, details)
-                    PlayedNotesPanel(midi, setupMidi)
+                    PlayedNotesPanel(midi, state.liveChord, setupMidi)
                 }
-                ScorePaper(state, score, sample, melody, changeMelody, details, createMode, Modifier.weight(1f).fillMaxHeight())
+                ScorePaper(state, score, sample, melody, changeMelody, details, createMode, model, Modifier.weight(1f).fillMaxHeight())
             }
         } else {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                ScorePaper(state, score, sample, melody, changeMelody, details, createMode, Modifier.fillMaxWidth(), scroll = false)
+                ScorePaper(state, score, sample, melody, changeMelody, details, createMode, model, Modifier.fillMaxWidth(), scroll = false)
                 TutorialPanel(state.selected?.tutorialUrl, !sample && state.mode == LibraryMode.CREATE, details)
-                PlayedNotesPanel(midi, setupMidi)
+                PlayedNotesPanel(midi, state.liveChord, setupMidi)
             }
         }
     }
@@ -60,27 +60,30 @@ fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi:
 
 @Composable
 private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, melody: Boolean,
-    changeMelody: (Boolean) -> Unit, details: () -> Unit, createMode: () -> Unit, modifier: Modifier, scroll: Boolean = true) {
+    changeMelody: (Boolean) -> Unit, details: () -> Unit, createMode: () -> Unit, model: LibraryViewModel, modifier: Modifier, scroll: Boolean = true) {
     Surface(modifier, color = PaperColor, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, BorderColor)) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(score.title, style = MaterialTheme.typography.headlineMedium)
-                    Text("C major · 4/4 · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved details" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
+                    Text("C major · 4/4 · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved changes" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!sample) OutlinedButton(onClick = if (state.mode == LibraryMode.PRACTICE) createMode else details,
                     enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) {
-                    Text(if (state.mode == LibraryMode.PRACTICE) "Edit details" else "Sheet details")
+                    Text(if (state.mode == LibraryMode.PRACTICE) "Edit sheet" else "Sheet details")
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (sample || state.mode != LibraryMode.CREATE) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Switch(melody, changeMelody, modifier = Modifier.semantics { contentDescription = "Show melody notation" })
                 Text(if (melody) "Chords and melody" else "Chords only", style = MaterialTheme.typography.bodyMedium)
             }
-            HorizontalDivider(color = BorderColor)
             val scoreModifier = if (scroll) Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
-            Column(scoreModifier) { NativeScore(score, melody) }
-            Text(if (state.mode == LibraryMode.CREATE) "Note and chord entry is coming next. You can save sheet details now."
+            Column(scoreModifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (!sample && state.mode == LibraryMode.CREATE) ChordEntryControls(state, model, melody, changeMelody)
+                HorizontalDivider(color = BorderColor)
+                NativeScore(score, melody)
+            }
+            Text(if (state.mode == LibraryMode.CREATE) if (sample) "Save your own sheet from Library to enter chords." else "Chord entry changes only the chord lane. Melody editing comes next."
                 else "Read your score alongside the notes you play. Guided practice controls are coming later.",
                 color = MutedColor, style = MaterialTheme.typography.bodySmall)
         }
@@ -110,10 +113,11 @@ private fun TutorialPanel(url: String?, editable: Boolean, details: () -> Unit) 
 }
 
 @Composable
-private fun PlayedNotesPanel(midi: MidiInputState, setup: () -> Unit) {
+private fun PlayedNotesPanel(midi: MidiInputState, liveChord: String?, setup: () -> Unit) {
     Surface(color = PaperColor, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, BorderColor)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("${if (midi.connected) "●" else "○"}  LIVE MIDI", color = if (midi.connected) AccentColor else MutedColor, style = MaterialTheme.typography.labelLarge)
+            Text(liveChord ?: "Play a chord", style = MaterialTheme.typography.headlineLarge)
             Text("Held notes", style = MaterialTheme.typography.labelMedium, color = MutedColor)
             Text(midi.snapshot.held.noteNames(), style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.semantics { contentDescription = "Held notes: ${midi.snapshot.held.noteNames()}" })

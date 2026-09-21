@@ -40,10 +40,8 @@ async function create(page: Page, title: string, example = false) {
   await expect(
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
-  await expect(page.getByTestId("notation")).toHaveAttribute(
-    "data-rendered",
-    "true",
-  );
+  if (example) await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
+  else await expect(page.getByLabel("Editable chord score")).toBeVisible();
   await page.getByRole("button", { name: "Sheet details", exact: true }).click();
 }
 

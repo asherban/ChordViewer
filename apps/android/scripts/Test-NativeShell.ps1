@@ -2,9 +2,11 @@
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('\A[A-Za-z0-9._:-]+\z')][string]$Serial,
     [Parameter(Mandatory = $true)][string]$FixturePath,
-    [switch]$WithMidi
+    [switch]$WithMidi,
+    [switch]$Authoring
 )
 $ErrorActionPreference = 'Stop'
+if ($Authoring) { $WithMidi = $true }
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $repositoryRoot 'scripts/development/Initialize-AndroidEnvironment.ps1')
 $adb = Join-Path $env:ANDROID_HOME 'platform-tools/adb.exe'
@@ -67,6 +69,11 @@ function Ensure-Reverse([string]$remote, [string]$local) {
 $runner = $null
 $sender = $null
 $transcript = New-Object 'Collections.Generic.List[string]'
+function Send-Chord([int[]]$Notes, [int]$HoldMilliseconds = 20) {
+    foreach ($pitch in $Notes) { $sender.Send([int[]]@(144, $pitch, 96)) }
+    if ($HoldMilliseconds -gt 0) { Start-Sleep -Milliseconds $HoldMilliseconds }
+    foreach ($pitch in $Notes) { $sender.Send([int[]]@(128, $pitch, 0)) }
+}
 try {
     $null = Invoke-Adb @('install', '-r', '-t', (Join-Path $repositoryRoot 'apps/android/app/build/outputs/apk/debug/app-debug.apk'))
     $null = Invoke-Adb @('install', '-r', '-t', (Join-Path $repositoryRoot 'apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk'))
@@ -87,14 +94,16 @@ try {
         $null = $stdout.GetAwaiter().GetResult()
         $null = $stderr.GetAwaiter().GetResult()
     } finally { Stop-Owned $writer }
-    $runner = Start-Adb @('shell', 'am', 'instrument', '-w', '-r', '-e', 'shellUi', 'true', '-e', 'class',
-        'com.chordviewer.library.NativeShellFlowTest', 'com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner')
+    $modeFlag = if ($Authoring) { 'authoringUi' } else { 'shellUi' }
+    $testClass = if ($Authoring) { 'com.chordviewer.library.NativeChordAuthoringTest' } else { 'com.chordviewer.library.NativeShellFlowTest' }
+    $runner = Start-Adb @('shell', 'am', 'instrument', '-w', '-r', '-e', $modeFlag, 'true', '-e', 'class',
+        $testClass, 'com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner')
     $outLine = $runner.StandardOutput.ReadLineAsync()
     $errLine = $runner.StandardError.ReadLineAsync()
     $outDone = $false; $errDone = $false
     $clock = [Diagnostics.Stopwatch]::StartNew()
     while (-not ($runner.HasExited -and $outDone -and $errDone)) {
-        if ($clock.Elapsed.TotalSeconds -gt 120) { throw 'Native UI acceptance exceeded its deadline.' }
+        if ($clock.Elapsed.TotalSeconds -gt 240) { throw 'Native UI acceptance exceeded its deadline.' }
         foreach ($stream in @('out', 'err')) {
             $done = if ($stream -eq 'out') { $outDone } else { $errDone }
             $task = if ($stream -eq 'out') { $outLine } else { $errLine }
@@ -110,6 +119,36 @@ try {
                 $sender.Send([int[]]@(144, 60, 96))
                 Write-Host 'Holding C4 through native mode changes and metadata save.'
             }
+            if ($line -match 'M4_NATIVE_ENTRY_READY') {
+                if (-not $Authoring -or $sender) { throw 'Unexpected authoring readiness signal.' }
+                $sender = New-Object ChordViewer.LocalMidi.Sender
+                $sender.Send([int[]]@(176, 64, 127))
+                Send-Chord @(60, 64, 67) 0
+                Send-Chord @(62, 65, 69) 0
+                $sender.Send([int[]]@(176, 64, 0))
+                Write-Host 'Broadcast two immediate chords with sustain held through both gestures.'
+            }
+            if ($line -match 'M4_NATIVE_REPLACE_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected replacement signal.' }
+                Send-Chord @(65, 69, 72) 0
+                Send-Chord @(64, 68, 71) 0
+                Write-Host 'Broadcast F then E to verify replacement writes once.'
+            }
+            if ($line -match 'M4_NATIVE_PRACTICE_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected practice signal.' }
+                Send-Chord @(60, 64, 67) 1600
+                Write-Host 'Broadcast held C major in read-only Practice.'
+            }
+            if ($line -match 'M4_NATIVE_PENDING_REPLACE_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected pending replacement signal.' }
+                Send-Chord @(67, 71, 74) 0
+                Write-Host 'Broadcast G to verify a rejected replacement remains correctable without replay.'
+            }
+            if ($line -match 'M4_NATIVE_RECONNECT_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected reconnect signal.' }
+                Send-Chord @(67, 71, 74) 0
+                Write-Host 'Broadcast a fresh G major gesture after reconnect.'
+            }
             if ($stream -eq 'out') { $outLine = $runner.StandardOutput.ReadLineAsync() } else { $errLine = $runner.StandardError.ReadLineAsync() }
         }
         Start-Sleep -Milliseconds 10
@@ -119,7 +158,9 @@ try {
         $result -match '(?im)FAILURES|INSTRUMENTATION_FAILED|skipped|AssumptionFailure|^INSTRUMENTATION_STATUS_CODE:\s*-[1234]\s*$') { throw 'Native UI acceptance failed.' }
     $destination = Join-Path $repositoryRoot '.local/android-ui-evidence'
     $null = New-Item -ItemType Directory -Path $destination -Force
-    foreach ($name in @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png')) {
+    $captures = if ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png') }
+        else { @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png') }
+    foreach ($name in $captures) {
         $reader = Start-Adb @('exec-out', 'run-as', 'com.chordviewer.debug', 'cat', "files/ui-evidence/$name")
         try {
             $errorRead = $reader.StandardError.ReadToEndAsync()
@@ -129,8 +170,12 @@ try {
             $null = $errorRead.GetAwaiter().GetResult()
         } finally { Stop-Owned $reader }
     }
-    Write-Host 'PASS: native account UI, Library/Create/Practice, retained draft, shared save, melody preference and sign-out (1 test).'
-    if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; sign-out disconnected MIDI.' }
+    if ($Authoring) {
+        Write-Host 'PASS: native real-MIDI authoring, sustain, rapid gestures, undo/redo, correction/delete, one-shot replacement, read-only Practice, reconnect, full save/reopen (1 test).'
+    } else {
+        Write-Host 'PASS: native account UI, Library/Create/Practice, retained draft, shared save, melody preference and sign-out (1 test).'
+        if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; sign-out disconnected MIDI.' }
+    }
     Write-Host "Screenshots saved under $destination"
 } catch {
     if ($transcript.Count) { Write-Host ($transcript -join "`n") }

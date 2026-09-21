@@ -96,10 +96,10 @@ export function App() {
         </div>
       </header>
       <main className="app-main">
-        {(library.error || library.message || library.signOutPending) && (
+        {(library.error || (library.message && !editing) || library.signOutPending) && (
           <div className="app-feedback">
             {library.error && !creating && <div className="error-message" role="alert">{library.error}</div>}
-            {library.message && <p className="success-message" role="status">{library.message}</p>}
+            {library.message && !editing && <p className="success-message" role="status">{library.message}</p>}
             {library.signOutPending && <button className="secondary" disabled={library.authBusy}
               onClick={() => void signOut()}>{library.authBusy ? "Signing out…" : "Retry sign out"}</button>}
           </div>
@@ -157,7 +157,7 @@ export function App() {
                       <h2>{sheet.title}</h2>
                       <p className="sheet-meta">C major · 4/4</p>
                       <div className="card-tags"><span className="tag">{sheet.tutorialUrl ? "Tutorial linked" : "No tutorial"}</span>
-                        {viewing?.id === sheet.id && <span className="tag">{editing ? "Unsaved details" : "Open sheet"}</span>}
+                        {viewing?.id === sheet.id && <span className="tag">{editing ? "Unsaved changes" : "Open sheet"}</span>}
                       </div>
                       <p className="small card-updated">Updated {new Date(sheet.updatedAt).toLocaleDateString()} · revision {sheet.revision}</p>
                       <div className="card-actions">
@@ -177,9 +177,10 @@ export function App() {
                   key={viewing ? library.user?.id + ":" + viewing.id : "sample"}
                   score={viewing ? viewing.score : sample} saved={viewing || null}
                   mode={mode === "Practice" ? "Practice" : "Create"} midi={midi}
+                  active={showWorkspace} blocked={creating}
                   busy={library.busy} conflict={library.conflict} onDirty={setEditing}
-                  onSave={async (title, tutorial) => {
-                    if (await library.saveSheet(title, tutorial)) setEditing(false);
+                  onSave={async (title, tutorial, score) => {
+                    if (await library.saveSheet(title, tutorial, score)) setEditing(false);
                   }}
                   onReload={async () => {
                     if (viewing && mayLeave() && await library.openSheet(viewing.id)) setEditing(false);

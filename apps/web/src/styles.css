@@ -135,6 +135,45 @@ select { min-height: 44px; width: 100%; border: 1px solid #c7d3c8; border-radius
 .details-drawer { flex: 0 0 auto; max-height: 36vh; overflow: auto; margin-bottom: 12px; }
 .sheet-details { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(200px, 1.4fr) auto; align-items: center; gap: 16px; padding: 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .sheet-details .actions { padding-top: 18px; }
+.entry-controls { padding: 16px 20px; border-bottom: 1px solid var(--border); background: #f6f8f0; }
+@media (min-width: 1200px) {
+  .entry-controls { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0 20px; align-items: end; }
+  .entry-controls .entry-target-row { margin-top: 0; }
+  .entry-controls > .entry-notice, .entry-controls > .small, .entry-controls > .text-button, .entry-controls > .chord-correction { grid-column: 1 / -1; }
+  .entry-controls > .text-button { justify-self: start; }
+}
+.entry-control-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.entry-control-row button { padding: 8px 14px; }
+.entry-badge { padding: 7px 10px; border-radius: 6px; background: #e8ebe3; color: #536357; font-size: 12px; }
+.entry-badge.armed { color: white; background: var(--accent); }
+.entry-target-row { display: grid; grid-template-columns: 1.4fr 1fr .7fr; gap: 12px; max-width: 540px; margin-top: 14px; }
+.entry-target-row label { font-size: 12px; display: grid; gap: 5px; }
+.entry-notice { font-size: 13px; margin: 12px 0 0; color: var(--ink); }
+.chord-correction { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--border); }
+.correction-fields { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; }
+.chord-alternatives { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.danger { color: #8a4230; }
+.editable-chord-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 24px; }
+.entry-measure { min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 10px; }
+.entry-measure.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.entry-measure-title { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+.entry-beats { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.beat-target { padding: 3px; background: transparent; color: var(--muted); border-radius: 5px; font-size: 12px; }
+.beat-target.selected { background: var(--sage); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.entry-chords { position: relative; height: 80px; border-top: 1px solid var(--border); margin-top: 4px; }
+.editable-chord { position: absolute; top: 4px; min-width: 0; height: 68px; padding: 5px; background: var(--sage); color: var(--ink); border-right: 2px solid var(--surface); border-radius: 5px; }
+.editable-chord > span { display: block; overflow: hidden; text-overflow: ellipsis; font: 24px Georgia, serif; white-space: nowrap; }
+.editable-chord small { display: block; font-size: 9px; overflow: hidden; white-space: nowrap; }
+.editable-chord.selected { background: #c4dfcc; box-shadow: inset 0 0 0 2px var(--accent); }
+.empty-chord-bar { display: block; padding: 22px 4px; color: var(--muted); font-size: 12px; text-align: center; }
+@media (max-width: 1000px) { .editable-chord-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .entry-controls { padding: 14px; }
+  .editable-chord-grid { padding: 16px; }
+  .entry-target-row { gap: 8px; }
+  .entry-target-row select { padding: 6px; }
+  .correction-fields { grid-template-columns: 1fr; gap: 0; }
+}
 .conflict-notice { grid-column: 1 / -1; padding: 12px; background: #fff2d8; border-radius: 7px; margin-bottom: 14px; }
 .conflict-notice p { color: #745c2a; }
 .app-dialog { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; box-shadow: 0 16px 60px #18332f28; }

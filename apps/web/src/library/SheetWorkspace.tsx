@@ -1,48 +1,78 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { LeadSheet } from "@chordviewer/contracts";
 import { MidiMonitor } from "../midi/MidiMonitor";
 import type { MidiInputModel } from "../midi/useMidiInput";
 import { ScorePreview } from "../score/ScorePreview";
 import type { SavedSheet } from "./api";
 import { SheetDetails } from "./SheetDetails";
+import { useChordDraft } from "../editor/useChordDraft";
+import { ChordEntryControls, ChordTimeline } from "../editor/ChordEditor";
 
 export function SheetWorkspace({
-  score, saved, mode, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, canCreate,
+  score, saved, mode, active, blocked, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, canCreate,
 }: {
   score: LeadSheet; saved: SavedSheet | null; mode: "Create" | "Practice"; midi: MidiInputModel;
+  active: boolean; blocked: boolean;
   busy: boolean; conflict: boolean; onDirty: (dirty: boolean) => void;
-  onSave: (title: string, tutorialUrl: string | null) => Promise<void>;
+  onSave: (title: string, tutorialUrl: string | null, score: LeadSheet) => Promise<void>;
   onReload: () => Promise<void>; onSaveExample?: () => void; canCreate: boolean;
 }) {
-  const [melody, setMelody] = useState(true);
+  const [melody, setMelody] = useState(() => !saved || score.measures.some(measure => measure.melody.length > 0));
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
+  const { model, view } = useChordDraft(score, saved, midi, !!saved && active && mode === "Create" && !busy, blocked || detailsOpen);
+  const displayedScore = useMemo(() => ({ ...view.score, title: view.title }), [view.score, view.title]);
+  const save = async () => { model.pause(); await onSave(view.title.trim(), view.tutorial.trim() || null, view.score); };
+  useEffect(() => { onDirty(view.dirty); }, [onDirty, view.dirty]);
+  useEffect(() => {
+    if (!view.dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [view.dirty]);
+  useEffect(() => {
+    if (!active || mode !== "Create" || busy || blocked || detailsOpen) return;
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable=true], dialog")) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault(); if (event.shiftKey) model.redo(); else model.undo();
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); model.redo(); }
+      else if (event.key === "Delete" && model.getSnapshot().selectedId) { event.preventDefault(); model.deleteSelected(); }
+      else if (event.key === "Escape") model.pause();
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [active, mode, busy, blocked, detailsOpen, model]);
   return (
     <div className="sheet-workspace">
       <div className="view-toolbar workspace-toolbar">
         <div className="view-title">
           <h1>{mode === "Practice" ? "Practice" : "Your lead sheet"}</h1>
-          <span className="workspace-label">{saved ? "Saved · revision " + saved.revision : "Example preview"}</span>
+          <span className="workspace-label">{saved ? view.dirty ? "Unsaved changes" : "Saved · revision " + saved.revision : "Example preview"}</span>
         </div>
         <div className="actions">
+          {saved && mode === "Create" && <button className="primary" disabled={busy || conflict || !view.dirty || !view.title.trim()}
+            onClick={() => void save()}>{busy ? "Saving…" : "Save sheet"}</button>}
           {saved && mode === "Create" && <button className="secondary"
             aria-expanded={detailsOpen} aria-controls={detailsId}
-            onClick={() => setDetailsOpen(!detailsOpen)}>Sheet details</button>}
+            onClick={() => { model.pause(); setDetailsOpen(!detailsOpen); }}>Sheet details</button>}
           {onSaveExample && <button className="secondary" disabled={busy || !canCreate}
             onClick={onSaveExample}>Save an example copy to my library</button>}
         </div>
       </div>
       {saved && <div id={detailsId} className="details-drawer" hidden={!detailsOpen || mode === "Practice"}>
-        <SheetDetails key={saved.revision} saved={saved} busy={busy} conflict={conflict}
-          onDirty={onDirty} onSave={onSave} onReload={onReload} />
+        <SheetDetails title={view.title} tutorial={view.tutorial} dirty={view.dirty} busy={busy} conflict={conflict}
+          onChange={(title, tutorial) => model.details(title, tutorial)} onSave={save} />
       </div>}
-      <div className="preview-notice">
+      {conflict && <div className="conflict-notice" role="status"><p>A newer version is available. Your unsaved score and details are still here.
+        Reloading discards them only after confirmation.</p><button className="secondary" disabled={busy} onClick={() => void onReload()}>Reload latest version</button></div>}
+      {(!saved || mode === "Practice") && <div className="preview-notice">
         <span>{mode === "Practice" ? "READ ONLY" : saved ? "SAVED SHEET" : "EXAMPLE"}</span>
         {saved
           ? mode === "Practice" ? "Play along with your sheet. Practice navigation is coming next."
-            : "Edit the title and tutorial in Sheet details. MIDI note entry is coming next."
+            : "Choose a duration and position, start entry, then release each chord to add it. Save when ready."
           : "This original example is a preview. It is not in your library unless you explicitly save a copy."}
-      </div>
+      </div>}
       <div className="workspace">
         <aside aria-label="Tutorial and MIDI">
           <section className="tutorial-card">
@@ -64,10 +94,12 @@ export function SheetWorkspace({
             </div>
           </div>
           <div className="sheet-body" tabIndex={0} aria-label="Scrollable lead sheet">
-            <div className="sheet-title"><h2>{score.title}</h2><p>{saved ? "Your lead sheet" : "Original example"} · C major · 4/4</p></div>
-            <ScorePreview score={score} melody={melody} />
+            {saved && mode === "Create" && <ChordEntryControls model={model} view={view} />}
+            <div className="sheet-title"><h2>{view.title}</h2><p>{saved ? "Your lead sheet" : "Original example"} · C major · 4/4</p></div>
+            {saved && mode === "Create" && <ChordTimeline model={model} view={view} />}
+            {(mode !== "Create" || !saved || melody) && <ScorePreview score={displayedScore} melody={melody} />}
           </div>
-          <footer className="sheet-footer"><span>{score.measures.length} measures</span><span>Single melody voice · treble clef</span></footer>
+          <footer className="sheet-footer"><span>{view.score.measures.length} measures</span><span>{saved && mode === "Create" ? "Ctrl+Z undo · Delete selected chord · Esc pause" : "Single melody voice · treble clef"}</span></footer>
         </section>
       </div>
     </div>

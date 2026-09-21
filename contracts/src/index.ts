@@ -1,6 +1,8 @@
 import { Ajv } from 'ajv';
 import schema from './lead-sheet-v1.schema.json' with { type: 'json' };
 export type { AccountSummary, SheetSummary, SavedSheet, NewSheetRequest, SaveSheetRequest } from './library.js';
+export { CHORD_DURATIONS, ChordEntryError, ChordCapture, insertChord, replaceChord, deleteChord, findChord, recognizeChord } from './chord-entry.js';
+export type { ChordDuration, ChordPosition, ChordEdit, LocatedChord, ChordEntryIssue, ChordCandidate, ChordRecognition } from './chord-entry.js';
 
 export const scoreSchema = schema;
 export const TICKS_PER_QUARTER = 480;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { emptySnapshot, MidiState } from "./state";
 
 interface MidiConnection {
@@ -10,6 +10,8 @@ interface MidiConnection {
   input: MIDIInput | null;
   closing: WeakMap<MIDIInput, Promise<void>>;
 }
+export type MidiInputEvent = { type: "data"; data: readonly number[] } | { type: "reset"; held: readonly number[] };
+type MidiListener = (event: MidiInputEvent) => void;
 
 function detachInput(connection: MidiConnection) {
   connection.binding++;
@@ -48,6 +50,16 @@ export function useMidiInput() {
     "Connect a MIDI input to see what you play.",
   );
   const state = useRef(new MidiState());
+  const listeners = useRef(new Set<MidiListener>());
+  const subscribe = useCallback((listener: MidiListener) => {
+    listeners.current.add(listener);
+    listener({ type: "reset", held: state.current.snapshot().held });
+    return () => { listeners.current.delete(listener); };
+  }, []);
+  function resetState() {
+    setSnapshot(state.current.reset());
+    for (const listener of listeners.current) listener({ type: "reset", held: [] });
+  }
   const connection = useRef<MidiConnection>({
     mounted: false,
     pending: false,
@@ -61,13 +73,13 @@ export function useMidiInput() {
   function clearInput() {
     detachInput(connection.current);
     setSelected("");
-    setSnapshot(state.current.reset());
+    resetState();
   }
   function disconnect() {
     detachAccess(connection.current);
     setInputs([]);
     setSelected("");
-    setSnapshot(state.current.reset());
+    resetState();
     setStatus("MIDI disconnected. Enable MIDI to reconnect.");
   }
   function choose(id: string) {
@@ -108,10 +120,13 @@ export function useMidiInput() {
           !document.hidden &&
           event.data
         ) {
-          setSnapshot(state.current.receive([...event.data]));
+          const data = [...event.data];
+          setSnapshot(state.current.receive(data));
+          // Authoring consumes every ordered event before React batches the display.
+          for (const listener of listeners.current) listener({ type: "data", data });
         }
       };
-      setStatus("Listening locally. Your saved score stays unchanged.");
+      setStatus("Listening locally. Arm chord entry in Create to write to your draft.");
     };
     const closing = current.closing.get(device);
     if (closing) {
@@ -181,6 +196,7 @@ export function useMidiInput() {
   useEffect(() => {
     const current = connection.current;
     const midiState = state.current;
+    const subscribers = listeners.current;
     current.mounted = true;
     const hide = () => {
       if (document.hidden) {
@@ -188,6 +204,7 @@ export function useMidiInput() {
         setInputs([]);
         setSelected("");
         setSnapshot(midiState.reset());
+        for (const listener of subscribers) listener({ type: "reset", held: [] });
         setStatus(
           "MIDI paused while the page was hidden. Enable MIDI to resume.",
         );
@@ -199,9 +216,10 @@ export function useMidiInput() {
       document.removeEventListener("visibilitychange", hide);
       detachAccess(current);
       midiState.reset();
+      for (const listener of subscribers) listener({ type: "reset", held: [] });
     };
   }, []);
-  return { snapshot, inputs, selected, status, connect, choose, disconnect };
+  return { snapshot, inputs, selected, status, connect, choose, disconnect, subscribe };
 }
 
 export type MidiInputModel = ReturnType<typeof useMidiInput>;

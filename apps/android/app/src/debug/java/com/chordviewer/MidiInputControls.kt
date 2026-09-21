@@ -26,11 +26,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.chordviewer.midi.DebugMidiRelay
 import com.chordviewer.midi.MidiSnapshot
+import com.chordviewer.midi.MidiInputEvent
 
 private const val TOKEN_EXTRA = "chordviewer.midi.token"
 
 @Composable
-fun rememberMidiInput(initialIntent: Intent): MidiInputState {
+fun rememberMidiInput(initialIntent: Intent, onEvent: (MidiInputEvent) -> Unit = {}): MidiInputState {
     val initialToken = remember {
         initialIntent.getStringExtra(TOKEN_EXTRA).orEmpty().also { initialIntent.removeExtra(TOKEN_EXTRA) }
     }
@@ -39,7 +40,7 @@ fun rememberMidiInput(initialIntent: Intent): MidiInputState {
     var connected by remember { mutableStateOf(false) }
     var snapshot by remember { mutableStateOf(MidiSnapshot()) }
     val relay = remember {
-        DebugMidiRelay { update ->
+        DebugMidiRelay(onInput = onEvent) { update ->
             status = update.status
             connected = update.connected
             snapshot = update.snapshot

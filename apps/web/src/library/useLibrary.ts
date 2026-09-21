@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseScore, type LeadSheet } from "@chordviewer/contracts";
 import {
   ApiError,
   parseLibrary,
@@ -214,6 +215,7 @@ export function useLibrary() {
   async function saveSheet(
     title: string,
     tutorialUrl: string | null,
+    draft?: LeadSheet,
   ): Promise<boolean> {
     if (!selected) return false;
     const sessionEpoch = epoch.current;
@@ -223,12 +225,14 @@ export function useLibrary() {
     setError("");
     setMessage("");
     try {
+      const score = parseScore({ ...(draft ?? selected.score), title });
+      if (score.id !== selected.id) throw new Error("The draft belongs to a different sheet.");
       const result = parseSavedSheet(
         await request(
           `/api/v1/sheets/${encodeURIComponent(selected.id)}`,
           "PUT",
           {
-            score: { ...selected.score, title },
+            score,
             tutorialUrl,
             expectedRevision: selected.revision,
           },

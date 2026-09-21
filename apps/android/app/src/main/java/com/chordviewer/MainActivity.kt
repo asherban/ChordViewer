@@ -16,10 +16,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val library = ViewModelProvider(this)[LibraryViewModel::class.java]
+        assets.open("chord-vocabulary-v1.json").bufferedReader().use { library.configureChordVocabulary(it.readText()) }
         setContent {
             ChordViewerTheme {
                 // The shell owns MIDI. Navigation, metadata and dialogs never own its lifetime.
-                val midi = rememberMidiInput(intent)
+                val midi = rememberMidiInput(intent, library::onMidiEvent)
                 val state by library.state.collectAsStateWithLifecycle()
                 LibraryScreen(state, library, midi)
             }

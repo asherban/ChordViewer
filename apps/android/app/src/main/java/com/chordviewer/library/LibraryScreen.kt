@@ -32,12 +32,15 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     val sample = remember { runCatching {
         context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) }
     }.getOrNull() }
-    fun leave(action: () -> Unit) { if (state.hasUnsavedChanges) pendingLeave = action else action() }
+    fun leave(action: () -> Unit) { model.pauseEntry(); if (model.state.value.hasUnsavedChanges) pendingLeave = action else action() }
+    fun details() { model.pauseEntry(); showDetails = true }
+    fun midiSetup() { model.pauseEntry(); showMidi = true }
+    fun account() { model.pauseEntry(); showAccount = true }
     fun open(id: String, mode: LibraryMode) {
-        if (state.selected?.id == id) model.changeMode(mode)
+        if (model.state.value.selected?.id == id) model.changeMode(mode)
         else leave { model.open(id, mode) }
     }
-    fun newSheet() { if (state.user == null) showAccount = true else leave { showNew = true } }
+    fun newSheet() { model.pauseEntry(); if (state.user == null) showAccount = true else leave { showNew = true } }
     LaunchedEffect(state.selected?.id) { showNew = false; showDetails = false; showSample = false }
     LaunchedEffect(state.user?.id) {
         if (previousUserId != null && state.user == null) midi.disconnect()
@@ -49,7 +52,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     }
     Scaffold(containerColor = CanvasColor) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
-            AppHeader(state, midi, model::changeMode, { showMidi = true }, { showAccount = true })
+            AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
             HorizontalDivider(color = BorderColor)
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.message?.let { message ->
@@ -64,11 +67,11 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                     })
                     else LibraryCards(state, { leave(model::refresh) }, ::newSheet, ::open)
                 } else {
-                    val score = state.selected?.score ?: if (showSample) sample else null
+                    val score = state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
                     if (score == null) WorkspacePicker(state, ::newSheet,
                         { model.changeMode(LibraryMode.LIBRARY) }, { showSample = true })
                     else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
-                        { showMidi = true }, { showDetails = true }, { model.changeMode(LibraryMode.CREATE) })
+                        ::midiSetup, ::details, { model.changeMode(LibraryMode.CREATE) }, model)
                 }
             }
         }
@@ -87,8 +90,8 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         confirmButton = { TextButton(onClick = { showMidi = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
     )
     if (pendingLeave != null) AlertDialog(
-        onDismissRequest = { pendingLeave = null }, title = { Text("Discard unsaved details?") },
-        text = { Text("Your title and tutorial changes have not been saved.") },
+        onDismissRequest = { pendingLeave = null }, title = { Text("Discard unsaved changes?") },
+        text = { Text("Your chords, title and tutorial changes have not been saved.") },
         confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Discard changes") } },
         dismissButton = { TextButton(onClick = { pendingLeave = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep editing") } },
     )

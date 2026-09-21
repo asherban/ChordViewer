@@ -8,6 +8,7 @@ internal class RelayProtocol {
     private var expectedSequence = 0L
     private var previousTimestamp = 0L
     private val midi = MidiState()
+    var lastEvent: MidiInputEvent = MidiInputEvent.Reset(); private set
 
     fun accept(line: String): MidiSnapshot {
         val frame = JSONObject(line)
@@ -18,7 +19,7 @@ internal class RelayProtocol {
         val type = frame.getString("type")
         require(sequence != 0L || type == "reset") { "Expected initial MIDI reset" }
         val result = when (type) {
-            "reset" -> midi.reset()
+            "reset" -> midi.reset().also { lastEvent = MidiInputEvent.Reset(true, "MIDI connected. Choose a position and arm entry.") }
             "midi" -> {
                 val data = frame.getJSONArray("data")
                 require(data.length() in 1..256) { "Invalid MIDI frame length" }
@@ -27,7 +28,7 @@ internal class RelayProtocol {
                     require(value is Int && value in 0..255) { "Invalid MIDI byte" }
                     value
                 }
-                midi.accept(bytes)
+                midi.accept(bytes).also { lastEvent = MidiInputEvent.Bytes(bytes) }
             }
             else -> throw IllegalArgumentException("Unknown MIDI frame")
         }

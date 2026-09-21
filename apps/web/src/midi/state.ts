@@ -48,7 +48,7 @@ export class MidiState {
           if (Math.floor(note / 128) === channel && !this.held.has(note))
             this.sounding.delete(note);
       }
-    } else if (kind === 0xb0 && [120, 121, 123].includes(key)) {
+    } else if (kind === 0xb0 && [120, 121, 123, 124, 125, 126, 127].includes(key)) {
       if (key === 121) {
         this.sustain.delete(channel);
         for (const note of this.sounding)

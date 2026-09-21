@@ -1,0 +1,8 @@
+{
+  "name": "Interrupted authoring acceptance",
+  "description": "Hold C for three seconds so a mode change or disconnection can interrupt it before release.",
+  "events": [
+    {"atMs":0,"data":[144,60,96]}, {"atMs":0,"data":[144,64,96]}, {"atMs":0,"data":[144,67,96]},
+    {"atMs":3000,"data":[128,60,0]}, {"atMs":3000,"data":[128,64,0]}, {"atMs":3000,"data":[128,67,0]}
+  ]
+}

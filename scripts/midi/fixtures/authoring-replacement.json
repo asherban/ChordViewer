@@ -1,0 +1,10 @@
+{
+  "name": "One-shot replacement acceptance",
+  "description": "Dm then G: armed replacement must use Dm and ignore the next gesture after pausing.",
+  "events": [
+    {"atMs":0,"data":[144,62,96]}, {"atMs":1,"data":[144,65,96]}, {"atMs":2,"data":[144,69,96]},
+    {"atMs":200,"data":[128,62,0]}, {"atMs":201,"data":[128,65,0]}, {"atMs":202,"data":[128,69,0]},
+    {"atMs":500,"data":[144,67,96]}, {"atMs":501,"data":[144,71,96]}, {"atMs":502,"data":[144,74,96]},
+    {"atMs":700,"data":[128,67,0]}, {"atMs":701,"data":[128,71,0]}, {"atMs":702,"data":[128,74,0]}
+  ]
+}
