@@ -36,7 +36,7 @@ After the user requested another attempt, a fresh 1280×800 profile with one vir
 
 The first successful boot took several minutes on the busy 16 GB workstation and showed one System UI not-responding dialog, which recovered after Wait. The application and MIDI test then ran successfully. Build before booting the emulator and stop Gradle daemons to reduce memory pressure. This is functional acceptance, not a claim that resource use has been optimized; combined backend/emulator resource validation remains later work.
 
-The repeatable test is `scripts/development/Test-AndroidMidi.ps1 -Serial <emulator serial>`, with both APKs built and the Windows bridge running. It requires exactly one successful, non-skipped instrumentation test and a successful real LoopBe fixture replay. A unit-test result does not substitute for this check.
+The development-only bridge, relay protocol and relay instrumentation tests recorded above were subsequently removed under the repository's [testing policy](../../AGENTS.md). These results remain a historical record. Current product UI and chord-authoring acceptance commands are in the [Android guide](../../apps/android/README.md#native-shell-acceptance).
 
 The [local setup guide](local-setup.md) and `Initialize-AndroidEmulator.ps1` preserve the working configuration. Native UI evidence:
 

@@ -33,24 +33,10 @@ The first line comes from the client, and contains exactly `type` and `token` (e
 
 The credential is 32 cryptographically random bytes generated for each run. The ignored metadata directory grants access only to the current Windows user. Authentication uses a fixed-length comparison, has a three-second total deadline and a 512-byte line limit. Invalid credentials, malformed input and extra client messages close that connection. A 1,024-event queue bounds memory; overflow or a blocked socket closes the connection so the client resets its state instead of silently losing note-offs. This is local development authentication, not a public service; do not port-forward the listener beyond the emulator's `adb reverse` route.
 
-## Verification
+## Product testing
 
-Stop any running bridge first, then run:
+Development-only scripts, the local bridge and the Android debug relay do not have dedicated test suites; see the [repository testing policy](../../AGENTS.md). The bridge and fixture sender remain available for local development and as input sources for product tests.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Test-Bridge.ps1
-```
-
-The test opens the actual LoopBe input and output, validates every fixture byte through the TCP bridge, checks sequencing/timestamps, reconnect reset, authentication rejection, oversized and invalid UTF-8 input, and rejection of extra client messages. It does not prove physical USB/Bluetooth compatibility or editor behavior. The shared fixture can also drive client processing tests without Windows or LoopBe.
-
-For the complete native emulator path, build both debug APKs and keep `Start-Bridge.ps1` running in a separate terminal, then use the selected emulator's serial:
-
-```powershell
-. scripts/development/Initialize-AndroidEnvironment.ps1
-apps/android/gradlew.bat -p apps/android assembleDebug assembleDebugAndroidTest
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/development/Test-AndroidMidi.ps1 -Serial emulator-5554
-```
-
-The runner installs the debug application and test APK, reuses or creates the selected device's `tcp:39173` reverse mapping, supplies the private bridge token without displaying it, and starts the fixture only after native instrumentation reports readiness. It requires exactly one passing test, rejects failures/skips, and bounds instrumentation to 60 seconds. On an early failure, it allows up to eight additional seconds for the fixture to release its notes normally; a forced stop sends explicit pedal/all-notes-off cleanup to LoopBe. It leaves the bridge, emulator and reverse mapping available for interactive testing. Close other debug relay connections before this test; the bridge serves one client at a time. The test owns and cleans up only its child ADB/sender processes.
+The [root README](../../README.md#midi-testing-without-a-piano-or-tablet) documents browser MIDI authoring tests and native UI/authoring acceptance. These verify application behavior such as chord insertion, editing, persistence and navigation. Keep the bridge running for native acceptance, and avoid concurrent senders because every LoopBe listener receives the same input. Emulator results do not establish physical USB/Bluetooth compatibility.
 
 Implementation references: [WinMM input](https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/nf-mmeapi-midiinopen), [callback restrictions](https://learn.microsoft.com/en-us/previous-versions/dd798460(v=vs.85)), [short messages](https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/nf-mmeapi-midioutshortmsg). No WinMM or network operations run inside the input callback.

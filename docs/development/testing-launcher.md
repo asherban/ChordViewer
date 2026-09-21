@@ -34,13 +34,7 @@ Checked on 2026-09-21 using Windows PowerShell 5.1, the pinned Node installation
 | Process helper regression | Four cases passed: quoting/output drain, explicit descendant cleanup, normal guardian exit and forced guardian termination; unrelated sentinel survived. |
 | Source validation | PowerShell parsing, C# compilation, browser-worker syntax and repository lint passed. |
 
-The process helper regression can be rerun without starting any application services:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/development/testing-process-host.ps1
-```
-
-For manual lifecycle acceptance, start with `-Environment test`, wait for **ready**, open the native example sheet, and play twice. Try rapid additional P commands, then Q. Repeat with Ctrl+C during a sequence. Check the printed session directory for `phase: stopped`; verify ports 3001, 5173, 39173, 5560 and 5561 are free and the session-labelled containers/network are absent. Keep an unrelated browser window open to check ownership isolation.
+The launcher and process-helper regression suites have been removed under the repository's [testing policy](../../AGENTS.md). The results above record the original verification and do not impose an ongoing testing requirement for development-only tooling.
 
 Code and security review covered process identity, child ownership, interrupted startup, Docker labels, preserved volumes, private browser state and credential handling. This change adds development orchestration only; the product's existing M3 feature limitations remain.
 

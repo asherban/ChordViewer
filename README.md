@@ -19,7 +19,7 @@ The [product plan, selected mockups and milestones](docs/architecture/README.md)
 | `services/api` | Fastify API, Better Auth accounts and owner-scoped PostgreSQL sheet storage. |
 | `infra/backend` | Local API/database containers, pinned images and persistent volumes. |
 | `contracts` | Versioned score schema, TypeScript validation, OpenAPI and shared fixtures. |
-| `scripts/development`, `scripts/midi` | Workstation setup, emulator launch helpers and real LoopBe tests. |
+| `scripts/development`, `scripts/midi` | Workstation setup, emulator launch helpers and local MIDI input fixtures. |
 | `tests` | Browser acceptance and language-independent musical reference cases. |
 | `docs/architecture` | Product decisions, score contract, milestones and design mockups. |
 
@@ -135,6 +135,8 @@ After backend changes, rerun `Start-LocalBackend.ps1` to rebuild/recreate the AP
 Ports 3000 and 5173 must be free. Private settings live in ignored `.local/backend/development.env`; keep this file with its existing database volume. Do not replace credentials while retaining the volume. See [local container setup](docs/development/m3-containers.md) for isolation, resources and troubleshooting.
 
 ## Build and check
+
+Automated tests cover product behavior. Development-only scripts and features do not require tests; see [AGENTS.md](AGENTS.md) for the testing scope.
 
 ```powershell
 npm run check
@@ -255,14 +257,7 @@ In the initialized Android terminal, connect the debug app and send notes:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Speed 0.25
 ```
 
-The bridge listens only on `127.0.0.1:39173`; the helper creates `adb reverse` and passes a private per-run token without printing it. You do not need to copy the token. Disconnect the interactive app before running the automated real-input check:
-
-```powershell
-adb -s emulator-5554 shell am force-stop com.chordviewer.debug
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/development/Test-AndroidMidi.ps1 -Serial emulator-5554
-```
-
-This installs both built APKs, sends the real LoopBe fixture and requires a passing native instrumentation test covering notes, sustain, channels and reconnect reset. A skipped test is not a pass. The [bridge guide](scripts/midi/README.md) documents protocol checks and fixture options.
+The bridge listens only on `127.0.0.1:39173`; the helper creates `adb reverse` and passes a private per-run token without printing it. You do not need to copy the token. The [bridge guide](scripts/midi/README.md) documents connection behavior and fixture options. The development bridge and debug relay have no dedicated test suites; the product acceptance tests below can still use them to supply MIDI input.
 
 For the optional native UI acceptance test, prepare a synthetic account with at least one saved sheet in the **test** backend. Store its `email` and `password` as a JSON object in a private, ignored fixture file, then run with the bridge active:
 

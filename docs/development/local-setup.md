@@ -96,15 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps
 
 The launcher establishes the local `adb reverse` mapping, restarts the debug diagnostic app and passes the session token without printing it. The app shows held notes separately from sustained sounding notes. Backgrounding, disconnecting or restarting clears state; reconnect using the current bridge session.
 
-To run the automated native test with the bridge running and both APKs already built:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/development/Test-AndroidMidi.ps1 -Serial emulator-5554
-```
-
-Close any interactive relay connection first. The test installs both APKs, waits for native readiness, sends the real LoopBe fixture, and requires one passing test with no skips. It verifies notes, sustain, channel separation and reconnect reset.
-
-See the [bridge guide](../../scripts/midi/README.md) for fixture coverage and protocol tests, and the [Android guide](../../apps/android/README.md) for build boundaries and instrumentation. The test adapter is compiled into debug builds only. Native USB/Bluetooth integration belongs to later product work and is not verified by the emulator.
+See the [bridge guide](../../scripts/midi/README.md) for fixture options and the [Android guide](../../apps/android/README.md#native-shell-acceptance) for product UI and chord-authoring acceptance. Development-only bridge and relay test suites have been removed under the [testing policy](../../AGENTS.md). The input adapter is compiled into debug builds only. Native USB/Bluetooth integration belongs to later product work and is not verified by the emulator.
 
 ## Stop local testing
 
