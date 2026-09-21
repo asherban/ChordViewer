@@ -6,6 +6,8 @@ Create lead sheets at the piano, keep a YouTube lesson beside the score, and pra
 
 The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
 
+Scores use large serif chord names and compact four-bar rows, with connected staves when melody is visible. Narrow windows and dense music reflow into fewer bars at a readable size. See the [score layout screenshots and verification](docs/development/score-layout-verification.md). Run the testing launcher without `-SkipBuild` after pulling Android source changes so the emulator receives the updated app.
+
 The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M4 verification record](docs/development/m4-verification.md) for authoring checks and current screenshots, the [M3 verification record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository

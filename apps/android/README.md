@@ -84,7 +84,15 @@ Build references: [AGP 8.13 compatibility](https://developer.android.com/build/r
 
 The app decodes `contracts/fixtures/lead-sheet-v1.json` directly through Gradle asset and test-resource source directories. There is no copied Android-only score file. The v1 reader validates the agreed C-major, 4/4, single-treble-voice subset, including independent chord timing, rhythmic duration, globally unique IDs, bar boundaries and ties between adjacent equal spelled pitches.
 
-Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Accidentals persist within each bar and a natural cancels an earlier alteration. Dense measures scroll horizontally; rows contain one or two measures according to available width. The canvas exposes a textual score description for accessibility. Chords are selected through labeled controls for the current bar. Advanced engraving, beaming, multiple voices, lyrics and melody editing remain later work.
+Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Chord-only rows use prominent serif symbols centered within their duration spans, small bar numbers and vertical dividers. Melody rows align chord labels with their onset, use continuous staff lines, a clef on each row and the time signature on the first row. Accidentals persist within each bar and a natural cancels an earlier alteration. Rows hold four bars when readable, fall back to two or one for narrow windows or dense notation, and scroll individually when needed. Measured symbol widths and note spacing prevent neighboring events from colliding; high and low notes expand vertical spacing. The canvas exposes a textual score description for accessibility. Chords are selected through labeled controls for the current bar. Advanced engraving, beaming, multiple voices, lyrics and melody editing remain later work.
+
+### Score layout visual acceptance
+
+For isolated layout screenshots, install the debug and test APKs on the 1280×800 emulator, then run the following. This opt-in test renders synthetic sheets in the native shell and writes `score-native-*.png` under the app-private `files/ui-evidence/` directory. It requires no backend, credentials or MIDI and should run only after saving and closing any current native editing session.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.NativeScoreVisualTest -e scoreVisual true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
 
 Bravura is unmodified and licensed under SIL Open Font License 1.1. The license is bundled in `app/src/main/assets/licenses/Bravura-OFL.txt`. Source: [Steinberg Bravura commit 37b1943](https://github.com/steinbergmedia/bravura/tree/37b194378b710cc40e406ab6c4b07608bb9548ae). `bravura.otf` SHA256: `cdf0f893ee1fdb64b7f6713d71ee0dcfc349c0ac01429a8e451b01a9e79f5f3b`.
 

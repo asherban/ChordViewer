@@ -14,6 +14,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [M3 verification record](../development/m3-verification.md) | Shared account libraries, container persistence, session/isolation checks and native/browser evidence. |
 | [M4 chord authoring](chord-authoring.md) | Automatic entry, shared recognition, duration/position rules, correction and capture recovery. |
 | [M4 verification record](../development/m4-verification.md) | Real LoopBe chord creation on both clients, full-score persistence, reviews and screenshots. |
+| [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |
 | [Score/API contract](score-contract.md) | Versioned data, notation scope, semantic validation and shared client fixtures. |

@@ -18,6 +18,14 @@ Accepted on 2026-09-21 as an M3 follow-up, before MIDI authoring. Both clients f
 
 The implementations use platform-appropriate controls, so they share layout and visual language rather than identical pixels. Android notation remains native Kotlin/Compose Canvas. Web notation remains VexFlow. The score display supports chords alone or chords plus the agreed treble melody voice.
 
+## Score presentation
+
+The score follows [balanced chord-only Practice](mockups/a-balanced-practice.png) and [Practice with melody](mockups/practice.png). Chord-only bars use large bold serif symbols, small bar numbers and thin vertical dividers, without a horizontal staff-like baseline. A whole-bar chord sits in the middle of its span. Multiple chords retain their order, durations and empty intervals; labels reserve enough space to remain legible.
+
+Melody uses connected staff lines across each system, with prominent serif chord names anchored at their onset. A treble clef begins each system; the time signature appears at the beginning of the sheet. Four bars fit across a normal tablet score. Dense music and long manual names can reduce a system to two or one bar; an oversized bar scrolls instead of shrinking or clipping its contents. Narrow displays reflow at the same readable note/text size. Ledger notes, accidentals, rests, dots and ties remain part of the notation.
+
+Create and Practice share these score renderers. Web Create selects chords directly in either display; insertion controls and score history retain their behavior. Its insertion highlight represents the real Create cursor. Practice does not invent a current bar, section name, melody or playback progress to imitate a mockup. Guided movement still belongs to M6.
+
 ## Window and full-screen behavior
 
 The web application fills the available browser viewport automatically. Its header remains visible while library, score or sidebar content scrolls. A user-initiated **Enter full screen** button requests full screen for the entire document, including dialogs. **Exit full screen** leaves it; browser-driven exits update the button through `fullscreenchange`. Unsupported or denied requests provide accessible feedback and retain the window-filling layout. Full screen is optional and never requested automatically.
