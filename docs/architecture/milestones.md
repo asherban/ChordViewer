@@ -4,6 +4,8 @@ Planning baseline: 2026-09-20. This is an outcome-level roadmap based on the [pr
 
 Both web and native Android are part of the product. A milestone involving a user workflow is complete only when it works on both clients, unless explicitly described as a tooling milestone.
 
+The M3 design follow-up aligns both clients with the selected mockups and gives the web client a full-window shell plus an optional full-screen button. See [shared application layout](ui-style.md) and [UI verification](../development/m3-ui-verification.md). This does not advance the authoring or guided-practice milestones below.
+
 Routine acceptance uses the local browser and Android emulator with loopback MIDI. A piano and tablet are not required. See [Local MIDI testing](local-midi-testing.md) for verified coverage and the later product scenarios still to implement.
 
 Develop and test the backend, database, web client and Android emulator on the development machine through M7. NAS deployment is deferred to M8, after the complete workflow has passed local validation.

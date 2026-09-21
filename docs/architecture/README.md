@@ -17,6 +17,8 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [Score/API contract](score-contract.md) | Versioned data, notation scope, semantic validation and shared client fixtures. |
 | [Implemented foundation](../development/architecture.md) | Web/API/native boundaries, rendering approach and development configuration. |
 | [Mockup gallery](mockups/README.md) | Selected layout A, melody notation, creation exploration, Library and Practice images. |
+| [Shared application layout](ui-style.md) | Shared web/native style, full-window and full-screen behavior, and current interaction boundaries. |
+| [UI alignment verification](../development/m3-ui-verification.md) | Current web/native screenshots and checks for the M3 design follow-up. |
 | [Saved mockup prompts](mockups/prompts.md) | Available generation and revision briefs for future design changes. |
 
 ## Agreed direction

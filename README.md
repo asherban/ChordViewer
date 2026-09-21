@@ -4,7 +4,9 @@ Create lead sheets at the piano, keep a YouTube lesson beside the score, and pra
 
 **Rebuild status: M3 local accounts and persistence.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Create a blank sheet or explicitly copy the original example, reopen it, and save its title and YouTube tutorial link. Both clients render chords and a treble melody voice. Note/chord editing, embedded tutorial playback and practice advancement arrive in later milestones.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. The [M3 verification record](docs/development/m3-verification.md) contains checks and screenshots; [notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
+
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M3 verification record](docs/development/m3-verification.md) for persistence and the [UI alignment record](docs/development/m3-ui-verification.md) for current screenshots and checks. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -53,7 +55,7 @@ npm run dev
 
 The helper generates private local credentials once, builds the API image and starts PostgreSQL and the API in the background. Keep the `npm run dev` terminal running for the web server and contract watcher. Open **http://127.0.0.1:5173/** in Chrome or Edge; this is the configured browser origin. The API is at **http://127.0.0.1:3000/**, and Vite proxies `/api` and `/health` to it. PostgreSQL has no published host port. No NAS is required.
 
-Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; copying the example is an explicit action. Save details with the Save button. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write. Music entry/editing and full Library/Practice features remain future work.
+Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** opens a dialog offering a blank sheet or an explicit example copy. **Open** enters Create; use **Sheet details** to edit and save the title/tutorial. **Practice** displays the saved score with live MIDI feedback. Switching modes retains the open sheet and unsaved details; opening a different sheet or signing out asks before discarding a draft. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write. Music entry/editing and full Library/Practice features remain future work.
 
 To check the API from another terminal:
 
@@ -137,7 +139,7 @@ adb -s emulator-5554 reverse tcp:3000 tcp:3000
 adb -s emulator-5554 shell am start -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-Sign in with the same account as the browser to open and save the same sheets. The app renders notation natively. Android session credentials stay in memory; restarting the app process requires signing in again. Switch to the MIDI monitor for input diagnostics. Only debug builds permit loopback HTTP; the release API remains unconfigured pending a later HTTPS deployment.
+Sign in with the same account as the browser to open and save the same sheets. The app renders notation natively. Use **Library**, **Create** and **Practice** in the header; **Sheet details** opens the native editing dialog. **MIDI** in the header opens connection controls; live notes stay beside the score. Android session credentials stay in memory; restarting the app process requires signing in again. Only debug builds permit loopback HTTP; the release API remains unconfigured pending a later HTTPS deployment.
 
 To run native backend acceptance against the isolated test environment:
 
@@ -159,7 +161,7 @@ LoopBe1 must expose **LoopBe Internal MIDI**. For the browser, open the score pr
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Speed 0.25
 ```
 
-Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI input does not yet edit saved scores. Switching inputs, disconnecting, or hiding the page clears input; select the device to resume after returning. This setup does not generate audio.
+Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI input does not yet edit saved scores. Library/Create/Practice navigation and saving details preserve the connection. Switching inputs clears notes; choosing **Disconnected**, signing out, or hiding the browser page detaches input. Press **Enable MIDI** to resume after returning. This setup does not generate audio.
 
 For the Android emulator, keep the MIDI bridge running in a separate terminal:
 
@@ -182,6 +184,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/development/Test-And
 ```
 
 This installs both built APKs, sends the real LoopBe fixture and requires a passing native instrumentation test covering notes, sustain, channels and reconnect reset. A skipped test is not a pass. The [bridge guide](scripts/midi/README.md) documents protocol checks and fixture options.
+
+For the optional native UI acceptance test, prepare a synthetic account with at least one saved sheet in the **test** backend. Store its `email` and `password` as a JSON object in a private, ignored fixture file, then run with the bridge active:
+
+```powershell
+.\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -WithMidi
+```
+
+This changes a test sheet's title, checks mode/draft preservation, holds a real LoopBe note through navigation and saving, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. It passes credentials over stdin, not command-line arguments. It requires the test API on port 3001 and refuses conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only acceptance. See the [native guide](apps/android/README.md) for fixture details.
 
 When finished, stop the bridge with Ctrl+C in its terminal, then:
 
