@@ -42,9 +42,59 @@ node --version
 npm ci
 ```
 
-`fnm install` reads `.node-version`; it is only needed once per version. Run the `fnm env` and `fnm use` commands in each new development terminal. No PowerShell profile or system-wide Node default is changed. On another machine with a matching Node/npm installation, fnm is optional.
+`fnm install` reads `.node-version`; it is only needed once per version. Run the `fnm env` and `fnm use` commands in each new terminal used for individual development commands. The complete testing launcher below initializes them automatically. No PowerShell profile or system-wide Node default is changed. On another machine with a matching Node/npm installation, fnm is optional.
 
-## Start the web client and API
+## Run the complete local testing environment
+
+Start Docker Desktop with Linux containers, then run this from the repository root after the one-time setup above:
+
+```powershell
+.\scripts\development\Start-Testing.ps1
+```
+
+The launcher selects the pinned Node and Android tools, builds the contracts and Android debug APK, starts the API/database and web development server, boots `ChordViewerTabletLocal`, installs the native app, and connects the real LoopBe MIDI bridge. It opens a dedicated Chrome window, falling back to Edge when Chrome is unavailable. The web app is at **http://127.0.0.1:5173/**; the launcher owns emulator **emulator-5560**. First startup can take several minutes. The native build finishes before the emulator boots to reduce memory pressure.
+
+Wait for the **ready** message, then:
+
+1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android sign-in is required again after each app-process restart.
+2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
+3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the fixture to both connected clients. Wait for playback to finish, then repeat as often as needed. A sequence is MIDI input only: it displays notes, sustain and channels but produces no audio or saved-score edits. Restore the browser if it was minimized; the launcher brings the app tab forward and prepares its MIDI input before each broadcast. Keep the Android app in the foreground within its emulator; if it was backgrounded, reopen **MIDI** and press **Connect**.
+4. Enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback.
+
+Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client with the same account to compare their displays. The existing M3 authoring limitations still apply.
+
+Useful options:
+
+```powershell
+# Reuse the existing debug APK after a successful build.
+.\scripts\development\Start-Testing.ps1 -SkipBuild
+
+# Use the isolated test database/API (port 3001) in both clients.
+.\scripts\development\Start-Testing.ps1 -Environment test
+
+# Playback speed multiplier; 0.25 is the default, 1 is normal fixture speed.
+.\scripts\development\Start-Testing.ps1 -Speed 1
+
+# Hidden browser and emulator windows for automated checks.
+.\scripts\development\Start-Testing.ps1 -Environment test -SkipBuild -Headless
+```
+
+`-SkipBuild` requires an existing debug APK and does not rebuild Android changes. The backend still builds its image, and the web development process rebuilds/watches contracts. `-Headless` is intended for automation; use the default visible windows for interactive testing. Development is the default database environment; test mode keeps port 5173 for the browser and forwards the native app to the test API.
+
+Close existing manual development sessions before starting. The launcher refuses an existing backend stack, an already-running `ChordViewerTabletLocal`, or conflicts on ports **3000** (or **3001** in test mode), **5173**, **39173**, **5560** and **5561**. It does not take over those services. Only one testing launcher can run at a time. Stop a manual backend with `Stop-LocalBackend.ps1 -Environment development` or `-Environment test`, matching the environment you intend to launch; stop its web server, bridge and emulator using their own terminals.
+
+Shutdown releases MIDI, closes the owned browser and emulator, removes their port forwards, and stops/removes this session's backend containers and network. It preserves saved sheets, private backend credentials, emulator data, build caches and browser cookies. The private browser profile is `.local/testing/browser`; it is separate from your normal browser profile. Session status and logs are under the printed `.local/testing/<session-id>` directory. Docker Desktop and the shared ADB server remain running.
+
+A separate watchdog also cleans up if the launcher terminal closes or its PowerShell process is forcibly terminated. Wait for cleanup to finish before relaunching. Forced termination of the watchdog itself or loss of the operating system/power can interrupt cleanup; after confirming the old session is no longer running, recover the matching backend with:
+
+```powershell
+.\scripts\development\Stop-LocalBackend.ps1 -Environment development
+# Use -Environment test instead if that was the interrupted session.
+```
+
+Inspect the previous session's `status.json` and logs if cleanup reports a failure or startup still finds a conflict. See the [testing launcher verification and recovery record](docs/development/testing-launcher.md). The individual workflows below remain available for focused development and troubleshooting.
+
+## Start only the web client and API
 
 Start Docker Desktop, then run in the initialized terminal:
 
