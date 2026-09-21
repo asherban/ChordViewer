@@ -1,6 +1,6 @@
 # M4 chord authoring contract
 
-This contract defines the shared musical behavior for the web and native Android editors. The score remains version 1: C key signature, 4/4, 480 ticks per quarter, one melody voice and a separate chord lane. Editing the chord lane must preserve existing melody, pitch spelling, ties and event IDs in the other lane.
+This contract defines the shared chord behavior for the web and native Android editors. M4 established score version 1: C key signature, 4/4, 480 ticks per quarter, one melody voice and a separate chord lane. [M5 melody authoring](melody-authoring.md) extends keys and meters in version 2 while retaining these gesture and recognition rules. Editing the chord lane must preserve existing melody, pitch spelling, ties and event IDs in the other lane.
 
 ## Automatic insertion gesture
 
@@ -28,13 +28,13 @@ Candidate identities are ordered by:
 
 Each identity produces its flat spelling followed by a distinct sharp spelling, when applicable. A bass different from the root adds a slash. For example, the notes E3, C4 and G4 yield `C/E`; Db, F and Ab offer `Db` and `C#`. C, E, G and A with C lowest offer `C6`, then `Am7/C`; changing the bass to A changes the preferred name to `Am7`.
 
-This deterministic ordering supplies a suggested name, not a claim that an ambiguous voicing has one correct musical interpretation. The editor automatically inserts a recognized gesture with the preferred name and keeps alternatives and manual naming available for correction. Chord entry requires at least two distinct pitch classes; a single pitch class is ignored until melody entry in M5. An unknown voicing with at least two pitch classes is retained for explicit manual naming instead of being assigned an invented chord. A new name can be any trimmed printable text of 1–32 Unicode codepoints, such as `N.C.`, `iiø7/V` or `F♯m7`; the editor renders it as text. Control, formatting, unpaired surrogate and line/paragraph separator characters are rejected. Naming never interprets HTML.
+This deterministic ordering supplies a suggested name, not a claim that an ambiguous voicing has one correct musical interpretation. The editor automatically inserts a recognized gesture with the preferred name and keeps alternatives and manual naming available for correction. Chord entry requires at least two distinct pitch classes; a single pitch class is ignored in the chord pass. The melody pass accepts a single pitch. An unknown voicing with at least two pitch classes is retained for explicit manual naming instead of being assigned an invented chord. A new name can be any trimmed printable text of 1–32 Unicode codepoints, such as `N.C.`, `iiø7/V` or `F♯m7`; the editor renders it as text. Control, formatting, unpaired surrogate and line/paragraph separator characters are rejected. Naming never interprets HTML.
 
 ## Positions, duration and correction
 
-`ChordPosition` is `{ measureIndex, offsetTicks }`. The selected durations in ticks are 240, 480, 720, 960, 1440 and 1920: eighth, quarter, dotted quarter, half, dotted half and whole notes.
+`ChordPosition` is `{ measureIndex, offsetTicks }`. The selected durations in ticks are 240, 480, 720, 960, 1440 and 1920: eighth, quarter, dotted quarter, half, dotted half and whole notes. M5 also accepts the current whole-bar duration, which is the default for chord entry.
 
-`insertChord(score, position, symbol, duration, idFactory)` inserts only into free space. It returns `{ score, position, eventId }`, with the cursor advanced by that duration. Ending exactly at tick 1920 advances to offset zero of the next bar. The next bar can be a virtual position at `measureIndex === score.measures.length`; the actual bar is created only when a chord is inserted there. The ID factory is called first for the chord and then for that new bar, if needed.
+`insertChord(score, position, symbol, duration, idFactory)` inserts only into free space. It returns `{ score, position, eventId }`, with the cursor advanced by that duration. Ending exactly at the current bar's duration (1920 ticks in 4/4) advances to offset zero of the next bar. The next bar can be a virtual position at `measureIndex === score.measures.length`; the actual bar is created only when a chord is inserted there. The ID factory is called first for the chord and then for that new bar, if needed.
 
 Insertion rejects overlap, a position outside the sheet or its virtual next bar, and a duration crossing the barline. It never overwrites an occupied slot, silently truncates a chord or creates more than 256 measures. Existing chords are kept in offset order. A virtual next bar may contain a deliberate initial gap when its insertion offset is greater than zero.
 

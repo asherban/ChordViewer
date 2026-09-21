@@ -1,6 +1,6 @@
 # Local MIDI testing without a piano or tablet
 
-Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setup, a desktop browser and the Android emulator. This replaces the earlier requirement to prove a physical piano/tablet connection before building the editor.
+Updated: 2026-09-22. Routine testing uses this computer's MIDI loopback setup, a desktop browser and the Android emulator. This replaces the earlier requirement to prove a physical piano/tablet connection before building the editor.
 
 ## What is verified now
 
@@ -18,7 +18,7 @@ Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setu
 | Windows bridge | The committed bridge passed real LoopBe round-trip tests in PowerShell 5.1 and 7: byte ordering, timestamps, sustain, channel separation, reconnect reset, authentication, malformed input, credential ACL and cleanup. |
 | Other installed software | MIDIculous 4.1.13 is installed. Its MIDI configuration was not altered or used for this test. |
 
-These establish the real Windows-driver input path. The original reference used a temporary sender; M2 uses the committed [fixture sender](../../scripts/midi/README.md). M4 extends this with actual chord insertion, corrections, save/reopen and recovery; see the [authoring verification record](../development/m4-verification.md). This does not establish every MIDI case or physical device hot-plug behavior.
+These establish the real Windows-driver input path. The original reference used a temporary sender; M2 uses the committed [fixture sender](../../scripts/midi/README.md). M4 extends this with actual chord insertion, corrections, save/reopen and recovery; see the [chord verification record](../development/m4-verification.md). M5 adds melody insertion, separate lane preservation, corrections and single-event replacement on both clients; see the [melody verification record](../development/m5-verification.md). This does not establish every MIDI case or physical device hot-plug behavior.
 
 ## Test routes
 
@@ -59,7 +59,7 @@ Use the same original event fixtures and expected musical results for both clien
 | Practice | Manual movement, matching-chord advancement, repeated chart chords requiring fresh gestures, and no score mutation. |
 | Persistence and layout | Save/reopen, temporary backend loss, agreed draft recovery, tablet-sized native layout and browser layout. |
 
-This is the full planned coverage, not a claim that every row passes. M4 verifies chord gestures, selected durations, correction/undo/redo, saved-score persistence and interruption recovery. Melody input, guided practice and durable offline recovery remain later work. Normal CI replays fixtures directly into each client's processing layer without requiring the Windows driver; opt-in integration tests additionally exercise LoopBe and the emulator bridge.
+This is the full planned coverage, not a claim that every row passes. M4 verifies chord gestures, selected durations, correction/undo/redo, saved-score persistence and interruption recovery. M5 verifies melody input and editing, dots/rests/ties, keys/meters, separate pass preservation and import/export. Guided practice and durable offline recovery remain later work. Unit checks replay fixtures directly into each client's processing layer without requiring the Windows driver; opt-in integration tests additionally exercise LoopBe and the emulator bridge.
 
 ## Remaining work and limits
 

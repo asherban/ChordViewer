@@ -1,6 +1,6 @@
 # Native Android development
 
-The native Kotlin / Jetpack Compose app signs in to the shared local backend and manages each account's persistent library. Create supports automatic MIDI chord insertion, duration and position selection, correction, deletion, undo/redo and full-score saves with revision conflict detection. Melody editing and guided practice remain later milestones. A compact Library / Create / Practice shell follows the agreed warm-white and sage mockups. Library uses two columns on wide tablets. Create and Practice keep the score beside tutorial and live MIDI cards; narrower windows stack these surfaces. Sheet metadata and connection settings are available in dialogs. Held/sounding notes, recognized chords, sustain and channel identity remain visible in the live MIDI card.
+The native Kotlin / Jetpack Compose app signs in to the shared local backend and manages each account's persistent library. Create supports separate MIDI chord and melody passes, manual chord/note/rest input, duration and position selection, correction, ties, deletion, shared undo/redo and full-score saves with revision conflict detection. JSON and supported MusicXML files can be previewed locally and saved as new sheets. Guided practice remains a later milestone. A compact Library / Create / Practice shell follows the agreed warm-white and sage mockups. Library uses two columns on wide tablets. Create and Practice keep the score beside tutorial and live MIDI cards; narrower windows stack these surfaces. Sheet metadata and connection settings are available in dialogs. Held/sounding notes, recognized chords, sustain and channel identity remain visible in the live MIDI card.
 
 ## Local accounts and library
 
@@ -23,6 +23,20 @@ Open a personal sheet in **Create**, use the position and duration controls to c
 
 **Undo/Redo** keeps the previous 100 score-and-position changes. **Save sheet** saves chords together with the title, tutorial and untouched melody lane; reopening restores the full score. Mode changes, dialogs, saving, disconnects and backgrounding pause entry. Library and Practice never write played notes to the score. Durable offline recovery and physical USB/Bluetooth input remain later work.
 
+### Melody, keys and meter
+
+Choose the **Melody** entry lane for a separate note pass. Each lane remembers its own insertion position; the first melody pass starts at bar 1, beat 1. Select a duration, choose **Start MIDI entry**, then play and release one pitch at a time. Overlapping pitches are rejected without inserting music; release the keys and start entry again. Supported entry pitches are C3–B6. Sustain does not delay insertion. A blocked note stays pending so its spelling, duration or position can be corrected without replaying.
+
+Use **Add chord** or **Add note / rest** without MIDI. Tap an existing note/rest on the staff, or use **Change melody**, to edit pitch, accidental, octave and duration. **Delete note to rest** preserves its duration and later timing. **Tie to next note** requires an immediately adjacent note with identical pitch spelling. Pitch/duration/meter changes remove only ties that become invalid. Undo/redo spans both lanes, key/meter changes, cursor positions and durations. Manual entry and editing pause automatic capture; replacement from MIDI is a deliberate one-shot action.
+
+New blank sheets and **Sheet details** support 30 major/minor key signatures and meters with 1–12 beats over 2, 4 or 8. Key changes preserve sounding pitches and change their notation context. Changing meter never moves, truncates or deletes music: if an event would cross the new barline, correct it first. The position picker labels beats using the current meter and includes the subdivisions needed for dotted sixteenths. The native staff draws the key on each system and the time signature on the first system. Existing v1 C-major/4-4 sheets remain readable; edited settings use score schema v2.
+
+### Import and export
+
+Choose **Library → Import** and select an uncompressed `.json`, `.xml` or `.musicxml` file no larger than 1 MiB using Android's document picker. The app reads only the selected document and does not retain its permission. A local preview lists any conversion warnings and allows editing the title. **Save as new sheet** creates a fresh server identity; imported IDs never replace an existing account sheet. Existing unsaved work requires an explicit discard before opening the new imported sheet. Unsupported MusicXML features are rejected with a reason rather than silently flattened; compressed MXL, multiple voices/staves and unsupported notations are outside this version.
+
+Use **Sheet details → Export ChordViewer JSON** to save the current draft through Android's create-document picker. JSON preserves the exact score, including key, meter, timing and ties. Exporting does not save the draft to your library and does not include account credentials or the separately stored tutorial URL. Files use UTF-8; import rejects malformed JSON/XML, DTDs/entities, excessive nesting and unsupported score data.
+
 Only the debug source set permits HTTP, restricted to `127.0.0.1` through `adb reverse`. Release networking requires HTTPS and has no API origin configured until public hosting is selected. Redirects are rejected so credentials cannot follow a server redirect to another host. Requests have connection/read timeouts; response reads stop at 2 MiB and score writes at 1 MiB. Android's normal certificate verification applies to HTTPS.
 
 The implementation separates `library/LibraryApi.kt` (bounded HTTP), `LibraryModels.kt` (validated contracts), `LibraryViewModel.kt` (session and request lifetime), and `LibraryScreen.kt` (Compose UI). It uses the platform HTTP client and the existing AndroidX lifecycle family; no third-party HTTP or credential-storage implementation was added.
@@ -40,7 +54,7 @@ adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.
 adb -s emulator-5554 reverse --remove tcp:3001
 ```
 
-The test checks an empty account, example/blank creation, score reading and updates, canonical tutorial URLs, stale revision conflicts, persisted data after a new login, cross-account denial, and server session revocation. Without `libraryApi=true`, it is skipped and does not provide evidence of backend coverage. Credentials are generated in the test process and are not printed.
+The test checks an empty account, example and keyed/metered blank creation, import as a fresh identity, score reading and updates, canonical tutorial URLs, stale revision conflicts, persisted data after a new login, cross-account denial, and server session revocation. Without `libraryApi=true`, it is skipped and does not provide evidence of backend coverage. Credentials are generated in the test process and are not printed.
 
 ## Build
 
@@ -49,6 +63,15 @@ Open this directory in Android Studio or use the checked-in Gradle wrapper. Inst
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease
 ```
+
+If other applications leave little free memory on a 16 GB machine, build before starting the emulator and use a single compiler JVM. From the repository root in PowerShell:
+
+```powershell
+. .\scripts\development\Initialize-AndroidEnvironment.ps1
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:assembleRelease
+```
+
+These options apply only to that invocation. Close memory-heavy applications if the build still runs out of memory; do not build while the emulator is running.
 
 The build pins AGP 8.13.2, Gradle 8.14.5, Kotlin / Compose compiler 2.3.21, Compose BOM 2025.04.01 and SDK 35. Gradle's distribution checksum is pinned. Gradle 8.14.5 includes the repository-resolution security fixes announced in January 2026. These form a compatible baseline rather than a promise of current Play Store submission readiness; review target SDK and dependency updates before the public launch milestone.
 
@@ -82,16 +105,22 @@ Build references: [AGP 8.13 compatibility](https://developer.android.com/build/r
 
 ## Native score proof
 
-The app decodes `contracts/fixtures/lead-sheet-v1.json` directly through Gradle asset and test-resource source directories. There is no copied Android-only score file. The v1 reader validates the agreed C-major, 4/4, single-treble-voice subset, including independent chord timing, rhythmic duration, globally unique IDs, bar boundaries and ties between adjacent equal spelled pitches.
+The app decodes shared score fixtures directly through Gradle asset and test-resource source directories. There is no copied Android-only score file. The reader validates v1 C-major/4-4 and v2 keyed/metered single-treble-voice scores, including independent chord timing, rhythmic duration, globally unique IDs, bar boundaries and ties between adjacent equal spelled pitches.
 
-Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Chord-only rows use prominent serif symbols centered within their duration spans, small bar numbers and vertical dividers. Melody rows align chord labels with their onset, use continuous staff lines, a clef on each row and the time signature on the first row. Accidentals persist within each bar and a natural cancels an earlier alteration. Rows hold four bars when readable, fall back to two or one for narrow windows or dense notation, and scroll individually when needed. Measured symbol widths and note spacing prevent neighboring events from colliding; high and low notes expand vertical spacing. The canvas exposes a textual score description for accessibility. Chords are selected through labeled controls for the current bar. Advanced engraving, beaming, multiple voices, lyrics and melody editing remain later work.
+Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Chord-only rows use prominent serif symbols centered within their duration spans, small bar numbers and vertical dividers. Melody rows align chord labels with their onset, use continuous staff lines, a clef/key on each row and the time signature on the first row. Accidentals start from the key signature, persist within each bar and support natural cancellation. Rows hold four bars when readable, fall back to two or one for narrow windows or dense notation, and scroll individually when needed. Measured symbol widths and note spacing prevent neighboring events from colliding; high and low notes expand vertical spacing. The canvas exposes a textual score description for accessibility. Melody can be selected by tapping its notehead/rest, with a labeled picker as an accessible fallback. Chords use labeled controls for the current bar. Advanced engraving, beaming, multiple voices and lyrics remain later work.
 
 ### Score layout visual acceptance
 
-For isolated layout screenshots, install the debug and test APKs on the 1280×800 emulator, then run the following. This opt-in test renders synthetic sheets in the native shell and writes `score-native-*.png` under the app-private `files/ui-evidence/` directory. It requires no backend, credentials or MIDI and should run only after saving and closing any current native editing session.
+For isolated layout screenshots, install the debug and test APKs on the 1280×800 emulator, then run the following. This opt-in test renders synthetic sheets in the native shell and writes `score-native-*.png`, `m5-native-sharps.png` and `m5-native-flats.png` under the app-private `files/ui-evidence/` directory. It requires no backend, credentials or MIDI and should run only after saving and closing any current native editing session.
 
 ```powershell
 adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.NativeScoreVisualTest -e scoreVisual true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+To verify valid MusicXML (including a UTF-8 BOM) and external-declaration rejection using Android's XML parser, run the following on the same installed test APK. This product test needs no backend or MIDI:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.ScoreImportAndroidTest com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 Bravura is unmodified and licensed under SIL Open Font License 1.1. The license is bundled in `app/src/main/assets/licenses/Bravura-OFL.txt`. Source: [Steinberg Bravura commit 37b1943](https://github.com/steinbergmedia/bravura/tree/37b194378b710cc40e406ab6c4b07608bb9548ae). `bravura.otf` SHA256: `cdf0f893ee1fdb64b7f6713d71ee0dcfc349c0ac01429a8e451b01a9e79f5f3b`.
@@ -116,6 +145,6 @@ For real MIDI authoring acceptance, use a synthetic account on the test backend,
 powershell -NoProfile -ExecutionPolicy Bypass -File apps/android/scripts/Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local/backend/ui-native-fixture.json -Authoring
 ```
 
-This creates a new test sheet, sends two immediate chords with sustain held, checks undo/redo, manual correction, delete/undo and one-shot replacement, confirms Practice cannot edit, reconnects MIDI, then saves and reopens the full score and tutorial. It captures three screenshots under `.local/android-ui-evidence/`. Do not run another LoopBe sender concurrently.
+This creates a new test sheet, sends two immediate chords with sustain held, checks undo/redo, manual correction, delete/undo and one-shot replacement, confirms Practice cannot edit, reconnects MIDI, then saves and reopens the full score and tutorial. It also captures a separate melody pass, rejects overlapping pitches, replaces one note from MIDI, edits rests and ties, changes key/meter, saves/reopens, and exports/imports JSON through Android's document pickers. Screenshots are copied to `.local/android-ui-evidence/`. The exported synthetic JSON remains in the emulator's chosen document location. Do not run another LoopBe sender concurrently.
 
-`NativeShellFlowTest` and `NativeChordAuthoringTest` are skipped unless explicitly run by this helper (`shellUi=true` or `authoringUi=true`). A skipped run does not establish UI acceptance. The helper bounds the instrumentation run to four minutes and redacts fixture values from any failure transcript. Test-only fixture delivery is separate from the application: normal sign-in still keeps all credentials and sessions in memory.
+`NativeShellFlowTest` and `NativeChordAuthoringTest` are skipped unless explicitly run by this helper (`shellUi=true` or `authoringUi=true`). A skipped run does not establish UI acceptance. The helper bounds instrumentation runtime and redacts fixture values from any failure transcript. Test-only fixture delivery is separate from the application: normal sign-in still keeps all credentials and sessions in memory.

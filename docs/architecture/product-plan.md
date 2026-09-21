@@ -1,6 +1,6 @@
 # ChordViewer product plan
 
-Updated: 2026-09-20. Living discussion draft; accepted decisions and proposals are distinguished below.
+Updated: 2026-09-22. Living discussion draft; accepted decisions and proposals are distinguished below.
 
 See the [architecture index](README.md), [milestone roadmap](milestones.md) and [selected mockups](mockups/README.md).
 
@@ -9,9 +9,9 @@ See the [architecture index](README.md), [milestone roadmap](milestones.md) and 
 - Build a small commercial product that sells practice and lead-sheet creation tools.
 - Three parts: backend, web client, and a natively implemented Android tablet client.
 - Both clients must support creating lead sheets directly from a connected digital piano, as well as practicing with them. Tablet authoring is a core workflow.
-- MIDI is the primary authoring input. Score import and direct notation editing are also desired input methods; their exact first-release scope is still to be agreed.
+- MIDI is the primary authoring input. M5 also supports direct chord/note/rest editing and local MusicXML or ChordViewer JSON import with a preview before saving a new sheet.
 - Step entry is the preferred initial interaction: play a chord or note, place it at the selected score position, then advance.
-- Automatically insert played chords or notes, with easy undo, deletion and correction. Key release is the proposed commit boundary; detailed sustain and overlapping-note behavior still needs specification.
+- Automatically insert played chords or notes on physical release, with easy undo, deletion and correction. Sustain does not delay insertion; overlapping pitches form one chord gesture and are rejected in the single-note melody pass.
 - Enter chords and melody in separate passes initially. Support for simultaneous melody/accompaniment capture remains a longer-term goal.
 - A YouTube tutorial is linked and played independently while creating or practicing. Automatic synchronization and bar timestamps are not required for the initial workflow.
 - Use layout A: tutorial and played-chord preview on the left, lead sheet on the right.
@@ -108,12 +108,12 @@ Both clients connect directly to the piano and communicate with the backend for 
 - Process MIDI and update the authoring interface locally on each client so note entry does not wait for a backend response.
 - Represent chord events and melody events separately on the same musical timeline, with explicit duration, pitch spelling, rests and measure information. The current array of chord strings is insufficient for melody notation.
 - Keep live held/sustained MIDI notes separate from saved score events.
-- Treat the musical score as editable data, not a picture or PDF. Decide the import/export format after confirming the supported notation scope.
+- Treat the musical score as editable data, not a picture or PDF. Import the supported MusicXML subset or exact ChordViewer JSON; export score JSON without account or tutorial metadata.
 - Use a local draft and explicit synchronization status so a temporary server connection loss does not interrupt creation. M3 preserves metadata drafts during a failed save and rejects stale revisions; durable offline drafts and conflict merging remain to be designed.
 - Use one versioned API contract for web and Android. Native Android has its own UI and MIDI integration; shared behavior does not imply shared UI code.
 - Keep each client's MIDI processing separable from its input transport. Web tests can use the real Web MIDI path through LoopBe1; Android emulator tests will use a local bridge and debug input adapter feeding the same native processing used by device input. The adapter remains outside release builds. See [Local MIDI testing](local-midi-testing.md) for verified results and remaining work.
 - M3 implements TypeScript/Fastify, PostgreSQL and self-hosted Better Auth email/password with database-backed sessions. Web uses HttpOnly SameSite cookies through its same-origin proxy; Android uses signed bearer credentials held only in memory. HTTP is limited to workstation loopback for this milestone. Public HTTPS, account recovery/verification and payment access remain later work. See the [backend contract](backend-contract.md).
-- The first melody scope is one treble voice with chord symbols, rests, accidentals, dotted notes and ties, confirmed by the user during M2. Web uses VexFlow; Android draws natively with Compose Canvas and a bundled music font. The foundation proof intentionally supports C key signature and 4/4; additional keys/meters are future contract extensions.
+- The first melody scope is one treble voice with chord symbols, rests, accidentals, dotted notes and ties, confirmed by the user during M2. Web uses VexFlow; Android draws natively with Compose Canvas and a bundled music font. M5 extends the score to version 2: all standard major/minor key signatures and meters of 1–12 beats over 2, 4 or 8. Existing v1 C/4/4 sheets remain readable. See [melody authoring](melody-authoring.md).
 
 ## Proposed development and deployment path
 
@@ -129,11 +129,11 @@ The workstation audit, preservation steps and cleanup inventory are recorded in 
 
 ## Open design decisions
 
-1. Automatic insertion gesture details: define physical key release, overlapping notes, rolled chords and sustain behavior so entry captures the intended event once and preserves the selected duration.
-2. Rhythm entry: defaults and touch controls for chord/note lengths, rests, dotted values and ties; how the user changes duration with hands at the piano.
-3. First-release melody scope: one treble voice with rests, accidentals, dots and ties is agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope. M4 uses the existing v1 C key signature and 4/4 timeline, while recognizing chords in all pitch classes; additional score keys/meters need a decision during M5.
-4. How to resolve alternate chord names and enharmonic spellings without slowing entry.
-5. Import formats and the minimum direct-editing controls needed at launch.
+1. Gesture behavior is resolved for M4/M5 in the chord and melody authoring contracts. Simultaneous two-hand capture remains later work.
+2. M5 uses whole-bar chord and quarter-note melody defaults with touch duration, dot, rest and tie controls. Hands-free duration changes can be explored after the first complete workflow.
+3. One treble voice and expanded global keys/meters are agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope.
+4. M4 exposes chord-name alternatives; M5 chooses key-aware MIDI spelling and allows direct pitch correction. Further shortcuts can follow usability testing.
+5. MusicXML plus ChordViewer JSON, explicit preview/new-sheet import and manual chord/note/rest editing are agreed for M5.
 6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.
 7. Offline draft synchronization and simultaneous edits from two devices.
 8. Measure combined local service resource use as backend work is added. M1 selected and verified the tablet emulator configuration in the [local setup guide](../development/local-setup.md). Verify NAS capacity when the later deployment milestone begins. Exact tablet model and physical piano compatibility remain unverified hardware details, but do not block the local test workflow.

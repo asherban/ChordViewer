@@ -14,6 +14,8 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [M3 verification record](../development/m3-verification.md) | Shared account libraries, container persistence, session/isolation checks and native/browser evidence. |
 | [M4 chord authoring](chord-authoring.md) | Automatic entry, shared recognition, duration/position rules, correction and capture recovery. |
 | [M4 verification record](../development/m4-verification.md) | Real LoopBe chord creation on both clients, full-score persistence, reviews and screenshots. |
+| [M5 melody and import rules](melody-authoring.md) | Separate entry passes, direct editing, expanded keys/meters, safe import and JSON export. |
+| [M5 verification record](../development/m5-verification.md) | Product tests, real MIDI authoring, import/export, reviews and actual application captures. |
 | [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |
@@ -36,10 +38,10 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 
 ## How to read this plan
 
-The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. The chord-entry contract records the M4 interaction decisions; cloud provider, import scope and billing remain open. The milestone roadmap includes decision points rather than treating these as settled choices.
+The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Chord and melody authoring contracts record the M4/M5 decisions, including MusicXML and JSON import. Cloud provider and billing remain open. The milestone roadmap includes those later decision points.
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
-The old active client has been replaced by the three-part foundation, account libraries and MIDI chord authoring. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. Deployment remains deferred.
+The old active client has been replaced by the three-part foundation, account libraries and score authoring. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. Deployment remains deferred.
 
 All mockup assets and internal document links are stored within the repository. Update this folder as decisions are made so future implementation work uses the same plan.

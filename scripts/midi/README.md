@@ -19,6 +19,8 @@ For the Android emulator, create `adb reverse tcp:39173 tcp:39173`, connect the 
 
 M4 adds `-Fixture authoring`: C, F, Am, Am, G, including immediate press/release, rolled notes and separate gestures under sustain. Choose one-beat duration and start MIDI entry on a blank saved sheet. `-Fixture authoring-replacement` sends Dm followed by G to check that replacement changes one selected chord only. `-Fixture authoring-held` holds C for three seconds, allowing a mode change or disconnect before release. All fixtures broadcast to both clients; they never choose or arm an editor for you. See the [developer commands](../../README.md#midi-testing-without-a-piano-or-tablet) for automated authoring checks.
 
+M5 adds `-Fixture melody`: C4, D4, F-sharp4, F-sharp4, G4, A4, each physically released before the next note. Repeated F-sharps occur under sustain, including a zero-velocity note-off. Choose G major, 3/4 and quarter-note melody entry to fill two bars. The complete testing launcher exposes the same sequence as **M**; **P** retains the chord/smoke sequence.
+
 ## Protocol
 
 The only listener is IPv4 loopback `127.0.0.1:39173`. There is no bind-address option. One authenticated client is served at a time. UTF-8 JSON records are separated by LF:

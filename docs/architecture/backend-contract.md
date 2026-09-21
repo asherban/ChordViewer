@@ -18,10 +18,13 @@ Saving sends the complete score, tutorial URL and `expectedRevision`. PostgreSQL
 | `GET /api/v1/me` | Returns the authenticated account's ID, name and email. |
 | `GET /api/v1/sheets` | Lists only the authenticated account's sheets. |
 | `POST /api/v1/sheets` | Creates a blank sheet or explicit example copy. |
+| `POST /api/v1/sheets/import` | Validates score JSON and creates a new owned sheet with a fresh UUID; source identity never overwrites an existing sheet. |
 | `GET /api/v1/sheets/{id}` | Opens an owned sheet. |
 | `PUT /api/v1/sheets/{id}` | Validates and saves an owned sheet against its revision. |
 
 There is no delete endpoint yet; recoverable Trash belongs to the full Library milestone. Unknown authentication endpoints are unavailable. Tutorial links are restricted to supported HTTPS YouTube watch/youtu.be forms with an eleven-character video ID. The backend normalizes the URL without fetching it. Embedded playback is future client work.
+
+M5 blank creation optionally accepts a standard major/minor key and supported meter, defaulting to C/4/4 in score v2. Example copies retain the original v1 fixture. Import receives canonical v1/v2 score JSON after local preview, plus title and optional tutorial URL. The backend does not parse MusicXML or fetch source URLs. Creation and import share the same per-owner transaction lock and 100-sheet quota. No database migration is needed for v2 because scores are validated JSON documents in the existing storage column.
 
 ## Authentication and client lifetime
 

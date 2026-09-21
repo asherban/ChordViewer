@@ -2,13 +2,13 @@
 
 Create lead sheets at the piano, keep a YouTube lesson beside the score, and practice on the web or a native Android tablet.
 
-**Rebuild status: M4 MIDI chord authoring.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Create a blank sheet, automatically insert chords from MIDI, correct/delete/replace them, undo/redo, link a YouTube tutorial and save/reopen the full sheet. Both clients also display existing treble melody notation. Melody editing, embedded tutorial playback and practice advancement arrive in later milestones.
+**Rebuild status: M5 melody, direct editing and import.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Enter chords and melody in separate MIDI passes or add chords, notes and rests by hand. Correct/delete/replace entries, undo/redo, choose a key/meter, link a YouTube tutorial and save/reopen the full sheet. Import supported MusicXML or ChordViewer JSON after a preview, and export the current score as JSON. Embedded tutorial playback and practice advancement arrive in M6.
 
 The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
 
 Scores use large serif chord names and compact four-bar rows, with connected staves when melody is visible. Narrow windows and dense music reflow into fewer bars at a readable size. See the [score layout screenshots and verification](docs/development/score-layout-verification.md). Run the testing launcher without `-SkipBuild` after pulling Android source changes so the emulator receives the updated app.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M4 verification record](docs/development/m4-verification.md) for authoring checks and current screenshots, the [M3 verification record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M5 verification record](docs/development/m5-verification.md) for melody/import checks and current screenshots, the [M4 record](docs/development/m4-verification.md) for the original chord-entry acceptance, the [M3 record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -60,7 +60,7 @@ Wait for the **ready** message, then:
 
 1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android sign-in is required again after each app-process restart.
 2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
-3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the fixture to both connected clients. Wait for playback to finish, then repeat as often as needed. It displays notes, sustain and channels without producing audio. To insert its chords, open a saved sheet in **Create**, select a free position and press **Start MIDI entry** on each client. Single notes are ignored. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
+3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the chord/smoke fixture. Enter **M** for a six-note melody sequence. Both go to every connected client without producing audio. To write music, open a saved sheet in **Create**, choose the matching chord or melody pass, select a free position/duration and press **Start MIDI entry** on each client. For **M**, G major, 3/4 and quarter-note duration fill two bars. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
 4. Save any draft edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback; unsaved drafts do not survive shutdown.
 
 Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client to compare drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
@@ -113,13 +113,24 @@ Create an account using a password of 12–128 characters. Email verification an
 
 ### Create a chord sheet
 
-1. Create/open a saved sheet and connect MIDI. Choose a free bar/beat and a duration (default: four beats, one bar).
+1. Create/open a saved sheet and connect MIDI. Choose the chord entry pass, a free bar/beat and a duration (default: one current bar). New blank sheets offer key and meter controls.
 2. Press **Start MIDI entry**. Play a chord and release every physical key: it inserts once and advances by the chosen duration. Sustain does not delay insertion. Rolled/overlapping keys form one chord until all are released.
 3. Select an inserted chord to change its name/duration, choose an alternative name, **Replace from MIDI** once, or **Delete chord**. Replacement and deletion leave neighbouring chords and melody intact. **Undo/Redo** restores music and cursor position; web also supports Ctrl/Cmd+Z, Shift+Z, Ctrl/Cmd+Y and Delete.
 4. Unknown voicings stay available for manual naming. A chord that overlaps another or crosses a barline remains pending: shorten its duration or choose another free slot, then apply it.
 5. Press **Save sheet**. Failed saves retain the draft; revision conflicts offer an explicit reload after confirmation. Save details also saves the full score. Leaving Create, editing details, disconnecting, or backgrounding pauses entry; press **Start MIDI entry** again when ready.
 
-The current contract uses a C key signature and 4/4, with chords in any pitch class and half-beat through whole-bar durations. Single-note melody entry is M5. Music undo/redo retains up to 100 changes and does not undo title/tutorial fields. See the [shared chord-entry behavior](docs/architecture/chord-authoring.md) and [M4 verification](docs/development/m4-verification.md).
+Without MIDI, choose **Add chord by hand** on web or **Add chord** on Android. Music undo/redo retains up to 100 changes across both lanes and key/meter edits; it does not undo title/tutorial fields. See the [shared chord-entry behavior](docs/architecture/chord-authoring.md).
+
+### Add melody, change the key and import a score
+
+1. Switch to **Melody entry** on web or the **Melody** entry lane on Android. Each pass remembers its cursor; the first melody pass starts at bar 1, beat 1. Select a duration, start MIDI entry, then play and release one pitch at a time. Overlapping pitches are rejected and pause entry until you restart it. Sustain does not delay insertion.
+2. Use **Add note by hand** / **Add note / rest**, or **Insert rest**, without MIDI. Select a note/rest on the staff or from its event picker to edit pitch, accidental, octave, duration and ties. **Delete note → rest** keeps later timing unchanged. A tie needs an adjacent note with identical pitch spelling. **Replace from MIDI** changes one selected event and pauses.
+3. If an event cannot fit, its capture stays pending. Change duration or position, then apply or discard it. Whole through sixteenth notes/rests, one dot, single accidentals and one treble voice are supported. MIDI pitches span C3–B6.
+4. **Sheet details** changes the global key and meter. Choose among 30 standard major/minor signatures and 1–12 beats over 2, 4 or 8. Web uses **Apply key and meter** before **Save details**. Key changes preserve written pitches; a shorter meter must still fit every existing event. Invalidated ties are cleared. Existing v1 C/4/4 scores remain readable.
+5. In **Library**, choose **Import score** (web) or **Import** (Android). Select `.musicxml`, `.xml` or ChordViewer `.json`, up to 1 MiB, inspect the preview/warnings and choose **Save as new sheet**. MusicXML supports one part, treble staff and voice with the supported notes/rests, ties and chord symbols. Compressed MXL, pickups, repeats, multiple voices/staves, tuplets and mid-score key/meter changes are rejected. Lyrics, layout and performance metadata are omitted with a warning.
+6. **Export score JSON** on web, or **Sheet details → Export ChordViewer JSON** on Android, writes the current draft through the browser download/native document picker. JSON preserves score data and title; it excludes the separately stored YouTube URL and account information. Exporting does not save the draft to your library. Reimport always creates a new sheet.
+
+An original import example is checked in at [lead-sheet.musicxml](tests/fixtures/music/import/lead-sheet.musicxml). The [melody and import contract](docs/architecture/melody-authoring.md) records the complete M5 behavior and limitations.
 
 To check the API from another terminal:
 
@@ -177,6 +188,14 @@ The environment helper prints its chosen SDK and JDK. This workstation's SDK is 
 
 Finish builds and stop Gradle daemons before booting the emulator on this 16 GB computer. The release APK is unsigned and is not a public release.
 
+If other applications leave little free memory, this verified alternative uses one smaller compiler JVM for the invocation:
+
+```powershell
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:assembleRelease
+```
+
+It can take several minutes and does not change project defaults. Keep the emulator stopped until it completes.
+
 ## Android: run the tablet emulator
 
 In terminal 1, leave this command running:
@@ -219,6 +238,13 @@ adb -s emulator-5554 reverse --remove tcp:3001
 
 For an interactive native UI against test data, map `adb -s emulator-5554 reverse tcp:3000 tcp:3001`. Restore the development mapping before using your personal library. [Native development](apps/android/README.md) explains session and network boundaries.
 
+With the debug and test APKs installed, these product checks exercise Android's actual XML parser and native notation layout without a backend or MIDI. Save and close any current native editing session first:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.ScoreImportAndroidTest com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.NativeScoreVisualTest -e scoreVisual true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
 ## MIDI testing without a piano or tablet
 
 LoopBe1 must expose **LoopBe Internal MIDI**. For the browser, open the score preview, click **Enable MIDI**, allow site access and select that input. In another PowerShell terminal, send the fixture:
@@ -241,10 +267,19 @@ This broadcasts C, F, Am, Am, G, including a rapid gesture, rolled notes and two
 .\scripts\development\Start-LocalBackend.ps1 -Environment test
 $env:CHORDVIEWER_REAL_MIDI = '1'
 npx playwright test tests/web/authoring.spec.ts
+npx playwright test tests/web/melody-authoring.spec.ts
 Remove-Item Env:CHORDVIEWER_REAL_MIDI
 ```
 
-These three opt-in tests create synthetic accounts and check insertion, corrections, replacement, save/reopen, interruption recovery, failed saves and conflicts. The normal browser suite skips them unless explicitly enabled. They require the actual Windows LoopBe driver; MIDI is not mocked.
+The authoring suites create synthetic accounts and check chord/melody insertion, direct editing, import/export, corrections, save/reopen, interrupted gestures, failed saves and conflicts. MIDI cases are opt-in and use the actual Windows LoopBe driver; ordinary manual-entry/import cases also run in the normal browser suite.
+
+To play melody interactively, choose G major, 3/4, the melody pass and quarter notes, then start entry:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Fixture melody
+```
+
+This broadcasts C4, D4, F-sharp4, F-sharp4, G4 and A4 as separate gestures, including repeated notes under sustain.
 
 For the Android emulator, keep the MIDI bridge running in a separate terminal:
 
@@ -269,13 +304,13 @@ For the optional native UI acceptance test, prepare a synthetic account with at 
 
 This changes a test sheet's title, checks mode/draft preservation, holds a real LoopBe note through navigation and saving, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. It passes credentials over stdin, not command-line arguments. It requires the test API on port 3001 and refuses conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only acceptance. See the [native guide](apps/android/README.md) for fixture details.
 
-For native M4 chord-entry acceptance, use the same private synthetic account and running bridge:
+For native chord/melody authoring acceptance, use the same private synthetic account and running bridge:
 
 ```powershell
 .\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -Authoring
 ```
 
-This installs the built debug/test APKs and broadcasts real MIDI only when instrumentation signals readiness. It checks fast sustained chords, correction, deletion, undo/redo, one-shot replacement, read-only Practice, reconnect and full-score save/reopen. It creates a new test sheet and captures three M4 screenshots. Run this separately from browser MIDI tests and other senders; all LoopBe listeners hear the same broadcasts.
+This installs the built debug/test APKs and broadcasts real MIDI only when instrumentation signals readiness. It checks chord and melody entry, polyphony rejection, direct editing, ties/rests, key/meter changes, history, replacement, read-only Practice, reconnect, save/reopen, and JSON export/import through Android's document pickers. It creates synthetic sheets and captures M4/M5 screenshots. Run it separately from browser MIDI tests and other senders; all LoopBe listeners hear the same broadcasts.
 
 When finished, stop the bridge with Ctrl+C in its terminal, then:
 
@@ -289,4 +324,4 @@ The debug bridge is excluded from the Android release build. Emulator testing do
 
 ## Next milestones
 
-M5 adds melody editing/import; M6 completes the Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).
+M6 completes the Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).
