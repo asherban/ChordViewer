@@ -18,7 +18,7 @@ Updated: 2026-09-20. Routine testing will use this computer's MIDI loopback setu
 | Windows bridge | The committed bridge passed real LoopBe round-trip tests in PowerShell 5.1 and 7: byte ordering, timestamps, sustain, channel separation, reconnect reset, authentication, malformed input, credential ACL and cleanup. |
 | Other installed software | MIDIculous 4.1.13 is installed. Its MIDI configuration was not altered or used for this test. |
 
-These are real Windows-driver-to-Web-MIDI checks. The original reference used a temporary sender; M2 uses the committed [fixture sender](../../scripts/midi/README.md). Both the rebuilt web client and the native M2 app now pass their local input acceptance checks. This establishes the input path; it does not yet test an editor, every MIDI case or physical device hot-plug behavior.
+These establish the real Windows-driver input path. The original reference used a temporary sender; M2 uses the committed [fixture sender](../../scripts/midi/README.md). M4 extends this with actual chord insertion, corrections, save/reopen and recovery; see the [authoring verification record](../development/m4-verification.md). This does not establish every MIDI case or physical device hot-plug behavior.
 
 ## Test routes
 
@@ -59,11 +59,11 @@ Use the same original event fixtures and expected musical results for both clien
 | Practice | Manual movement, matching-chord advancement, repeated chart chords requiring fresh gestures, and no score mutation. |
 | Persistence and layout | Save/reopen, temporary backend loss, agreed draft recovery, tablet-sized native layout and browser layout. |
 
-These cases are planned coverage, not claims that they already pass. Normal CI can replay fixtures directly into each client's processing layer without requiring the Windows driver; local integration tests additionally exercise LoopBe and the emulator bridge.
+This is the full planned coverage, not a claim that every row passes. M4 verifies chord gestures, selected durations, correction/undo/redo, saved-score persistence and interruption recovery. Melody input, guided practice and durable offline recovery remain later work. Normal CI replays fixtures directly into each client's processing layer without requiring the Windows driver; opt-in integration tests additionally exercise LoopBe and the emulator bridge.
 
 ## Remaining work and limits
 
-Android tools, the native diagnostic and real emulator fixture test are verified. Use the documented host-graphics profile; software rendering stalled on this workstation. Initial concurrent Gradle/emulator execution put the 16 GB workstation under memory pressure, so finish the build and stop its daemons before starting the emulator. Run only the services needed for the current test; local backend/database integration follows in M3. NAS deployment is deferred until after complete local validation and is not required for this setup.
+Android tools, the native diagnostic and real emulator fixture test are verified. Use the documented host-graphics profile; software rendering stalled on this workstation. Initial concurrent Gradle/emulator execution put the 16 GB workstation under memory pressure, so finish the build and stop its daemons before starting the emulator. Run only the services needed for the current test; backend/database integration is available locally. NAS deployment is deferred until after complete local validation and is not required for this setup.
 
 Neither a piano nor tablet is required for this workflow. It validates musical logic, editing, application state and native UI behavior. Physical USB/Bluetooth discovery, real-device latency, cable/power behavior and Samsung-specific behavior remain outside its coverage. Record those as unverified rather than claiming emulator results prove hardware compatibility.
 

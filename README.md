@@ -2,11 +2,11 @@
 
 Create lead sheets at the piano, keep a YouTube lesson beside the score, and practice on the web or a native Android tablet.
 
-**Rebuild status: M3 local accounts and persistence.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Create a blank sheet or explicitly copy the original example, reopen it, and save its title and YouTube tutorial link. Both clients render chords and a treble melody voice. Note/chord editing, embedded tutorial playback and practice advancement arrive in later milestones.
+**Rebuild status: M4 MIDI chord authoring.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Create a blank sheet, automatically insert chords from MIDI, correct/delete/replace them, undo/redo, link a YouTube tutorial and save/reopen the full sheet. Both clients also display existing treble melody notation. Melody editing, embedded tutorial playback and practice advancement arrive in later milestones.
 
 The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M3 verification record](docs/development/m3-verification.md) for persistence and the [UI alignment record](docs/development/m3-ui-verification.md) for current screenshots and checks. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M4 verification record](docs/development/m4-verification.md) for authoring checks and current screenshots, the [M3 verification record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -58,10 +58,10 @@ Wait for the **ready** message, then:
 
 1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android sign-in is required again after each app-process restart.
 2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
-3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the fixture to both connected clients. Wait for playback to finish, then repeat as often as needed. A sequence is MIDI input only: it displays notes, sustain and channels but produces no audio or saved-score edits. Restore the browser if it was minimized; the launcher brings the app tab forward and prepares its MIDI input before each broadcast. Keep the Android app in the foreground within its emulator; if it was backgrounded, reopen **MIDI** and press **Connect**.
-4. Enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback.
+3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the fixture to both connected clients. Wait for playback to finish, then repeat as often as needed. It displays notes, sustain and channels without producing audio. To insert its chords, open a saved sheet in **Create**, select a free position and press **Start MIDI entry** on each client. Single notes are ignored. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
+4. Save any draft edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback; unsaved drafts do not survive shutdown.
 
-Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client with the same account to compare their displays. The existing M3 authoring limitations still apply.
+Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client to compare drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
 
 Useful options:
 
@@ -105,7 +105,17 @@ npm run dev
 
 The helper generates private local credentials once, builds the API image and starts PostgreSQL and the API in the background. Keep the `npm run dev` terminal running for the web server and contract watcher. Open **http://127.0.0.1:5173/** in Chrome or Edge; this is the configured browser origin. The API is at **http://127.0.0.1:3000/**, and Vite proxies `/api` and `/health` to it. PostgreSQL has no published host port. No NAS is required.
 
-Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** opens a dialog offering a blank sheet or an explicit example copy. **Open** enters Create; use **Sheet details** to edit and save the title/tutorial. **Practice** displays the saved score with live MIDI feedback. Switching modes retains the open sheet and unsaved details; opening a different sheet or signing out asks before discarding a draft. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write. Music entry/editing and full Library/Practice features remain future work.
+Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** offers a blank sheet or an explicit example copy. **Open** enters Create; use **Sheet details** for the title/tutorial. **Practice** displays the current draft with live MIDI feedback and never inserts chords. Switching modes retains the draft; opening a different sheet or signing out asks before discarding changes. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write.
+
+### Create a chord sheet
+
+1. Create/open a saved sheet and connect MIDI. Choose a free bar/beat and a duration (default: four beats, one bar).
+2. Press **Start MIDI entry**. Play a chord and release every physical key: it inserts once and advances by the chosen duration. Sustain does not delay insertion. Rolled/overlapping keys form one chord until all are released.
+3. Select an inserted chord to change its name/duration, choose an alternative name, **Replace from MIDI** once, or **Delete chord**. Replacement and deletion leave neighbouring chords and melody intact. **Undo/Redo** restores music and cursor position; web also supports Ctrl/Cmd+Z, Shift+Z, Ctrl/Cmd+Y and Delete.
+4. Unknown voicings stay available for manual naming. A chord that overlaps another or crosses a barline remains pending: shorten its duration or choose another free slot, then apply it.
+5. Press **Save sheet**. Failed saves retain the draft; revision conflicts offer an explicit reload after confirmation. Save details also saves the full score. Leaving Create, editing details, disconnecting, or backgrounding pauses entry; press **Start MIDI entry** again when ready.
+
+The current contract uses a C key signature and 4/4, with chords in any pitch class and half-beat through whole-bar durations. Single-note melody entry is M5. Music undo/redo retains up to 100 changes and does not undo title/tutorial fields. See the [shared chord-entry behavior](docs/architecture/chord-authoring.md) and [M4 verification](docs/development/m4-verification.md).
 
 To check the API from another terminal:
 
@@ -211,7 +221,24 @@ LoopBe1 must expose **LoopBe Internal MIDI**. For the browser, open the score pr
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Speed 0.25
 ```
 
-Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI input does not yet edit saved scores. Library/Create/Practice navigation and saving details preserve the connection. Switching inputs clears notes; choosing **Disconnected**, signing out, or hiding the browser page detaches input. Press **Enable MIDI** to resume after returning. This setup does not generate audio.
+Notes arrive through the browser's real Web MIDI API. The page shows held notes, sustained sounding notes and channel identity. MIDI edits the draft only with entry enabled in Create. Mode changes and saving preserve the connection but pause entry. Switching inputs clears notes; choosing **Disconnected**, signing out, or hiding the browser page detaches input. Press **Enable MIDI** to reconnect after returning. This setup does not generate audio.
+
+For a chord-entry sequence, choose **1 beat** duration and start MIDI entry on a blank sheet, then run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Fixture authoring
+```
+
+This broadcasts C, F, Am, Am, G, including a rapid gesture, rolled notes and two chords with sustain held. For automated browser authoring acceptance in installed Chrome, stop other Vite/LoopBe senders, start the test backend and run from the initialized Node shell:
+
+```powershell
+.\scripts\development\Start-LocalBackend.ps1 -Environment test
+$env:CHORDVIEWER_REAL_MIDI = '1'
+npx playwright test tests/web/authoring.spec.ts
+Remove-Item Env:CHORDVIEWER_REAL_MIDI
+```
+
+These three opt-in tests create synthetic accounts and check insertion, corrections, replacement, save/reopen, interruption recovery, failed saves and conflicts. The normal browser suite skips them unless explicitly enabled. They require the actual Windows LoopBe driver; MIDI is not mocked.
 
 For the Android emulator, keep the MIDI bridge running in a separate terminal:
 
@@ -243,6 +270,14 @@ For the optional native UI acceptance test, prepare a synthetic account with at 
 
 This changes a test sheet's title, checks mode/draft preservation, holds a real LoopBe note through navigation and saving, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. It passes credentials over stdin, not command-line arguments. It requires the test API on port 3001 and refuses conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only acceptance. See the [native guide](apps/android/README.md) for fixture details.
 
+For native M4 chord-entry acceptance, use the same private synthetic account and running bridge:
+
+```powershell
+.\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -Authoring
+```
+
+This installs the built debug/test APKs and broadcasts real MIDI only when instrumentation signals readiness. It checks fast sustained chords, correction, deletion, undo/redo, one-shot replacement, read-only Practice, reconnect and full-score save/reopen. It creates a new test sheet and captures three M4 screenshots. Run this separately from browser MIDI tests and other senders; all LoopBe listeners hear the same broadcasts.
+
 When finished, stop the bridge with Ctrl+C in its terminal, then:
 
 ```powershell
@@ -255,4 +290,4 @@ The debug bridge is excluded from the Android release build. Emulator testing do
 
 ## Next milestones
 
-M4 adds MIDI authoring; M5 melody editing/import; M6 the full Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).
+M5 adds melody editing/import; M6 completes the Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).

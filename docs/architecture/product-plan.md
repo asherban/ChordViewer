@@ -131,7 +131,7 @@ The workstation audit, preservation steps and cleanup inventory are recorded in 
 
 1. Automatic insertion gesture details: define physical key release, overlapping notes, rolled chords and sustain behavior so entry captures the intended event once and preserves the selected duration.
 2. Rhythm entry: defaults and touch controls for chord/note lengths, rests, dotted values and ties; how the user changes duration with hands at the piano.
-3. First-release melody scope: one treble voice with rests, accidentals, dots and ties is agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope; additional keys/meters must be specified before authoring is complete.
+3. First-release melody scope: one treble voice with rests, accidentals, dots and ties is agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope. M4 uses the existing v1 C key signature and 4/4 timeline, while recognizing chords in all pitch classes; additional score keys/meters need a decision during M5.
 4. How to resolve alternate chord names and enharmonic spellings without slowing entry.
 5. Import formats and the minimum direct-editing controls needed at launch.
 6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.

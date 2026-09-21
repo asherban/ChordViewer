@@ -17,6 +17,8 @@ For the Android emulator, create `adb reverse tcp:39173 tcp:39173`, connect the 
 
 `Send-Fixture.ps1 -Speed 2` replays twice as quickly. The four-second smoke fixture covers C major, sustain, zero-velocity note-off, a repeated note and independent MIDI channels. Data and relative event times are deterministic; this is not a hard real-time sequencer. The sender releases sustain and all notes on every channel when it closes, including after an error. Avoid playing unrelated LoopBe sessions while running it. Neither tool echoes received MIDI to LoopBe, which would risk a feedback loop and mute the driver.
 
+M4 adds `-Fixture authoring`: C, F, Am, Am, G, including immediate press/release, rolled notes and separate gestures under sustain. Choose one-beat duration and start MIDI entry on a blank saved sheet. `-Fixture authoring-replacement` sends Dm followed by G to check that replacement changes one selected chord only. `-Fixture authoring-held` holds C for three seconds, allowing a mode change or disconnect before release. All fixtures broadcast to both clients; they never choose or arm an editor for you. See the [developer commands](../../README.md#midi-testing-without-a-piano-or-tablet) for automated authoring checks.
+
 ## Protocol
 
 The only listener is IPv4 loopback `127.0.0.1:39173`. There is no bind-address option. One authenticated client is served at a time. UTF-8 JSON records are separated by LF:
