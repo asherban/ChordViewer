@@ -96,6 +96,8 @@ A separate watchdog also cleans up if the launcher terminal closes or its PowerS
 
 Inspect the previous session's `status.json` and logs if cleanup reports a failure or startup still finds a conflict. See the [testing launcher verification and recovery record](docs/development/testing-launcher.md). The individual workflows below remain available for focused development and troubleshooting.
 
+Android startup retries an explicit Activity Manager timeout up to three attempts while a cold emulator settles. Other launch errors stop immediately; the console and `android-launch.log` include a diagnostic with the MIDI token redacted.
+
 ## Start only the web client and API
 
 Start Docker Desktop, then run in the initialized terminal:

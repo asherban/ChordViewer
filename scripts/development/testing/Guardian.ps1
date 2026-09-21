@@ -64,9 +64,16 @@ function Run-Child([string]$Name, [string]$Executable, [string[]]$Arguments, [in
             Start-Sleep -Milliseconds 100
         }
         $child.WaitForOutput()
-        if ($child.ExitCode -ne 0) { throw "$Name failed with exit code $($child.ExitCode). See its session log." }
         $output = New-Object 'Collections.Generic.List[string]'
         while ($null -ne ($line = $child.ReadLine())) { $output.Add($line) }
+        if ($child.ExitCode -ne 0) {
+            $detail = ''
+            if ($Name -eq 'android-launch') {
+                $diagnostic = $output | Where-Object { $_.StartsWith('Android launch failed (ADB exit ') } | Select-Object -Last 1
+                if ($diagnostic) { $detail = ' ' + ($diagnostic -replace '(?i)\b[a-f0-9]{64}\b', '[redacted]') }
+            }
+            throw "$Name failed with exit code $($child.ExitCode).$detail See its session log."
+        }
         return ($output -join "`n")
     } finally {
         $child.Dispose()
