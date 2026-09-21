@@ -6,9 +6,10 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./schema/lead-sheet-v1.schema.json": "./src/lead-sheet-v1.schema.json",
+    "./schema/lead-sheet-v2.schema.json": "./src/lead-sheet-v2.schema.json",
     "./fixtures/lead-sheet-v1.json": "./fixtures/lead-sheet-v1.json"
   },
-  "files": ["dist", "src/lead-sheet-v1.schema.json", "fixtures", "openapi.yaml"],
+  "files": ["dist", "src/lead-sheet-v1.schema.json", "src/lead-sheet-v2.schema.json", "fixtures", "openapi.yaml"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts"

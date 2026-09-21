@@ -189,6 +189,13 @@ export function useLibrary() {
     }
   }
   async function createSheet(fields: NewSheet): Promise<boolean> {
+    return createRequest("/api/v1/sheets", fields);
+  }
+  async function importSheet(score: LeadSheet, title: string, tutorialUrl: string | null): Promise<boolean> {
+    return createRequest("/api/v1/sheets/import", { score, title, tutorialUrl });
+  }
+  async function createRequest(path: string, fields: unknown): Promise<boolean> {
+    if (busy || !user) return false;
     const sessionEpoch = epoch.current;
     listing.current++;
     setLoadingLibrary(false);
@@ -197,7 +204,7 @@ export function useLibrary() {
     setMessage("");
     try {
       const result = parseSavedSheet(
-        await request("/api/v1/sheets", "POST", fields),
+        await request(path, "POST", fields),
       );
       if (epoch.current !== sessionEpoch) return false;
       setSelected(result);
@@ -280,6 +287,7 @@ export function useLibrary() {
     loadLibrary,
     openSheet,
     createSheet,
+    importSheet,
     saveSheet,
   };
 }

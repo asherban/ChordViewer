@@ -1,0 +1,99 @@
+{
+  "fixtureVersion": 1,
+  "description": "Shared web/native M5 behavior. Merge each case's measures/overrides into baseScore. Apply operations in order; a code denotes a rejected operation with an unchanged score. Compare final melody lanes exactly. Insert IDs are consumed event first, then new bar. MIDI spelling never changes sounding pitch.",
+  "baseScore": { "schemaVersion": 1, "id": "score", "title": "Melody study", "keySignature": "C", "timeSignature": { "numerator": 4, "denominator": 4 }, "ticksPerQuarter": 480 },
+  "midi": [
+    { "midi": 48, "key": "C", "pitch": { "step": "C", "alter": 0, "octave": 3 } },
+    { "midi": 60, "key": "C", "pitch": { "step": "C", "alter": 0, "octave": 4 } },
+    { "midi": 61, "key": "C", "pitch": { "step": "C", "alter": 1, "octave": 4 } },
+    { "midi": 61, "key": "F", "pitch": { "step": "D", "alter": -1, "octave": 4 } },
+    { "midi": 70, "key": "F", "pitch": { "step": "B", "alter": -1, "octave": 4 } },
+    { "midi": 66, "key": "G", "pitch": { "step": "F", "alter": 1, "octave": 4 } },
+    { "midi": 65, "key": "F#", "pitch": { "step": "E", "alter": 1, "octave": 4 } },
+    { "midi": 60, "key": "C#", "pitch": { "step": "B", "alter": 1, "octave": 3 } },
+    { "midi": 59, "key": "Cb", "pitch": { "step": "C", "alter": -1, "octave": 4 } },
+    { "midi": 64, "key": "Cb", "pitch": { "step": "F", "alter": -1, "octave": 4 } },
+    { "midi": 48, "key": "C#", "pitch": { "step": "C", "alter": 0, "octave": 3 } },
+    { "midi": 95, "key": "Cb", "pitch": { "step": "B", "alter": 0, "octave": 6 } },
+    { "midi": 95, "key": "C", "pitch": { "step": "B", "alter": 0, "octave": 6 } },
+    { "midi": 63, "key": "Cm", "pitch": { "step": "E", "alter": -1, "octave": 4 } },
+    { "midi": 47, "key": "C", "code": "pitch" },
+    { "midi": 96, "key": "C", "code": "pitch" }
+  ],
+  "cases": [
+    {
+      "name": "insert-preserves-independent-chord",
+      "measures": [{ "id": "bar", "chords": [{ "id": "chord", "offsetTicks": 0, "durationTicks": 1920, "symbol": "C" }], "melody": [] }],
+      "actions": [{ "op": "insert", "position": { "measureIndex": 0, "offsetTicks": 0 }, "spec": { "kind": "note", "pitch": { "step": "F", "alter": 1, "octave": 4 }, "duration": { "denominator": 4, "dots": 1 } }, "ids": ["note"], "cursor": { "measureIndex": 0, "offsetTicks": 720 } }],
+      "expectedMelody": [[{ "id": "note", "kind": "note", "offsetTicks": 0, "pitch": { "step": "F", "alter": 1, "octave": 4 }, "duration": { "denominator": 4, "dots": 1 } }]]
+    },
+    {
+      "name": "six-eight-next-bar-and-rest-replacement",
+      "overrides": { "schemaVersion": 2, "keySignature": "Dm", "timeSignature": { "numerator": 6, "denominator": 8 } },
+      "measures": [{ "id": "bar", "chords": [], "melody": [] }],
+      "actions": [
+        { "op": "insert", "position": { "measureIndex": 0, "offsetTicks": 0 }, "spec": { "kind": "rest", "duration": { "denominator": 2, "dots": 1 } }, "ids": ["rest"], "cursor": { "measureIndex": 1, "offsetTicks": 0 } },
+        { "op": "replace", "id": "rest", "spec": { "kind": "note", "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 2, "dots": 1 } }, "cursor": { "measureIndex": 1, "offsetTicks": 0 } },
+        { "op": "insert", "position": { "measureIndex": 1, "offsetTicks": 0 }, "spec": { "kind": "rest", "duration": { "denominator": 4, "dots": 0 } }, "ids": ["rest2", "bar2"], "cursor": { "measureIndex": 1, "offsetTicks": 480 } }
+      ],
+      "expectedMelody": [[{ "id": "rest", "kind": "note", "offsetTicks": 0, "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 2, "dots": 1 } }], [{ "id": "rest2", "kind": "rest", "offsetTicks": 0, "duration": { "denominator": 4, "dots": 0 } }]]
+    },
+    {
+      "name": "overlap-and-barline-do-not-move-neighbours",
+      "measures": [{ "id": "bar", "chords": [], "melody": [{ "id": "note", "kind": "note", "offsetTicks": 480, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }] }],
+      "actions": [
+        { "op": "insert", "position": { "measureIndex": 0, "offsetTicks": 0 }, "spec": { "kind": "rest", "duration": { "denominator": 2, "dots": 0 } }, "ids": ["unused"], "code": "occupied" },
+        { "op": "insert", "position": { "measureIndex": 0, "offsetTicks": 1800 }, "spec": { "kind": "rest", "duration": { "denominator": 16, "dots": 1 } }, "ids": ["unused"], "code": "barline" },
+        { "op": "replace", "id": "note", "spec": { "kind": "rest", "duration": { "denominator": 1, "dots": 0 } }, "code": "barline" }
+      ],
+      "expectedMelody": [[{ "id": "note", "kind": "note", "offsetTicks": 480, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }]]
+    },
+    {
+      "name": "deletion-clears-nearby-ties-and-keeps-unrelated-tie",
+      "measures": [{ "id": "bar", "chords": [], "melody": [
+        { "id": "a", "kind": "note", "offsetTicks": 0, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 }, "tieToNext": true },
+        { "id": "b", "kind": "note", "offsetTicks": 480, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 }, "tieToNext": true },
+        { "id": "c", "kind": "note", "offsetTicks": 960, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ] }, { "id": "bar2", "chords": [], "melody": [
+        { "id": "d", "kind": "note", "offsetTicks": 0, "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 }, "tieToNext": true },
+        { "id": "e", "kind": "note", "offsetTicks": 480, "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ] }],
+      "actions": [{ "op": "delete", "id": "b" }],
+      "expectedMelody": [[
+        { "id": "a", "kind": "note", "offsetTicks": 0, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } },
+        { "id": "b", "kind": "rest", "offsetTicks": 480, "duration": { "denominator": 4, "dots": 0 } },
+        { "id": "c", "kind": "note", "offsetTicks": 960, "pitch": { "step": "C", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ], [
+        { "id": "d", "kind": "note", "offsetTicks": 0, "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 }, "tieToNext": true },
+        { "id": "e", "kind": "note", "offsetTicks": 480, "pitch": { "step": "D", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ]]
+    },
+    {
+      "name": "three-four-cross-bar-tie-and-respelling",
+      "overrides": { "schemaVersion": 2, "keySignature": "Db", "timeSignature": { "numerator": 3, "denominator": 4 } },
+      "measures": [{ "id": "bar", "chords": [], "melody": [{ "id": "a", "kind": "note", "offsetTicks": 1200, "pitch": { "step": "D", "alter": -1, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }] }, { "id": "bar2", "chords": [], "melody": [{ "id": "b", "kind": "note", "offsetTicks": 0, "pitch": { "step": "D", "alter": -1, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }] }],
+      "actions": [
+        { "op": "tie", "id": "a", "enabled": true },
+        { "op": "replace", "id": "b", "spec": { "kind": "note", "pitch": { "step": "C", "alter": 1, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }, "cursor": { "measureIndex": 1, "offsetTicks": 240 } },
+        { "op": "tie", "id": "a", "enabled": true, "code": "tie" }
+      ],
+      "expectedMelody": [[{ "id": "a", "kind": "note", "offsetTicks": 1200, "pitch": { "step": "D", "alter": -1, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }], [{ "id": "b", "kind": "note", "offsetTicks": 0, "pitch": { "step": "C", "alter": 1, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }]]
+    },
+    {
+      "name": "unchanged-pitch-preserves-tie-then-shortening-removes-it",
+      "measures": [{ "id": "bar", "chords": [], "melody": [
+        { "id": "a", "kind": "note", "offsetTicks": 0, "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 }, "tieToNext": true },
+        { "id": "b", "kind": "note", "offsetTicks": 480, "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ] }],
+      "actions": [
+        { "op": "replace", "id": "a", "spec": { "kind": "note", "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }, "tieExpected": true },
+        { "op": "replace", "id": "a", "spec": { "kind": "note", "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } }, "tieExpected": false },
+        { "op": "tie", "id": "a", "enabled": true, "code": "tie" }
+      ],
+      "expectedMelody": [[
+        { "id": "a", "kind": "note", "offsetTicks": 0, "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 8, "dots": 0 } },
+        { "id": "b", "kind": "note", "offsetTicks": 480, "pitch": { "step": "A", "alter": 0, "octave": 4 }, "duration": { "denominator": 4, "dots": 0 } }
+      ]]
+    }
+  ]
+}

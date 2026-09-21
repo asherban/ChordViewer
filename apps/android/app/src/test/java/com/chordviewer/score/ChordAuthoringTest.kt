@@ -118,7 +118,7 @@ class ChordAuthoringTest {
         assertEquals(120, ChordEdits.replace(offGrid, "chord", 240, "Cm").score.measures.single().chords.single().offsetTicks)
     }
     @Test fun undoRestoresCursorScoreAndExtensionRedoAndHistoryBound() {
-        val editor = ChordEditor(blank())
+        val editor = ScoreEditor(blank())
         repeat(101) { editor.commit(ChordEdits.insert(editor.state.score, editor.state.position, 1920, "C")) }
         repeat(100) { editor.undo() }
         assertFalse(editor.state.canUndo)
@@ -132,3 +132,4 @@ class ChordAuthoringTest {
     }
     private fun expectInvalid(action: () -> Unit) { try { action(); fail("Expected invalid edit") } catch (_: IllegalArgumentException) {} }
 }
+

@@ -103,7 +103,7 @@ try {
     $outDone = $false; $errDone = $false
     $clock = [Diagnostics.Stopwatch]::StartNew()
     while (-not ($runner.HasExited -and $outDone -and $errDone)) {
-        if ($clock.Elapsed.TotalSeconds -gt 240) { throw 'Native UI acceptance exceeded its deadline.' }
+        if ($clock.Elapsed.TotalSeconds -gt 360) { throw 'Native UI acceptance exceeded its deadline.' }
         foreach ($stream in @('out', 'err')) {
             $done = if ($stream -eq 'out') { $outDone } else { $errDone }
             $task = if ($stream -eq 'out') { $outLine } else { $errLine }
@@ -149,6 +149,22 @@ try {
                 Send-Chord @(67, 71, 74) 0
                 Write-Host 'Broadcast a fresh G major gesture after reconnect.'
             }
+            if ($line -match 'M5_NATIVE_MELODY_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody readiness signal.' }
+                Send-Chord @(60) 20
+                Send-Chord @(62) 20
+                Write-Host 'Broadcast two separate notes for the native melody pass.'
+            }
+            if ($line -match 'M5_NATIVE_POLYPHONY_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody polyphony signal.' }
+                Send-Chord @(64, 67) 20
+                Write-Host 'Broadcast overlapping notes to verify single-voice rejection.'
+            }
+            if ($line -match 'M5_NATIVE_REPLACE_READY') {
+                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody replacement signal.' }
+                Send-Chord @(65) 20
+                Write-Host 'Broadcast F4 to replace the selected melody note.'
+            }
             if ($stream -eq 'out') { $outLine = $runner.StandardOutput.ReadLineAsync() } else { $errLine = $runner.StandardError.ReadLineAsync() }
         }
         Start-Sleep -Milliseconds 10
@@ -158,7 +174,7 @@ try {
         $result -match '(?im)FAILURES|INSTRUMENTATION_FAILED|skipped|AssumptionFailure|^INSTRUMENTATION_STATUS_CODE:\s*-[1234]\s*$') { throw 'Native UI acceptance failed.' }
     $destination = Join-Path $repositoryRoot '.local/android-ui-evidence'
     $null = New-Item -ItemType Directory -Path $destination -Force
-    $captures = if ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png') }
+    $captures = if ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png', 'm5-native-melody.png', 'm5-native-import.png', 'm5-native-imported.png') }
         else { @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png') }
     foreach ($name in $captures) {
         $reader = Start-Adb @('exec-out', 'run-as', 'com.chordviewer.debug', 'cat', "files/ui-evidence/$name")
@@ -171,7 +187,7 @@ try {
         } finally { Stop-Owned $reader }
     }
     if ($Authoring) {
-        Write-Host 'PASS: native real-MIDI authoring, sustain, rapid gestures, undo/redo, correction/delete, one-shot replacement, read-only Practice, reconnect, full save/reopen (1 test).'
+        Write-Host 'PASS: native chord/melody MIDI and manual authoring, correction, history, key/meter, save/reopen and document import/export (1 test).'
     } else {
         Write-Host 'PASS: native account UI, Library/Create/Practice, retained draft, shared save, melody preference and sign-out (1 test).'
         if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; sign-out disconnected MIDI.' }

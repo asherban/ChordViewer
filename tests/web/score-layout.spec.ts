@@ -78,3 +78,40 @@ test("long offbeat symbols and existing accidentals, rests and ties survive refl
   expect(await symbol.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   expect(await page.locator(".chord-system").first().evaluate(element => element.getBoundingClientRect().width)).toBeLessThan(1400);
 });
+
+test("v2 key and meter retain accidentals while dense melody selection targets stay disjoint", async ({ page }) => {
+  const score = parseScore({ ...example, schemaVersion: 2, id: "dense-meter-study", title: "Dense G-major study", keySignature: "G",
+    timeSignature: { numerator: 12, denominator: 2 }, measures: [{ id: "dense-bar", chords: [],
+      melody: Array.from({ length: 24 }, (_, index) => ({ id: `dense-note-${index}`, kind: "note", offsetTicks: index * 480,
+        duration: { denominator: 4, dots: 0 }, pitch: { step: "F", alter: index === 1 || index === 2 ? 0 : 1, octave: 4 } })),
+    }] });
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openStudy(page, score, "Create");
+  await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
+  await expect(page.locator(".editable-melody")).toHaveCount(24);
+  await expect(page.locator(".notation svg")).toHaveAttribute("aria-label", /G major · 12\/2/);
+  await expect(page.locator(".notation .vf-keysignature")).toHaveCount(1);
+  await expect(page.locator(".notation .vf-timesignature")).toHaveCount(1);
+  // Signature F-sharp needs no note accidental; a natural cancels it once, then a sharp restores it.
+  const glyphs = await page.locator(".notation svg").textContent();
+  expect((glyphs?.match(/\uE261/g) ?? []).length).toBe(1);
+  expect((glyphs?.match(/\uE262/g) ?? []).length).toBe(2);
+  async function disjointTargets() {
+    const targets = await page.locator(".editable-melody").evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect(); return { left: box.left, right: box.right, width: box.width };
+    }));
+    expect(targets.every(target => target.width > 0)).toBe(true);
+    for (let index = 1; index < targets.length; index++) expect(targets[index].left).toBeGreaterThanOrEqual(targets[index - 1].right - 0.1);
+  }
+  await disjointTargets();
+  for (const index of [0, 1, 3, 23]) {
+    await page.locator(".editable-melody").nth(index).click();
+    await expect(page.getByLabel("Melody event in selected bar", { exact: true })).toHaveValue(`dense-note-${index}`);
+    await expect(page.getByLabel("Note accidental", { exact: true })).toHaveValue(index === 1 ? "0" : "1");
+    await expect(page.locator(".editable-melody").nth(index)).toHaveAttribute("aria-pressed", "true");
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator(".notation .vf-stavenote")).toHaveCount(24);
+  await disjointTargets();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('smoke', 'authoring', 'authoring-replacement', 'authoring-held')][string]$Fixture = 'smoke',
+    [ValidateSet('smoke', 'authoring', 'authoring-replacement', 'authoring-held', 'melody')][string]$Fixture = 'smoke',
     [ValidateRange(0.1, 10.0)][double]$Speed = 1.0
 )
 $ErrorActionPreference = 'Stop'

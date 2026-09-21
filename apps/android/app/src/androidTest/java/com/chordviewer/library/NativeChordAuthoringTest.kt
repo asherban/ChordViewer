@@ -2,6 +2,9 @@ package com.chordviewer.library
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Rect
+import android.view.MotionEvent
+import android.view.InputDevice
 import android.os.Bundle
 import android.os.Build
 import android.os.SystemClock
@@ -10,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.lifecycle.ViewModelProvider
 import com.chordviewer.MainActivity
+import com.chordviewer.score.*
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -92,7 +96,7 @@ class NativeChordAuthoringTest {
             clickMidi()
             click("Disconnect / clear"); click("Connect"); click("Done")
             waitFor("reconnected") { nodes().any { it.text?.toString()?.contains("MIDI connected") == true } }
-            assertTrue(nodes().any { it.text?.toString() == "MIDI entry paused" })
+            assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
             clickDescription("Choose insertion position"); click("Next bar"); click("Done"); click("Start MIDI entry")
             signal("M4_NATIVE_RECONNECT_READY")
             waitFor("fresh chord after reconnect", 30_000) { chordSymbols(1) == listOf("G") }
@@ -110,6 +114,64 @@ class NativeChordAuthoringTest {
             assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", saved.tutorialUrl)
             assertEquals(listOf("Cmaj7", "G", "G"), saved.score.measures.flatMap { it.chords }.map { it.symbol })
             capture("m4-native-reopened.png")
+
+            // M5: a separate melody pass starts at the beginning of the existing harmony.
+            clickDescription("Melody entry lane")
+            assertEquals(ScorePosition(), model?.state?.value?.editor?.position)
+            click("Start MIDI entry"); signal("M5_NATIVE_MELODY_READY")
+            waitFor("two physical-release melody notes", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("D", 0, 4)) }
+            assertEquals(listOf("Cmaj7", "G"), chordSymbols())
+            tapFirstMelodyNote()
+            waitFor("native Canvas note selection") { model?.state?.value?.editor?.selectedMelodyId == model?.state?.value?.editor?.score?.measures?.first()?.melody?.first()?.id }
+            click("Close input"); click("Start MIDI entry")
+            signal("M5_NATIVE_POLYPHONY_READY")
+            waitFor("overlapping pitches rejected", 30_000) { model?.state?.value?.editor?.message?.contains("one pitch") == true }
+            assertEquals(2, melodyPitches().size)
+            clickDescription("Select melody D4 at tick 480"); click("Replace from MIDI"); signal("M5_NATIVE_REPLACE_READY")
+            waitFor("one-shot melody replacement", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("F", 0, 4)) }
+            assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
+            click("Add note / rest"); click("Rest"); click("Insert rest")
+            waitFor("manual rest") { melodyPitches().size == 3 && melodyPitches().last() == null }
+            click("Undo"); assertEquals(2, melodyPitches().size); click("Redo")
+            clickDescription("Select melody rest at tick 960"); click("F"); click("Natural"); click("Apply note change")
+            waitFor("rest changed to note") { melodyPitches().last() == ScorePitch("F", 0, 4) }
+            clickDescription("Select melody F4 at tick 480"); click("Tie to next note")
+            waitFor("explicit tie") { model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == true }
+            click("Close input")
+            clickDescription("Select melody F4 at tick 960"); click("Delete note to rest")
+            waitFor("note deletion retains rest and removes invalid tie") { melodyPitches().last() == null && model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == false }
+            click("Undo")
+            val melodyTitle = "M5 native melody ${System.currentTimeMillis()}"
+            click("Sheet details"); setField("Sheet title", melodyTitle)
+            click("Key: C major"); click("D major"); click("− beat"); click("Apply key and meter")
+            waitFor("key and meter change") { model?.state?.value?.editor?.score?.let { it.keySignature == "D" && it.timeSignature == ScoreTimeSignature(3, 4) } == true }
+            click("Save changes"); waitFor("melody save") { api.get(account.token, sheet.id).revision == 4 }
+            click("Done"); click("Practice")
+            saved = api.get(account.token, sheet.id)
+            assertEquals(3, saved.score.measures.first().melody.size)
+            assertTrue(saved.score.measures.first().melody[1].tieToNext)
+            assertEquals("D", saved.score.keySignature); assertEquals(ScoreTimeSignature(3, 4), saved.score.timeSignature)
+            capture("m5-native-melody.png")
+            click("Library"); click("Refresh")
+            waitFor("melody library refresh") { model?.state?.value?.let { !it.busy && it.selected == null } == true }
+            openCard(melodyTitle)
+            waitFor("reopened saved melody") { model?.state?.value?.editor?.score == saved.score }
+            assertEquals(saved.score, model?.state?.value?.editor?.score)
+            click("Sheet details"); click("Export ChordViewer JSON")
+            waitFor("system save document") { nodes().firstOrNull { it.text?.toString()?.equals("Save", ignoreCase = true) == true }?.let(::performClick) == true }
+            waitFor("JSON export completion") { model?.state?.value?.message?.startsWith("JSON exported") == true }
+            click("Done"); click("Library"); click("Import")
+            waitFor("exported JSON in document picker", 20_000) { nodes().firstOrNull { it.text?.toString() == "$melodyTitle.json" }?.let(::performClick) == true }
+            waitFor("local import preview") { model?.state?.value?.importPreview != null }
+            assertEquals(saved.score, model?.state?.value?.importPreview?.score)
+            assertEquals(sheet.id, model?.state?.value?.selected?.id)
+            capture("m5-native-import.png")
+            setField("Imported sheet title", "$melodyTitle copy"); click("Save as new sheet")
+            waitFor("import gets new server identity") { model?.state?.value?.let { !it.busy && it.importPreview == null && it.selected?.id != sheet.id } == true }
+            val imported = requireNotNull(model?.state?.value?.selected)
+            assertEquals(saved.score.measures, imported.score.measures)
+            assertNotEquals(sheet.id, imported.id)
+            click("Practice"); capture("m5-native-imported.png")
         } finally {
             try { api.signOut(account.token) } finally { instrumentation.runOnMainSync { activity.finish() } }
         }
@@ -119,6 +181,23 @@ class NativeChordAuthoringTest {
     // Assert the real activity model; clipping can remove Canvas semantics from UiAutomation.
     // Screenshots separately verify the visible native staff and symbols. No MIDI is injected here.
     private fun chordSymbols(measure: Int = 0) = model?.state?.value?.editor?.score?.measures?.getOrNull(measure)?.chords?.map { it.symbol }.orEmpty()
+    private fun melodyPitches() = model?.state?.value?.editor?.score?.measures?.first()?.melody?.map { it.pitch }.orEmpty()
+    private fun tapFirstMelodyNote() {
+        val canvas = nodes().first { it.contentDescription?.toString()?.contains("Measure 1:") == true }
+        val bounds = Rect().also(canvas::getBoundsInScreen)
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        val score = requireNotNull(model?.state?.value?.editor?.score)
+        val top = ScoreLayout.geometry(score).top
+        val x = bounds.left + 84 * density // first row: 16 padding + 62 clef/meter prefix + notehead center
+        val y = bounds.top + (top + 40 - score.measures.first().melody.first().pitch!!.staffStep * 5) * density
+        val now = SystemClock.uptimeMillis()
+        listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP).forEach { action ->
+            val event = MotionEvent.obtain(now, now + if (action == MotionEvent.ACTION_UP) 50 else 0, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            try { check(automation.injectInputEvent(event, true)) } finally { event.recycle() }
+        }
+        instrumentation.waitForIdleSync()
+    }
     private fun nodes(): List<AccessibilityNodeInfo> {
         // Compose can reuse virtual node IDs after a correction panel disappears.
         // Refresh the public API 34+ cache before traversing the current hierarchy.
@@ -143,6 +222,7 @@ class NativeChordAuthoringTest {
     private fun clickDescription(description: String) {
         if (description.startsWith("Duration ")) clickDescription("Choose duration")
         if (description.startsWith("Select chord ")) clickDescription("Choose chord to change")
+        if (description.startsWith("Select melody ")) clickDescription("Choose melody to change")
         waitFor(description) { nodes().firstOrNull { it.contentDescription?.toString() == description }?.let(::performClick) == true }
         instrumentation.waitForIdleSync()
     }

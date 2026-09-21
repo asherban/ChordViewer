@@ -40,7 +40,7 @@ class NativeScoreVisualTest {
         fun render(sheet: LeadSheet, mode: LibraryMode) {
             val saved = SavedSheet(sheet.id, sheet, LeadSheetWriter.write(sheet), null, 1, "2026-09-21T00:00:00Z", "2026-09-21T00:00:00Z")
             val state = LibraryState(selected = saved, mode = mode, draftTitle = sheet.title,
-                editor = if (mode == LibraryMode.CREATE) ChordEditorState(sheet) else null)
+                editor = if (mode == LibraryMode.CREATE) ScoreEditorState(sheet) else null)
             instrumentation.runOnMainSync { activity.setContent {
                 ChordViewerTheme { LibraryScreen(state, LibraryViewModel(null), MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {})) }
             } }
@@ -59,6 +59,16 @@ class NativeScoreVisualTest {
             val edge = context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) }
             render(edge, LibraryMode.PRACTICE)
             capture("score-native-notation.png")
+            val sharps = LeadSheet("visual-sharps", "C sharp · twelve eighths", List(4) { bar ->
+                ScoreMeasure("sharp-bar-$bar", listOf(ChordEvent("sharp-chord-$bar", 0, 2880, "C#maj7")),
+                    listOf("F", "G", "A", "B").mapIndexed { note, step -> MelodyEvent("sharp-$bar-$note", note * 720, ScoreDuration(4, 1), ScorePitch(step, 1, 4)) })
+            }, schemaVersion = 2, keySignature = "C#", timeSignature = ScoreTimeSignature(12, 8))
+            render(sharps, LibraryMode.PRACTICE); capture("m5-native-sharps.png")
+            val flats = LeadSheet("visual-flats", "C flat · three quarters", List(4) { bar ->
+                ScoreMeasure("flat-bar-$bar", listOf(ChordEvent("flat-chord-$bar", 0, 1440, "Cbmaj7")),
+                    listOf("C", "D", "E").mapIndexed { note, step -> MelodyEvent("flat-$bar-$note", note * 480, ScoreDuration(4, 0), ScorePitch(step, -1, 4)) })
+            }, schemaVersion = 2, keySignature = "Cb", timeSignature = ScoreTimeSignature(3, 4))
+            render(flats, LibraryMode.PRACTICE); capture("m5-native-flats.png")
         } finally { instrumentation.runOnMainSync { activity.finish() } }
     }
 
@@ -92,3 +102,4 @@ class NativeScoreVisualTest {
         image.recycle()
     }
 }
+

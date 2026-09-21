@@ -24,22 +24,30 @@ data class MelodyEvent(
 
 data class ChordEvent(val id: String, val offsetTicks: Int, val durationTicks: Int, val symbol: String)
 data class ScoreMeasure(val id: String, val chords: List<ChordEvent>, val melody: List<MelodyEvent>)
-data class LeadSheet(val id: String, val title: String, val measures: List<ScoreMeasure>)
+data class ScoreTimeSignature(val numerator: Int = 4, val denominator: Int = 4)
+data class LeadSheet(val id: String, val title: String, val measures: List<ScoreMeasure>,
+    val schemaVersion: Int = 1, val keySignature: String = "C", val timeSignature: ScoreTimeSignature = ScoreTimeSignature()) {
+    val measureTicks: Int get() = timeSignature.numerator * BAR_TICKS / timeSignature.denominator
+}
 
-/** Decodes the v1 C-major/4-4 contract before anything reaches layout or rendering. */
+/** Decodes v1 C/4-4 and v2 keyed/metered scores before layout or rendering. */
 object LeadSheetReader {
     fun read(json: String): LeadSheet {
         require(json.length <= 8 * 1024 * 1024) { "Score document is too large" }
         val root = JSONObject(json)
         root.fields("schemaVersion", "id", "title", "keySignature", "timeSignature", "ticksPerQuarter", "measures")
-        require(root.integer("schemaVersion", 1..1) == 1)
-        require(root.string("keySignature", 1) == "C")
+        val version = root.integer("schemaVersion", 1..2)
+        val key = root.string("keySignature", 4)
+        require(key in KEY_SIGNATURES && (version == 2 || key == "C")) { "Unsupported key signature" }
         require(root.integer("ticksPerQuarter", 480..480) == 480)
-        root.getJSONObject("timeSignature").apply {
+        val time = root.getJSONObject("timeSignature").let {
+            with(it) {
             fields("numerator", "denominator")
-            integer("numerator", 4..4)
-            integer("denominator", 4..4)
+            ScoreTimeSignature(integer("numerator", 1..12), integer("denominator", 2..8))
+            }
         }
+        require(time.denominator in listOf(2, 4, 8) && (version == 2 || time == ScoreTimeSignature())) { "Unsupported time signature" }
+        val barTicks = time.numerator * BAR_TICKS / time.denominator
         val ids = mutableSetOf<String>()
         fun JSONObject.id(): String = string("id", 64).also {
             require(it.matches(Regex("[A-Za-z0-9_-]+")) && ids.add(it)) { "Invalid or duplicate score id" }
@@ -58,8 +66,8 @@ object LeadSheetReader {
             val chords = List(chordsJson.length()) { chordIndex ->
                 val chord = chordsJson.getJSONObject(chordIndex)
                 chord.fields("id", "offsetTicks", "durationTicks", "symbol")
-                ChordEvent(chord.id(), chord.integer("offsetTicks", 0 until BAR_TICKS),
-                    chord.integer("durationTicks", 1..BAR_TICKS), chord.string("symbol", 32))
+                ChordEvent(chord.id(), chord.integer("offsetTicks", 0 until barTicks),
+                    chord.integer("durationTicks", 1..barTicks), chord.string("symbol", 32))
             }
             val melody = List(melodyJson.length()) { noteIndex ->
                 val event = melodyJson.getJSONObject(noteIndex)
@@ -81,13 +89,13 @@ object LeadSheetReader {
                 val tie = if (event.has("tieToNext")) event.get("tieToNext").also {
                     require(it is Boolean) { "Invalid tie flag" }
                 } as Boolean else false
-                MelodyEvent(event.id(), event.integer("offsetTicks", 0 until BAR_TICKS), duration, pitch, tie)
+                MelodyEvent(event.id(), event.integer("offsetTicks", 0 until barTicks), duration, pitch, tie)
             }
-            validateLane(chords.map { it.offsetTicks to it.durationTicks })
-            validateLane(melody.map { it.offsetTicks to it.duration.ticks })
+            validateLane(chords.map { it.offsetTicks to it.durationTicks }, barTicks)
+            validateLane(melody.map { it.offsetTicks to it.duration.ticks }, barTicks)
             ScoreMeasure(barId, chords, melody)
         }
-        val timedMelody = measures.flatMapIndexed { index, bar -> bar.melody.map { (index * BAR_TICKS + it.offsetTicks) to it } }
+        val timedMelody = measures.flatMapIndexed { index, bar -> bar.melody.map { (index * barTicks + it.offsetTicks) to it } }
         timedMelody.forEachIndexed { index, (time, event) ->
             if (event.tieToNext) {
                 val next = timedMelody.getOrNull(index + 1)
@@ -95,13 +103,13 @@ object LeadSheetReader {
                     next.first == time + event.duration.ticks) { "Tie must continue to an adjacent note of the same spelled pitch" }
             }
         }
-        return LeadSheet(id, title, measures)
+        return LeadSheet(id, title, measures, version, key, time)
     }
 
-    private fun validateLane(events: List<Pair<Int, Int>>) {
+    private fun validateLane(events: List<Pair<Int, Int>>, barTicks: Int) {
         var previousEnd = 0
         events.forEach { (offset, duration) ->
-            require(offset >= previousEnd && offset + duration <= BAR_TICKS) { "Events overlap, are unsorted, or cross a barline" }
+            require(offset >= previousEnd && offset + duration <= barTicks) { "Events overlap, are unsorted, or cross a barline" }
             previousEnd = offset + duration
         }
     }

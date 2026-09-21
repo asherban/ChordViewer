@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, QueryResultRow } from 'pg';
 import { parseScore, type LeadSheet } from '@chordviewer/contracts';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
-import type { createInput, updateInput } from './input.js';
+import type { createInput, importInput, updateInput } from './input.js';
 
 interface SheetRow extends QueryResultRow {
   id: string; score: LeadSheet; tutorial_url: string | null; revision: number; created_at: Date; updated_at: Date;
@@ -24,10 +24,17 @@ export async function getSheet(pool: Pool, owner: string, id: string) {
 export async function createSheet(pool: Pool, owner: string, input: ReturnType<typeof createInput>) {
   const id = randomUUID();
   const score: LeadSheet = input.template === 'example' ? { ...structuredClone(example) as LeadSheet, id, title: input.title } : {
-    schemaVersion: 1, id, title: input.title, keySignature: 'C', timeSignature: { numerator: 4, denominator: 4 }, ticksPerQuarter: 480,
+    schemaVersion: 2, id, title: input.title, keySignature: input.keySignature, timeSignature: input.timeSignature, ticksPerQuarter: 480,
     measures: Array.from({ length: 4 }, () => ({ id: randomUUID(), chords: [], melody: [] })),
   };
-  parseScore(score);
+  return insertSheet(pool, owner, parseScore(score), input.tutorialUrl);
+}
+export async function importSheet(pool: Pool, owner: string, input: ReturnType<typeof importInput>) {
+  // Source identity is never a write target. Imports always receive a fresh server identity.
+  const score = parseScore({ ...input.score, id: randomUUID(), title: input.title });
+  return insertSheet(pool, owner, score, input.tutorialUrl);
+}
+async function insertSheet(pool: Pool, owner: string, score: LeadSheet, tutorialUrl: string | null) {
   const connection = await pool.connect();
   try {
     await connection.query('BEGIN');
@@ -35,7 +42,7 @@ export async function createSheet(pool: Pool, owner: string, input: ReturnType<t
     await connection.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE', [owner]);
     const count = await connection.query<{ count: string }>('SELECT count(*) FROM lead_sheets WHERE owner_id=$1', [owner]);
     if (Number(count.rows[0]?.count) >= 100) { await connection.query('ROLLBACK'); return null; }
-    const inserted = await connection.query<SheetRow>('INSERT INTO lead_sheets (id, owner_id, score, tutorial_url) VALUES ($1,$2,$3::jsonb,$4) RETURNING *', [id, owner, JSON.stringify(score), input.tutorialUrl]);
+    const inserted = await connection.query<SheetRow>('INSERT INTO lead_sheets (id, owner_id, score, tutorial_url) VALUES ($1,$2,$3::jsonb,$4) RETURNING *', [score.id, owner, JSON.stringify(score), tutorialUrl]);
     await connection.query('COMMIT');
     return record(inserted.rows[0]!);
   } catch (error) { await connection.query('ROLLBACK'); throw error; }

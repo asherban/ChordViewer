@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -21,13 +22,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.chordviewer.R
 
 @Composable
-fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
+fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String? = null, selectMelody: ((String) -> Unit)? = null) {
     val context = LocalContext.current
     val musicFont = remember { context.resources.getFont(R.font.bravura) }
     val chordSize = if (showMelody) 26f else 44f
@@ -35,7 +38,8 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
         typeface = Typeface.create("serif", Typeface.BOLD); textSize = chordSize
     } }
     val marks = remember(sheet) { ScoreLayout.marks(sheet) }
-    val timelines = remember(sheet, showMelody) { sheet.measures.map { ScoreLayout.timeline(it, showMelody, measureText::measureText) } }
+    val timelines = remember(sheet, showMelody) { sheet.measures.map { ScoreLayout.timeline(it, showMelody, measureText::measureText, sheet.measureTicks, sheet.keySignature) } }
+    val density = LocalDensity.current.density
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val systems = remember(sheet, timelines, maxWidth, showMelody) { ScoreLayout.systems(sheet, timelines, maxWidth.value, showMelody) }
         Column {
@@ -43,8 +47,11 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
                 // Only an unusually dense system scrolls; ordinary rows retain the viewport width.
                 Column(Modifier.horizontalScroll(rememberScrollState())) {
                     Canvas(Modifier.width(system.width.dp).height(system.geometry.rowHeight.dp)
+                        .then(if (showMelody && selectMelody != null) Modifier.pointerInput(sheet, system, density, selectMelody) {
+                            detectTapGestures { point -> melodyAt(sheet, system, timelines, point.x / density, point.y / density)?.let(selectMelody) }
+                        } else Modifier)
                         .semantics { contentDescription = description(sheet, system, showMelody) }) {
-                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody)
+                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody, sheet.keySignature, sheet.timeSignature, selectedMelodyId)
                         painter.system()
                         (system.first until system.first + system.count).forEach { index ->
                             painter.measure(sheet.measures[index], marks[index], index)
@@ -66,7 +73,7 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
 }
 
 private fun description(sheet: LeadSheet, system: ScoreSystem, melody: Boolean) = buildString {
-    append("${sheet.title}. C major, four-four time. ")
+    append("${sheet.title}. ${keyLabel(sheet.keySignature)}, ${sheet.timeSignature.numerator}/${sheet.timeSignature.denominator} time. ")
     (system.first until system.first + system.count).forEach { index ->
         val measure = sheet.measures[index]
         append("Measure ${index + 1}: chords ${measure.chords.joinToString { it.symbol }}. ")
@@ -78,7 +85,7 @@ private fun description(sheet: LeadSheet, system: ScoreSystem, melody: Boolean) 
 }
 
 private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout: ScoreSystem,
-    val timelines: List<MeasureTimeline>, val melody: Boolean) {
+    val timelines: List<MeasureTimeline>, val melody: Boolean, val keySignature: String, val time: ScoreTimeSignature, val selectedId: String?) {
     private val scale = scope.density
     private val ink = Color(0xFF34453D)
     private val muted = Color(0xFF697A73)
@@ -95,11 +102,7 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
         scope.drawLine(ink, Offset(x1 * scale, y1 * scale), Offset(x2 * scale, y2 * scale), width * scale)
     private fun left(index: Int) = (index - layout.first) * layout.measureWidth
     private fun start(index: Int) = left(index) + 16 + if (index == layout.first) layout.prefix else 0f
-    private fun x(index: Int, offset: Int): Float {
-        val start = start(index)
-        val available = (left(index) + layout.measureWidth - 16 - start).coerceAtLeast(timelines[index].width)
-        return start + timelines[index].x(offset, available)
-    }
+    private fun x(index: Int, offset: Int) = scoreEventX(layout, timelines, index, offset)
     private fun y(pitch: ScorePitch) = layout.geometry.top + 4 * gap - pitch.staffStep * gap / 2
     private fun contains(index: Int) = index in layout.first until layout.first + layout.count
 
@@ -107,9 +110,20 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
         if (!melody) return
         repeat(5) { line(8f, layout.geometry.top + it * gap, end, layout.geometry.top + it * gap, .8f) }
         glyph('\uE050', 12f, layout.geometry.top + 3 * gap)
+        val fifths = KEY_SIGNATURES.getValue(keySignature).fifths
+        val steps = if (fifths < 0) listOf(4, 7, 3, 6, 2, 5, 1) else listOf(8, 5, 9, 6, 3, 7, 4)
+        steps.take(kotlin.math.abs(fifths)).forEachIndexed { index, step ->
+            glyph(if (fifths < 0) '\uE260' else '\uE262', 40f + index * 12, layout.geometry.top + 40 - step * 5)
+        }
         if (layout.first == 0) {
-            glyph('\uE084', 45f, layout.geometry.top + gap)
-            glyph('\uE084', 45f, layout.geometry.top + 3 * gap)
+            val timeX = 45f + kotlin.math.abs(fifths) * 12 + if (fifths == 0) 0 else 6
+            fun digits(value: Int, y: Float) {
+                val text = value.toString()
+                val centered = if (time.numerator >= 10 && text.length == 1) 8f else 0f
+                text.forEachIndexed { index, digit -> glyph((0xE080 + digit.digitToInt()).toChar(), timeX + centered + index * 16, y) }
+            }
+            digits(time.numerator, layout.geometry.top + gap)
+            digits(time.denominator, layout.geometry.top + 3 * gap)
         }
     }
 
@@ -132,6 +146,8 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
             val event = mark.event
             val noteX = x(index, event.offsetTicks)
             val pitch = event.pitch
+            if (event.id == selectedId) scope.drawCircle(Color(0xFFDDE9DD), 18 * scale,
+                Offset((noteX + 6) * scale, (pitch?.let(::y) ?: (layout.geometry.top + 20)) * scale))
             if (pitch == null) {
                 val rest = when (event.duration.denominator) { 1 -> '\uE4E3'; 2 -> '\uE4E4'; 4 -> '\uE4E5'; 8 -> '\uE4E6'; else -> '\uE4E7' }
                 val restY = layout.geometry.top + (if (event.duration.denominator == 1) 1 else 2) * gap

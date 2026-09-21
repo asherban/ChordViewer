@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.chordviewer.ui.*
 
 @Composable
-fun LibraryCards(state: LibraryState, refresh: () -> Unit, newSheet: () -> Unit, open: (String, LibraryMode) -> Unit) {
+fun LibraryCards(state: LibraryState, refresh: () -> Unit, newSheet: () -> Unit, importSheet: () -> Unit, open: (String, LibraryMode) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(24.dp)) {
         val wide = maxWidth >= 720.dp
         Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -25,10 +25,10 @@ fun LibraryCards(state: LibraryState, refresh: () -> Unit, newSheet: () -> Unit,
                 Text(if (state.libraryLoaded) "${state.sheets.size} ${if (state.sheets.size == 1) "sheet" else "sheets"}" else "Not loaded", color = MutedColor)
                 if (wide) {
                     Spacer(Modifier.weight(1f))
-                    LibraryActions(state.busy, refresh, newSheet)
+                    LibraryActions(state.busy, refresh, newSheet, importSheet)
                 }
             }
-            if (!wide) LibraryActions(state.busy, refresh, newSheet)
+            if (!wide) LibraryActions(state.busy, refresh, newSheet, importSheet)
             if (state.sheets.isEmpty()) {
                 Surface(Modifier.fillMaxWidth(), color = PaperColor, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, BorderColor)) {
                     Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -48,9 +48,10 @@ fun LibraryCards(state: LibraryState, refresh: () -> Unit, newSheet: () -> Unit,
 }
 
 @Composable
-private fun LibraryActions(busy: Boolean, refresh: () -> Unit, newSheet: () -> Unit) {
+private fun LibraryActions(busy: Boolean, refresh: () -> Unit, newSheet: () -> Unit, importSheet: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(onClick = refresh, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Refresh") }
+        OutlinedButton(onClick = importSheet, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Import") }
         Button(onClick = newSheet, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("+  New sheet") }
     }
 }
@@ -68,7 +69,7 @@ private fun SheetCard(sheet: SheetSummary, busy: Boolean, practice: () -> Unit, 
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(sheet.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("C major · 4/4", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
+                    Text("Lead sheet", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

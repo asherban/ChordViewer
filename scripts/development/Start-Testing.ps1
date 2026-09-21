@@ -85,7 +85,7 @@ try {
             if ($text -ne $lastStatus) {
                 Write-Host $text
                 $lastStatus = $text
-                if ($status.phase -eq 'ready') { Write-Host '[P] Play MIDI sequence to web + Android   [Q] Quit' }
+                if ($status.phase -eq 'ready') { Write-Host '[P] Play chords   [M] Play melody   [Q] Quit (MIDI broadcasts to web + Android)' }
             }
             $lastPhase = $status.phase
             if ($lastPhase -eq 'ready' -and $status.command -ge $pendingCommand) { $pendingCommand = 0 }
@@ -103,15 +103,16 @@ try {
         if ($null -ne $answer) {
             $answer = $answer.Trim().ToLowerInvariant()
             if ($answer -in @('q', 'quit', 'exit')) { break }
-            if ($answer -in @('p', 'play', '')) {
+            if ($answer -in @('p', 'play', '', 'm', 'melody')) {
                 if ($lastPhase -eq 'ready' -and $pendingCommand -eq 0) {
                     $command++
                     $temporary = Join-Path $session 'request.tmp'
-                    @{ id = $command; action = 'play' } | ConvertTo-Json -Compress | Set-Content -LiteralPath $temporary -Encoding UTF8
+                    $fixtureName = if ($answer -in @('m', 'melody')) { 'melody' } else { 'smoke' }
+                    @{ id = $command; action = 'play'; fixture = $fixtureName } | ConvertTo-Json -Compress | Set-Content -LiteralPath $temporary -Encoding UTF8
                     [IO.File]::Move($temporary, (Join-Path $session 'request.json'))
                     $pendingCommand = $command
                 } else { Write-Host 'Wait until startup or the current sequence finishes, or press Q to stop.' }
-            } else { Write-Host 'Use P to play or Q to stop.' }
+            } else { Write-Host 'Use P for chords, M for melody, or Q to stop.' }
         }
         Start-Sleep -Milliseconds 100
     }

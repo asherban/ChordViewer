@@ -93,6 +93,40 @@ test('simultaneous writes allow exactly one revision; stale writes never overwri
   assert.equal(saved.revision, 2);
   assert.ok(['Device A', 'Device B'].includes(saved.score.title));
 });
+
+test('import creates a new owned sheet atomically even when its source ID belongs to another account', async () => {
+  const body = { score: { ...saved.score, schemaVersion: 2, keySignature: 'D' }, title: 'Imported copy', tutorialUrl: 'https://youtu.be/dQw4w9WgXcQ' };
+  assert.equal((await request('/api/v1/sheets/import', { method: 'POST', body, headers: { origin } })).status, 401);
+  const rejected = await request('/api/v1/sheets/import', { method: 'POST', token: second.token, body: { ...body, ownerId: first.user.id } });
+  assert.equal(rejected.status, 400);
+  assert.deepEqual(await (await request('/api/v1/sheets', { token: second.token })).json(), { sheets: [] });
+  const response = await request('/api/v1/sheets/import', { method: 'POST', token: second.token, body });
+  assert.equal(response.status, 201);
+  const imported = await response.json();
+  assert.notEqual(imported.id, saved.id);
+  assert.equal(imported.score.id, imported.id);
+  assert.equal(imported.score.title, 'Imported copy');
+  assert.equal(imported.revision, 1);
+  assert.equal(imported.score.schemaVersion, 2);
+  assert.equal(imported.score.keySignature, 'D');
+  assert.deepEqual(imported.score.measures, saved.score.measures);
+  assert.equal((await request(`/api/v1/sheets/${imported.id}`, { token: first.token })).status, 404);
+  const original = await (await request(`/api/v1/sheets/${saved.id}`, { token: first.token })).json();
+  assert.equal(original.revision, saved.revision);
+  assert.equal(original.score.title, saved.score.title);
+});
+
+test('blank creation persists the selected v2 key and meter', async () => {
+  const response = await request('/api/v1/sheets', { method: 'POST', token: first.token,
+    body: { title: 'Six-eight study', template: 'blank', keySignature: 'F#m', timeSignature: { numerator: 6, denominator: 8 } } });
+  assert.equal(response.status, 201);
+  const sheet = await response.json();
+  assert.equal(sheet.score.schemaVersion, 2);
+  assert.equal(sheet.score.keySignature, 'F#m');
+  assert.deepEqual(sheet.score.timeSignature, { numerator: 6, denominator: 8 });
+  assert.ok(sheet.score.measures.every(measure => measure.melody.length === 0 && measure.chords.length === 0));
+  assert.deepEqual((await (await request(`/api/v1/sheets/${sheet.id}`, { token: first.token })).json()).score, sheet.score);
+});
 test('schema, body limits and tutorial validation reject unsafe writes without changing revision', async () => {
   const updates = [
     { score: { ...saved.score, schemaVersion: 99 }, tutorialUrl: null, expectedRevision: 2 },
@@ -110,6 +144,8 @@ test('browser cookie writes need a trusted origin and cannot opt into native aut
   assert.equal((await request('/api/v1/sheets', { method: 'POST', cookie: browser.cookie, body })).status, 403);
   assert.equal((await request('/api/v1/sheets', { method: 'POST', cookie: browser.cookie, body, headers: { origin: 'https://evil.example' } })).status, 403);
   assert.equal((await request('/api/v1/sheets', { method: 'POST', cookie: browser.cookie, body, headers: { origin } })).status, 201);
+  assert.equal((await request('/api/v1/sheets/import', { method: 'POST', cookie: browser.cookie,
+    body: { score: saved.score, title: 'CSRF import' } })).status, 403);
   assert.equal((await request('/api/auth/sign-out', { method: 'POST', cookie: browser.cookie, body: {} })).status, 403);
   assert.equal((await request('/api/auth/sign-out', { method: 'POST', cookie: browser.cookie, body: {}, headers: { origin } })).status, 200);
   assert.equal((await request('/api/v1/me', { cookie: browser.cookie })).status, 401);
@@ -127,13 +163,16 @@ test('revoked/tampered native credentials are rejected and a fresh login reopens
   assert.equal((await response.json()).revision, 2);
 });
 test('concurrent creation cannot exceed the personal library limit', async () => {
-  for (let index = 0; index < 99; index++) {
+  const existing = (await (await request('/api/v1/sheets', { token: second.token })).json()).sheets.length;
+  for (let index = existing; index < 99; index++) {
     const response = await request('/api/v1/sheets', { method: 'POST', token: second.token,
       body: { title: `Quota check ${index + 1}`, template: 'blank' } });
     assert.equal(response.status, 201);
   }
-  const results = await Promise.all([1, 2].map(index => request('/api/v1/sheets', { method: 'POST', token: second.token,
-    body: { title: `Last available slot ${index}`, template: 'blank' } })));
+  const results = await Promise.all([
+    request('/api/v1/sheets', { method: 'POST', token: second.token, body: { title: 'Last available blank slot', template: 'blank' } }),
+    request('/api/v1/sheets/import', { method: 'POST', token: second.token, body: { title: 'Last available import slot', score: saved.score } }),
+  ]);
   assert.deepEqual(results.map(response => response.status).sort(), [201, 409]);
   const response = await request('/api/v1/sheets', { token: second.token });
   assert.equal((await response.json()).sheets.length, 100);

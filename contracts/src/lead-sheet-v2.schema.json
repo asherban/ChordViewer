@@ -1,0 +1,297 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://chordviewer.app/schemas/lead-sheet-v2.schema.json",
+  "title": "ChordViewer lead sheet version 2",
+  "description": "One treble melody voice, standard major and minor keys, and simple or compound time at 480 ticks per quarter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "keySignature",
+    "timeSignature",
+    "ticksPerQuarter",
+    "measures"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "id": {
+      "$ref": "#/definitions/id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "keySignature": {
+      "enum": [
+        "C",
+        "G",
+        "D",
+        "A",
+        "E",
+        "B",
+        "F#",
+        "C#",
+        "F",
+        "Bb",
+        "Eb",
+        "Ab",
+        "Db",
+        "Gb",
+        "Cb",
+        "Am",
+        "Em",
+        "Bm",
+        "F#m",
+        "C#m",
+        "G#m",
+        "D#m",
+        "A#m",
+        "Dm",
+        "Gm",
+        "Cm",
+        "Fm",
+        "Bbm",
+        "Ebm",
+        "Abm"
+      ],
+      "type": "string"
+    },
+    "timeSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "minimum": 1,
+          "type": "integer",
+          "maximum": 12
+        },
+        "denominator": {
+          "enum": [
+            2,
+            4,
+            8
+          ],
+          "type": "integer"
+        }
+      }
+    },
+    "ticksPerQuarter": {
+      "type": "integer",
+      "const": 480
+    },
+    "measures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/definitions/measure"
+      }
+    }
+  },
+  "definitions": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_-]+(?![\\s\\S])"
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 11519
+    },
+    "duration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denominator",
+        "dots"
+      ],
+      "properties": {
+        "denominator": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            4,
+            8,
+            16
+          ]
+        },
+        "dots": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        }
+      }
+    },
+    "pitch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step",
+        "alter",
+        "octave"
+      ],
+      "properties": {
+        "step": {
+          "type": "string",
+          "enum": [
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "A",
+            "B"
+          ]
+        },
+        "alter": {
+          "type": "integer",
+          "enum": [
+            -1,
+            0,
+            1
+          ]
+        },
+        "octave": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 6
+        }
+      }
+    },
+    "chord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "offsetTicks",
+        "durationTicks",
+        "symbol"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id"
+        },
+        "offsetTicks": {
+          "$ref": "#/definitions/offset"
+        },
+        "durationTicks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11520
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "offsetTicks",
+        "duration",
+        "pitch"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id"
+        },
+        "kind": {
+          "type": "string",
+          "const": "note"
+        },
+        "offsetTicks": {
+          "$ref": "#/definitions/offset"
+        },
+        "duration": {
+          "$ref": "#/definitions/duration"
+        },
+        "pitch": {
+          "$ref": "#/definitions/pitch"
+        },
+        "tieToNext": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "offsetTicks",
+        "duration"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id"
+        },
+        "kind": {
+          "type": "string",
+          "const": "rest"
+        },
+        "offsetTicks": {
+          "$ref": "#/definitions/offset"
+        },
+        "duration": {
+          "$ref": "#/definitions/duration"
+        }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "chords",
+        "melody"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id"
+        },
+        "chords": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/chord"
+          }
+        },
+        "melody": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/note"
+              },
+              {
+                "$ref": "#/definitions/rest"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

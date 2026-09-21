@@ -3,6 +3,7 @@ package com.chordviewer.library
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.UUID
+import com.chordviewer.score.ScoreTimeSignature
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -35,8 +36,14 @@ class LibraryIntegrationTest {
         val signedIn = api.signIn(email, password)
         assertEquals(first.id, api.list(signedIn.token).single().id)
         assertEquals("Native saved title", api.get(signedIn.token, first.id).score.title)
-        val blank = api.create(signedIn.token, "Native blank", false)
+        val blank = api.create(signedIn.token, "Native blank", false, "Bb", ScoreTimeSignature(6, 8))
         assertTrue(blank.score.measures.all { it.chords.isEmpty() && it.melody.isEmpty() })
+        assertEquals("Bb", blank.score.keySignature)
+        assertEquals(ScoreTimeSignature(6, 8), blank.score.timeSignature)
+        val imported = api.importScore(signedIn.token, updated.score, "Native imported copy")
+        assertNotEquals(first.id, imported.id)
+        assertEquals(updated.score.measures, imported.score.measures)
+        assertEquals("Native saved title", api.get(signedIn.token, first.id).score.title)
         val other = api.signIn("other-$suffix@example.test", password, "Other account")
         try {
             assertTrue(api.list(other.token).isEmpty())

@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { NewSheet } from "./api";
+import type { LeadSheet } from "@chordviewer/contracts";
+import { ScoreSettingsFields } from "../score/ScoreSettingsFields";
 
 export function NewSheetForm({
   busy,
@@ -12,9 +14,10 @@ export function NewSheetForm({
 }) {
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState<"blank" | "example">("blank");
+  const [settings, setSettings] = useState<Pick<LeadSheet, "keySignature" | "timeSignature">>({ keySignature: "C", timeSignature: { numerator: 4, denominator: 4 } });
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (title.trim()) await onCreate({ title: title.trim(), template });
+    if (title.trim()) await onCreate({ title: title.trim(), template, ...(template === "blank" ? settings : {}) });
   }
   return (
     <form
@@ -58,10 +61,8 @@ export function NewSheetForm({
           A copy of the original example
         </label>
       </fieldset>
-      <p className="small">
-        Titles and tutorial links can be saved now. Adding notes and chords
-        arrives in the next milestones.
-      </p>
+      {template === "blank" && <ScoreSettingsFields value={settings} disabled={busy} onChange={setSettings} />}
+      <p className="small">Enter chords and melody in separate passes, using MIDI or the editing controls.</p>
       <div className="actions">
         <button
           className="primary"

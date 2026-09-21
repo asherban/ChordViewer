@@ -9,6 +9,8 @@ import { useMidiInput } from "./midi/useMidiInput";
 import { FullscreenToggle } from "./layout/FullscreenToggle";
 import { AppDialog } from "./layout/AppDialog";
 import type { NewSheet } from "./library/api";
+import type { LeadSheet } from "@chordviewer/contracts";
+import { ImportSheet } from "./import/ImportSheet";
 
 type Mode = "Library" | "Create" | "Practice";
 const sample = parseScore(example);
@@ -18,6 +20,7 @@ export function App() {
   const midi = useMidiInput();
   const [mode, setMode] = useState<Mode>("Library");
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState(false);
   function mayLeave() {
@@ -27,6 +30,7 @@ export function App() {
     // Switching modes keeps the current workspace mounted, including its draft.
     setMode(destination);
     setCreating(false);
+    setImporting(false);
     if (!library.user && destination !== "Library") setPreview(true);
     if (destination === "Create" && library.user && !library.selected && canCreate) setCreating(true);
   }
@@ -52,10 +56,17 @@ export function App() {
       setMode("Create");
     }
   }
+  async function importSheet(score: LeadSheet, title: string, tutorialUrl: string | null) {
+    if (!mayLeave()) return;
+    if (await library.importSheet(score, title, tutorialUrl)) {
+      setEditing(false); setCreating(false); setImporting(false); setPreview(false); setMode("Create");
+    }
+  }
   async function signOut() {
     if (!mayLeave()) return;
     setMode("Library");
     setCreating(false);
+    setImporting(false);
     setPreview(false);
     setEditing(false);
     midi.disconnect();
@@ -98,7 +109,7 @@ export function App() {
       <main className="app-main">
         {(library.error || (library.message && !editing) || library.signOutPending) && (
           <div className="app-feedback">
-            {library.error && !creating && <div className="error-message" role="alert">{library.error}</div>}
+            {library.error && !creating && !importing && <div className="error-message" role="alert">{library.error}</div>}
             {library.message && !editing && <p className="success-message" role="status">{library.message}</p>}
             {library.signOutPending && <button className="secondary" disabled={library.authBusy}
               onClick={() => void signOut()}>{library.authBusy ? "Signing out…" : "Retry sign out"}</button>}
@@ -120,6 +131,7 @@ export function App() {
                   <button className="primary" disabled={!canCreate} onClick={() => setCreating(true)}>
                     <span aria-hidden="true">＋</span> New sheet
                   </button>
+                  <button className="secondary" disabled={!canCreate} onClick={() => setImporting(true)}>Import score</button>
                 </div>}
               </div>
               {library.user && <div className="library-context">
@@ -143,7 +155,7 @@ export function App() {
                 <section className="library-empty" aria-label="Your sheets">
                   <div className="empty-staff" aria-hidden="true"><span>♪</span></div>
                   <h2>Your first sheet starts here</h2>
-                  <p>Your library is empty. Start with a blank sheet or choose a copy of the original example.</p>
+                  <p>Start a blank sheet, import a score, or explore the original example.</p>
                   <button className="primary" disabled={!canCreate} onClick={() => setCreating(true)}>Create your first sheet</button>
                 </section>
               ) : (
@@ -155,7 +167,7 @@ export function App() {
                         <span className="saved-label"><span className="status-dot connected" />Saved</span>
                       </div>
                       <h2>{sheet.title}</h2>
-                      <p className="sheet-meta">C major · 4/4</p>
+                      <p className="sheet-meta">Lead sheet</p>
                       <div className="card-tags"><span className="tag">{sheet.tutorialUrl ? "Tutorial linked" : "No tutorial"}</span>
                         {viewing?.id === sheet.id && <span className="tag">{editing ? "Unsaved changes" : "Open sheet"}</span>}
                       </div>
@@ -177,7 +189,7 @@ export function App() {
                   key={viewing ? library.user?.id + ":" + viewing.id : "sample"}
                   score={viewing ? viewing.score : sample} saved={viewing || null}
                   mode={mode === "Practice" ? "Practice" : "Create"} midi={midi}
-                  active={showWorkspace} blocked={creating}
+                  active={showWorkspace} blocked={creating || importing}
                   busy={library.busy} conflict={library.conflict} onDirty={setEditing}
                   onSave={async (title, tutorial, score) => {
                     if (await library.saveSheet(title, tutorial, score)) setEditing(false);
@@ -193,6 +205,10 @@ export function App() {
             {creating && library.user && <AppDialog title="New sheet" onClose={() => setCreating(false)} busy={library.busy}>
               {library.error && <p className="error-message" role="alert">{library.error}</p>}
               <NewSheetForm busy={library.busy} onCreate={createSheet} onCancel={() => setCreating(false)} />
+            </AppDialog>}
+            {importing && library.user && <AppDialog title="Import a score" onClose={() => setImporting(false)} busy={library.busy}>
+              {library.error && <p className="error-message" role="alert">{library.error}</p>}
+              <ImportSheet busy={library.busy} onImport={importSheet} onCancel={() => setImporting(false)} />
             </AppDialog>}
           </>
         )}

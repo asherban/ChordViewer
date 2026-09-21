@@ -5,6 +5,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import org.json.JSONObject
+import com.chordviewer.score.*
 
 class ApiFailure(val status: Int, val userMessage: String) : Exception(userMessage)
 
@@ -17,7 +18,8 @@ interface LibraryGateway {
     fun signOut(token: String)
     fun list(token: String): List<SheetSummary>
     fun get(token: String, id: String): SavedSheet
-    fun create(token: String, title: String, example: Boolean): SavedSheet
+    fun create(token: String, title: String, example: Boolean, key: String = "C", time: ScoreTimeSignature = ScoreTimeSignature()): SavedSheet
+    fun importScore(token: String, score: LeadSheet, title: String): SavedSheet
     fun save(token: String, sheet: SavedSheet, title: String, tutorialUrl: String?): SavedSheet
 }
 
@@ -37,8 +39,13 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
     override fun signOut(token: String) { request("POST", "/api/auth/sign-out", token, JSONObject()) }
     override fun list(token: String): List<SheetSummary> = LibraryJson.summaries(request("GET", "/api/v1/sheets", token).body)
     override fun get(token: String, id: String): SavedSheet = LibraryJson.sheet(request("GET", sheetPath(id), token).body)
-    override fun create(token: String, title: String, example: Boolean): SavedSheet = LibraryJson.sheet(request(
-        "POST", "/api/v1/sheets", token, JSONObject().put("title", title.trim()).put("template", if (example) "example" else "blank"),
+    override fun create(token: String, title: String, example: Boolean, key: String, time: ScoreTimeSignature): SavedSheet = LibraryJson.sheet(request(
+        "POST", "/api/v1/sheets", token, JSONObject().put("title", title.trim()).put("template", if (example) "example" else "blank").apply {
+            if (!example) put("keySignature", key).put("timeSignature", JSONObject().put("numerator", time.numerator).put("denominator", time.denominator))
+        },
+    ).body)
+    override fun importScore(token: String, score: LeadSheet, title: String): SavedSheet = LibraryJson.sheet(request(
+        "POST", "/api/v1/sheets/import", token, JSONObject().put("score", JSONObject(LeadSheetWriter.write(score))).put("title", title.trim()),
     ).body)
     override fun save(token: String, sheet: SavedSheet, title: String, tutorialUrl: String?): SavedSheet = LibraryJson.sheet(request(
         "PUT", sheetPath(sheet.id), token, JSONObject().put("score", sheet.renamedScore(title))
@@ -104,7 +111,7 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
             401 -> "Your session ended or the sign-in details were incorrect. Please sign in again."
             403 -> "This action is not allowed. Please sign in again."
             404 -> "This sheet is no longer available. Refresh your library."
-            409 -> if (method == "POST" && path == "/api/v1/sheets")
+            409 -> if (method == "POST" && path in listOf("/api/v1/sheets", "/api/v1/sheets/import"))
                 "Your library has reached the current limit of 100 sheets. No new sheet was created."
                 else "This sheet changed elsewhere. Open Library, choose Refresh, then reopen the sheet before saving again."
             429 -> "Too many requests. Wait a moment before trying again."

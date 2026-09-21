@@ -666,7 +666,7 @@
       "valid": false,
       "expectedCode": "schema",
       "score": {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "id": "validation-sheet",
         "title": "Validation phrase",
         "keySignature": "C",

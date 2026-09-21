@@ -26,9 +26,22 @@ export function tutorialUrl(value: unknown): string | null {
   return `https://www.youtube.com/watch?v=${id}`;
 }
 export function createInput(value: unknown) {
-  const input = object(value, ['title', 'template', 'tutorialUrl']);
+  const input = object(value, ['title', 'template', 'tutorialUrl', 'keySignature', 'timeSignature']);
   if (typeof input.template !== 'string' || !['blank', 'example'].includes(input.template)) throw new InputError('Choose a blank sheet or example copy.');
-  return { title: title(input.title), template: input.template as 'blank' | 'example', tutorialUrl: tutorialUrl(input.tutorialUrl) };
+  const settings = parseScore({ schemaVersion: 2, id: 'new-sheet', title: 'New sheet', ticksPerQuarter: 480,
+    keySignature: input.keySignature === undefined ? 'C' : input.keySignature,
+    timeSignature: input.timeSignature === undefined ? { numerator: 4, denominator: 4 } : input.timeSignature,
+    measures: [{ id: 'new-measure', chords: [], melody: [] }] });
+  if (input.template === 'example' && (settings.keySignature !== 'C' || settings.timeSignature.numerator !== 4 || settings.timeSignature.denominator !== 4)) {
+    throw new InputError('Example copies use their original C major and 4/4 meter.');
+  }
+  return { title: title(input.title), template: input.template as 'blank' | 'example', tutorialUrl: tutorialUrl(input.tutorialUrl),
+    keySignature: settings.keySignature, timeSignature: settings.timeSignature };
+}
+export function importInput(value: unknown): { score: LeadSheet; title: string; tutorialUrl: string | null } {
+  const input = object(value, ['score', 'title', 'tutorialUrl']);
+  const score = parseScore(input.score);
+  return { score, title: title(input.title), tutorialUrl: tutorialUrl(input.tutorialUrl) };
 }
 export function updateInput(value: unknown, id: string): { score: LeadSheet; tutorialUrl: string | null; expectedRevision: number } {
   const input = object(value, ['score', 'tutorialUrl', 'expectedRevision']);

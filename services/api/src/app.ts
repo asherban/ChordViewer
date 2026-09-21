@@ -5,8 +5,8 @@ import { ScoreValidationError, parseScore } from '@chordviewer/contracts';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
 import type { Configuration } from './config.js';
 import { createAuth } from './auth.js';
-import { InputError, createInput, object, updateInput } from './input.js';
-import { createSheet, getSheet, listSheets, updateSheet } from './sheets.js';
+import { InputError, createInput, importInput, object, updateInput } from './input.js';
+import { createSheet, getSheet, importSheet, listSheets, updateSheet } from './sheets.js';
 
 export function buildApp(pool: Pool, config: Configuration) {
   const app = Fastify({ logger: false, bodyLimit: 1_048_576, requestTimeout: 15_000, trustProxy: false });
@@ -98,6 +98,11 @@ export function buildApp(pool: Pool, config: Configuration) {
     routes.get('/api/v1/sheets', async request => ({ sheets: await listSheets(pool, request.account!.id) }));
     routes.post('/api/v1/sheets', async (request, reply) => {
       const sheet = await createSheet(pool, request.account!.id, createInput(request.body));
+      if (!sheet) return reply.code(409).send(code('sheet_limit', 'This local milestone supports up to 100 sheets per account.'));
+      return reply.code(201).send(sheet);
+    });
+    routes.post('/api/v1/sheets/import', async (request, reply) => {
+      const sheet = await importSheet(pool, request.account!.id, importInput(request.body));
       if (!sheet) return reply.code(409).send(code('sheet_limit', 'This local milestone supports up to 100 sheets per account.'));
       return reply.code(201).send(sheet);
     });

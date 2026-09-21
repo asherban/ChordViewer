@@ -29,6 +29,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     var previousUserId by remember { mutableStateOf(state.user?.id) }
     var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
     val context = LocalContext.current
+    val documents = rememberSheetDocuments(model, state.user?.id)
     val sample = remember { runCatching {
         context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) }
     }.getOrNull() }
@@ -65,7 +66,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                     if (state.user == null) AccountLanding(state, model::authenticate, {
                         showSample = true; model.changeMode(LibraryMode.PRACTICE)
                     })
-                    else LibraryCards(state, { leave(model::refresh) }, ::newSheet, ::open)
+                    else LibraryCards(state, { leave(model::refresh) }, ::newSheet, documents.importSheet, ::open)
                 } else {
                     val score = state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
                     if (score == null) WorkspacePicker(state, ::newSheet,
@@ -80,7 +81,8 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         showAccount = false; leave { midi.disconnect(); model.signOut() }
     }, { showAccount = false })
     if (showNew) NewSheetDialog(state, model::create) { showNew = false }
-    if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraft, model::save) { showDetails = false }
+    if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraft, model::updateScoreSettings, documents.exportSheet, model::save) { showDetails = false }
+    if (state.importPreview != null) ImportPreviewDialog(state, model) { leave(model::saveImport) }
     if (showMidi) AlertDialog(
         onDismissRequest = { showMidi = false }, title = { Text("MIDI connection") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -91,7 +93,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     )
     if (pendingLeave != null) AlertDialog(
         onDismissRequest = { pendingLeave = null }, title = { Text("Discard unsaved changes?") },
-        text = { Text("Your chords, title and tutorial changes have not been saved.") },
+        text = { Text("Your score, title and tutorial changes have not been saved.") },
         confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Discard changes") } },
         dismissButton = { TextButton(onClick = { pendingLeave = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep editing") } },
     )

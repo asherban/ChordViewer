@@ -4,20 +4,20 @@ import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { parseScore } from "@chordviewer/contracts";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
-import { ChordDraft } from "./ChordDraft";
-import { ChordEntryControls } from "./ChordEditor";
+import { ScoreDraft } from "./ScoreDraft";
+import { ScoreEntryControls } from "./ScoreEditor";
 
 afterEach(cleanup);
 
-function Controls({ model }: { model: ChordDraft }) {
+function Controls({ model }: { model: ScoreDraft }) {
   const view = useSyncExternalStore(model.subscribe, model.getSnapshot);
-  return <ChordEntryControls model={model} view={view} />;
+  return <ScoreEntryControls model={model} view={view} />;
 }
 
 it("corrects a rejected MIDI replacement using the captured chord, preserving its typed name when shortened", () => {
   const score = parseScore(structuredClone(example));
   score.measures.forEach(bar => { bar.chords = []; });
-  const model = new ChordDraft(score, null, () => "new-chord");
+  const model = new ScoreDraft(score, null, () => "new-chord");
   model.configure(true, true, false);
   model.selectPosition({ measureIndex: 0, offsetTicks: 1440 });
   model.setDuration(480); model.arm();

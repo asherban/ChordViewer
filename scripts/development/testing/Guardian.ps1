@@ -225,7 +225,6 @@ try {
         if ($browser.HasExited -or $browserTimer.Elapsed.TotalSeconds -gt 60) { throw 'Testing browser did not start; see browser.log.' }
         Start-Sleep -Milliseconds 100
     }
-    $events = (Get-Content -LiteralPath (Join-Path $repository 'scripts/midi/fixtures/smoke.json') -Raw | ConvertFrom-Json).events
     Publish 'ready' 'Web + Android are running. In Android, open a sheet or choose Explore the example sheet to see notes.'
     while ($true) {
         Check-Stop
@@ -237,6 +236,9 @@ try {
             $request = Get-Content -LiteralPath $requestFile -Raw | ConvertFrom-Json
             Remove-Item -LiteralPath $requestFile
             if ($request.action -ne 'play') { throw 'Unknown launcher command.' }
+            $fixtureName = if ($request.PSObject.Properties['fixture']) { [string]$request.fixture } else { 'smoke' }
+            if ($fixtureName -cnotin @('smoke', 'melody')) { throw 'Unknown MIDI sequence.' }
+            $events = (Get-Content -LiteralPath (Join-Path $repository "scripts/midi/fixtures/$fixtureName.json") -Raw | ConvertFrom-Json).events
             $handledCommand = [int]$request.id
             Publish 'playing' 'Preparing the web input, then broadcasting the MIDI sequence to both clients.'
             $reply = Browser-Request 'prepare'
@@ -251,7 +253,7 @@ try {
                 }
             } finally { if ($sender) { $sender.Dispose(); $sender = $null } }
             $null = Browser-Request 'status'
-            Publish 'ready' 'Sequence broadcast to connected clients. Press P to play again.'
+            Publish 'ready' 'Sequence broadcast to connected clients. Press P for chords or M for melody.'
         }
         Start-Sleep -Milliseconds 100
     }

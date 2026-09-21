@@ -23,7 +23,7 @@ COPY --from=build /app/package.json ./package.json
 # npm may install conflicting versions in workspace-local node_modules directories.
 COPY --from=runtime-dependencies /app/contracts ./contracts
 COPY --from=build /app/contracts/dist ./contracts/dist
-COPY --from=build /app/contracts/src/lead-sheet-v1.schema.json ./contracts/src/lead-sheet-v1.schema.json
+COPY --from=build /app/contracts/src/lead-sheet-v1.schema.json /app/contracts/src/lead-sheet-v2.schema.json ./contracts/src/
 COPY --from=build /app/contracts/fixtures ./contracts/fixtures
 COPY --from=runtime-dependencies /app/services/api ./services/api
 COPY --from=build /app/services/api/dist ./services/api/dist

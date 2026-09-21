@@ -17,6 +17,7 @@ import com.chordviewer.MidiInputState
 import com.chordviewer.midi.MidiNote
 import com.chordviewer.score.LeadSheet
 import com.chordviewer.score.NativeScore
+import com.chordviewer.score.keyLabel
 import com.chordviewer.ui.*
 
 @Composable
@@ -69,7 +70,7 @@ private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, m
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(score.title, style = MaterialTheme.typography.headlineMedium)
-                        Text("C major · 4/4 · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved changes" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
+                        Text("${keyLabel(score.keySignature)} · ${score.timeSignature.numerator}/${score.timeSignature.denominator} · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved changes" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
                     }
                     if (inlineToggle) MelodyToggle(melody, changeMelody)
                     if (!sample) OutlinedButton(onClick = if (state.mode == LibraryMode.PRACTICE) createMode else details,
@@ -80,11 +81,12 @@ private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, m
                 if (displayToggle && !inlineToggle) MelodyToggle(melody, changeMelody)
                 val scoreModifier = if (scroll) Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
                 Column(scoreModifier, verticalArrangement = Arrangement.spacedBy(if (displayToggle) 8.dp else 12.dp)) {
-                    if (!sample && state.mode == LibraryMode.CREATE) ChordEntryControls(state, model, melody, changeMelody)
+                    if (!sample && state.mode == LibraryMode.CREATE) ScoreEntryControls(state, model, melody, changeMelody)
                     HorizontalDivider(color = BorderColor)
-                    NativeScore(score, melody)
+                    NativeScore(score, melody, if (state.mode == LibraryMode.CREATE) state.editor?.selectedMelodyId else null,
+                        if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::selectMelody else null)
                 }
-                Text(if (state.mode == LibraryMode.CREATE) if (sample) "Save your own sheet from Library to enter chords." else "Chord entry changes only the chord lane. Melody editing comes next."
+                Text(if (state.mode == LibraryMode.CREATE) if (sample) "Save your own sheet from Library to enter music." else "Enter chords and melody in separate passes. Tap a note or choose Change melody to edit it."
                     else "Read your score alongside the notes you play. Guided practice controls are coming later.",
                     color = MutedColor, style = MaterialTheme.typography.bodySmall)
             }

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: ChordViewer local API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
-    M3 workstation API. Browser authentication uses HttpOnly cookies and a trusted Origin;
+    Workstation API. Browser authentication uses HttpOnly cookies and a trusted Origin;
     native clients use signed bearer sessions from set-auth-token. Public deployment is deferred.
     Sheet writes are limited to 1 MiB and libraries to 100 sheets per account.
 servers:
@@ -119,6 +119,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       summary: Create a blank sheet or an explicit copy of the original example
+      description: >-
+        Blank sheets use score version 2 with the requested key and meter (defaults C major, 4/4).
+        Example copies preserve the original C-major 4/4 notation; other settings are rejected.
       security: [{ browserSession: [] }, { nativeSession: [] }]
       requestBody:
         required: true
@@ -132,11 +135,44 @@ paths:
                 title: { type: string, minLength: 1, maxLength: 200 }
                 template: { type: string, enum: [blank, example] }
                 tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
+                keySignature: { $ref: './src/lead-sheet-v2.schema.json#/properties/keySignature' }
+                timeSignature: { $ref: './src/lead-sheet-v2.schema.json#/properties/timeSignature' }
       responses:
         '201': { $ref: '#/components/responses/Saved' }
-        '400': { description: Invalid title, template, tutorial or extra fields. }
+        '400': { description: Invalid title, template, tutorial, key, meter or extra fields. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { description: 'sheet_limit: account already has 100 sheets.' }
+        '413': { description: Request exceeds 1 MiB. }
+  /api/v1/sheets/import:
+    post:
+      summary: Save a validated imported score as a new sheet
+      description: >-
+        The client previews and converts its local file before this request. The backend accepts
+        only supported score JSON, validates it again, replaces the source score ID with a fresh
+        server ID and uses the supplied title. It never updates a source sheet or fetches a URL.
+        Creation is atomic and shares the normal 100-sheet account limit. Ownership comes only
+        from the session. Browser cookie writes require a trusted Origin. Do not automatically
+        retry an import when the network outcome is unknown, because that may create another copy.
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [score, title]
+              properties:
+                score: { $ref: '#/components/schemas/Score' }
+                title: { type: string, minLength: 1, maxLength: 200 }
+                tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
+      responses:
+        '201': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid score, title, tutorial or extra fields. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '409': { description: 'sheet_limit: account already has 100 sheets.' }
+        '413': { description: Request exceeds 1 MiB including its JSON envelope. }
   /api/v1/sheets/{id}:
     parameters:
       - in: path
@@ -167,7 +203,7 @@ paths:
               additionalProperties: false
               required: [score, tutorialUrl, expectedRevision]
               properties:
-                score: { $ref: './src/lead-sheet-v1.schema.json' }
+                score: { $ref: '#/components/schemas/Score' }
                 tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
                 expectedRevision: { type: integer, minimum: 1, maximum: 2147483646 }
       responses:
@@ -191,6 +227,11 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/SavedSheet' }
   schemas:
+    Score:
+      description: Version 1 remains readable; version 2 adds supported global keys and meters.
+      oneOf:
+        - { $ref: './src/lead-sheet-v1.schema.json' }
+        - { $ref: './src/lead-sheet-v2.schema.json' }
     Tutorial:
       type: [string, 'null']
       maxLength: 500
@@ -220,4 +261,4 @@ components:
         - type: object
           required: [score]
           properties:
-            score: { $ref: './src/lead-sheet-v1.schema.json' }
+            score: { $ref: '#/components/schemas/Score' }

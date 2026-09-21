@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { parseScore } from "@chordviewer/contracts";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
-import { ChordDraft } from "./ChordDraft";
+import { ScoreDraft } from "./ScoreDraft";
 
 const base = parseScore({ ...example, measures: [{ ...example.measures[0], chords: [],
   melody: example.measures[0].melody.map(event => "tieToNext" in event ? { ...event, tieToNext: false } : event) }] });
 const saved = { id: base.id, score: base, tutorialUrl: null, revision: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
-function editor() { let id = 0; const model = new ChordDraft(base, saved, () => `test-${++id}`); model.configure(true, true, false); return model; }
-function bytes(model: ChordDraft, ...data: number[]) { model.receive({ type: "data", data }); }
-function chord(model: ChordDraft, notes = [60, 64, 67]) {
+function editor() { let id = 0; const model = new ScoreDraft(base, saved, () => `test-${++id}`); model.configure(true, true, false); return model; }
+function bytes(model: ScoreDraft, ...data: number[]) { model.receive({ type: "data", data }); }
+function chord(model: ScoreDraft, notes = [60, 64, 67]) {
   notes.forEach(note => bytes(model, 0x90, note, 96));
   notes.forEach(note => bytes(model, 0x80, note, 0));
 }

@@ -1,5 +1,5 @@
 import vocabulary from '../fixtures/chord-vocabulary-v1.json' with { type: 'json' };
-import { parseScore, TICKS_PER_MEASURE, type ChordEvent, type LeadSheet } from './index.js';
+import { parseScore, measureTicks, type ChordEvent, type LeadSheet } from './index.js';
 
 export const CHORD_DURATIONS = [240, 480, 720, 960, 1440, 1920] as const;
 export type ChordDuration = typeof CHORD_DURATIONS[number];
@@ -14,8 +14,8 @@ export class ChordEntryError extends Error {
   }
 }
 
-function validateEntry(symbol: string, duration: number): void {
-  if (!(CHORD_DURATIONS as readonly number[]).includes(duration)) {
+function validateEntry(score: LeadSheet, symbol: string, duration: number): void {
+  if (!(CHORD_DURATIONS as readonly number[]).includes(duration) && duration !== measureTicks(score)) {
     throw new ChordEntryError('duration', 'Choose an eighth, quarter, dotted quarter, half, dotted half or whole note duration.');
   }
   if (typeof symbol !== 'string' || symbol.trim() !== symbol || [...symbol].length < 1 || [...symbol].length > 32
@@ -26,14 +26,14 @@ function validateEntry(symbol: string, duration: number): void {
 
 function validatePosition(score: LeadSheet, position: ChordPosition): void {
   if (!Number.isInteger(position.measureIndex) || position.measureIndex < 0 || position.measureIndex > score.measures.length
-    || !Number.isInteger(position.offsetTicks) || position.offsetTicks < 0 || position.offsetTicks >= TICKS_PER_MEASURE) {
+    || !Number.isInteger(position.offsetTicks) || position.offsetTicks < 0 || position.offsetTicks >= measureTicks(score)) {
     throw new ChordEntryError('position', 'Select a position in the sheet or its next bar.');
   }
 }
 
 function assertAvailable(score: LeadSheet, position: ChordPosition, duration: number, replacingId?: string): void {
   const end = position.offsetTicks + duration;
-  if (end > TICKS_PER_MEASURE) {
+  if (end > measureTicks(score)) {
     throw new ChordEntryError('barline', 'This duration crosses the barline. Choose a shorter duration or another position.');
   }
   if (score.measures[position.measureIndex]?.chords.some(event => event.id !== replacingId
@@ -42,9 +42,9 @@ function assertAvailable(score: LeadSheet, position: ChordPosition, duration: nu
   }
 }
 
-function after(position: ChordPosition, duration: number): ChordPosition {
+function after(score: LeadSheet, position: ChordPosition, duration: number): ChordPosition {
   const offsetTicks = position.offsetTicks + duration;
-  return offsetTicks === TICKS_PER_MEASURE
+  return offsetTicks === measureTicks(score)
     ? { measureIndex: position.measureIndex + 1, offsetTicks: 0 }
     : { measureIndex: position.measureIndex, offsetTicks };
 }
@@ -71,7 +71,7 @@ export function findChord(score: LeadSheet, eventId: string): LocatedChord | nul
 export function insertChord(score: LeadSheet, position: ChordPosition, symbol: string, duration: number,
   idFactory: () => string): ChordEdit {
   parseScore(score);
-  validateEntry(symbol, duration);
+  validateEntry(score, symbol, duration);
   validatePosition(score, position);
   assertAvailable(score, position, duration);
   if (position.measureIndex === score.measures.length && score.measures.length >= 256) {
@@ -88,13 +88,13 @@ export function insertChord(score: LeadSheet, position: ChordPosition, symbol: s
     const measure = measures[position.measureIndex]!;
     measures[position.measureIndex] = { ...measure, chords: [...measure.chords, event].sort((a, b) => a.offsetTicks - b.offsetTicks) };
   }
-  return { score: parseScore({ ...score, measures }), position: after(position, duration), eventId };
+  return { score: parseScore({ ...score, measures }), position: after(score, position, duration), eventId };
 }
 
 /** Replaces an existing chord in place without moving or silently shortening its neighbours. */
 export function replaceChord(score: LeadSheet, eventId: string, symbol: string, duration: number): ChordEdit {
   parseScore(score);
-  validateEntry(symbol, duration);
+  validateEntry(score, symbol, duration);
   const found = findChord(score, eventId);
   if (!found) throw new ChordEntryError('missing', 'This chord no longer exists. Select another slot.');
   assertAvailable(score, found.position, duration, eventId);
@@ -102,7 +102,7 @@ export function replaceChord(score: LeadSheet, eventId: string, symbol: string, 
   const measure = measures[found.position.measureIndex]!;
   measures[found.position.measureIndex] = { ...measure,
     chords: measure.chords.map(event => event.id === eventId ? { ...event, symbol, durationTicks: duration } : event) };
-  return { score: parseScore({ ...score, measures }), position: after(found.position, duration), eventId };
+  return { score: parseScore({ ...score, measures }), position: after(score, found.position, duration), eventId };
 }
 
 /** Leaves a gap and retains the bar, melody and IDs of every surviving event. */

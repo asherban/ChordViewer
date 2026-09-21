@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chordviewer.ui.*
+import com.chordviewer.score.*
 
 @Composable
 fun AccountLanding(state: LibraryState, authenticate: (String, String, String?) -> Unit, preview: () -> Unit) {
@@ -66,28 +67,40 @@ private fun AccountFields(busy: Boolean, authenticate: (String, String, String?)
 }
 
 @Composable
-fun NewSheetDialog(state: LibraryState, create: (String, Boolean) -> Unit, close: () -> Unit) {
+fun NewSheetDialog(state: LibraryState, create: (String, Boolean, String, ScoreTimeSignature) -> Unit, close: () -> Unit) {
     var title by remember { mutableStateOf("") }
+    var key by remember { mutableStateOf("C") }
+    var time by remember { mutableStateOf(ScoreTimeSignature()) }
     AlertDialog(onDismissRequest = { if (!state.busy) close() }, title = { Text("New sheet") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Start with a blank sheet or make your own copy of the original example.", color = MutedColor)
             OutlinedTextField(title, { title = it.take(400) }, label = { Text("Sheet title") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+            ScoreSettingsFields(key, time, !state.busy, { key = it }, { time = it })
             state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            OutlinedButton(onClick = { create(title, true) }, enabled = !state.busy && title.isNotBlank(),
+            OutlinedButton(onClick = { create(title, true, "C", ScoreTimeSignature()) }, enabled = !state.busy && title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Copy example") }
+            Text("The example keeps its original C major and 4/4 settings.", style = MaterialTheme.typography.bodySmall)
         } },
-        confirmButton = { Button(onClick = { create(title, false) }, enabled = !state.busy && title.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Create blank sheet") } },
+        confirmButton = { Button(onClick = { create(title, false, key, time) }, enabled = !state.busy && title.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Create blank sheet") } },
         dismissButton = { TextButton(onClick = close, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel") } },
     )
 }
 
 @Composable
-fun SheetDetailsDialog(state: LibraryState, update: (String, String) -> Unit, save: () -> Unit, close: () -> Unit) {
+fun SheetDetailsDialog(state: LibraryState, update: (String, String) -> Unit, settings: (String, ScoreTimeSignature) -> Unit, export: () -> Unit, save: () -> Unit, close: () -> Unit) {
+    val score = state.editor?.score ?: state.selected?.score ?: return
+    var key by remember(score.keySignature) { mutableStateOf(score.keySignature) }
+    var time by remember(score.timeSignature) { mutableStateOf(score.timeSignature) }
     AlertDialog(onDismissRequest = close, title = { Text("Sheet details") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             OutlinedTextField(state.draftTitle, { update(it, state.draftTutorial) }, label = { Text("Sheet title") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(state.draftTutorial, { update(state.draftTitle, it) }, label = { Text("YouTube tutorial URL (optional)") }, singleLine = true, enabled = !state.busy,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+            ScoreSettingsFields(key, time, !state.busy, { key = it }, { time = it })
+            OutlinedButton(onClick = { settings(key, time) }, enabled = !state.busy && (key != score.keySignature || time != score.timeSignature), modifier = Modifier.heightIn(min = 48.dp)) { Text("Apply key and meter") }
+            Text("Pitches stay unchanged. A shorter meter is accepted only when every event fits.", style = MaterialTheme.typography.bodySmall, color = MutedColor)
+            state.editor?.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            OutlinedButton(onClick = export, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export ChordViewer JSON") }
             Text(if (state.hasUnsavedChanges) "Unsaved changes stay here until you save or discard them." else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodySmall)
             state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         } },
@@ -95,4 +108,40 @@ fun SheetDetailsDialog(state: LibraryState, update: (String, String) -> Unit, sa
             modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Save changes") } },
         dismissButton = { TextButton(onClick = close, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
     )
+}
+
+@Composable
+private fun ScoreSettingsFields(key: String, time: ScoreTimeSignature, enabled: Boolean, changeKey: (String) -> Unit, changeTime: (ScoreTimeSignature) -> Unit) {
+    var keyPicker by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { keyPicker = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Key: ${keyLabel(key)}") }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Meter ${time.numerator}/${time.denominator}", modifier = Modifier.weight(1f))
+        OutlinedButton(onClick = { changeTime(time.copy(numerator = time.numerator - 1)) }, enabled = enabled && time.numerator > 1, modifier = Modifier.heightIn(min = 48.dp)) { Text("− beat") }
+        OutlinedButton(onClick = { changeTime(time.copy(numerator = time.numerator + 1)) }, enabled = enabled && time.numerator < 12, modifier = Modifier.heightIn(min = 48.dp)) { Text("+ beat") }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Beat unit")
+        listOf(2, 4, 8).forEach { value -> FilterChip(time.denominator == value, { changeTime(time.copy(denominator = value)) }, enabled = enabled, label = { Text("1/$value") }, modifier = Modifier.heightIn(min = 48.dp)) }
+    }
+    if (keyPicker) AlertDialog(onDismissRequest = { keyPicker = false }, title = { Text("Key signature") }, text = {
+        Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) { SUPPORTED_KEYS.forEach { value ->
+            TextButton(onClick = { changeKey(value); keyPicker = false }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(keyLabel(value)) }
+        } }
+    }, confirmButton = { TextButton(onClick = { keyPicker = false }) { Text("Done") } })
+}
+
+@Composable
+fun ImportPreviewDialog(state: LibraryState, model: LibraryViewModel, save: () -> Unit) {
+    val preview = state.importPreview ?: return
+    AlertDialog(onDismissRequest = model::dismissImport, title = { Text("Import preview") }, text = {
+        Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(state.importTitle, model::updateImportTitle, label = { Text("Imported sheet title") }, enabled = !state.busy, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Text("${preview.score.measures.size} bars · ${keyLabel(preview.score.keySignature)} · ${preview.score.timeSignature.numerator}/${preview.score.timeSignature.denominator}")
+            Text("This preview is local. Saving creates a new sheet in your library.", color = MutedColor)
+            preview.warnings.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+            NativeScore(preview.score, true)
+            state.message?.let { Text(it) }
+        }
+    }, confirmButton = { Button(onClick = save, enabled = !state.busy && state.importTitle.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp)) { Text("Save as new sheet") } },
+        dismissButton = { TextButton(onClick = model::dismissImport, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel import") } })
 }

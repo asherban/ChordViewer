@@ -6,6 +6,7 @@ import org.json.JSONObject
 /** Encodes the entire supported contract, preserving the independent melody lane. */
 object LeadSheetWriter {
     fun write(score: LeadSheet): String {
+        require(score.measures.none { bar -> bar.melody.any { it.pitch == null && it.tieToNext } }) { "A rest cannot have a tie" }
         val measures = JSONArray()
         score.measures.forEach { measure ->
             val chords = JSONArray()
@@ -23,8 +24,9 @@ object LeadSheetWriter {
             }
             measures.put(JSONObject().put("id", measure.id).put("chords", chords).put("melody", melody))
         }
-        val json = JSONObject().put("schemaVersion", 1).put("id", score.id).put("title", score.title).put("keySignature", "C")
-            .put("timeSignature", JSONObject().put("numerator", 4).put("denominator", 4)).put("ticksPerQuarter", 480).put("measures", measures).toString()
+        val json = JSONObject().put("schemaVersion", score.schemaVersion).put("id", score.id).put("title", score.title).put("keySignature", score.keySignature)
+            .put("timeSignature", JSONObject().put("numerator", score.timeSignature.numerator).put("denominator", score.timeSignature.denominator))
+            .put("ticksPerQuarter", 480).put("measures", measures).toString()
         LeadSheetReader.read(json)
         return json
     }
