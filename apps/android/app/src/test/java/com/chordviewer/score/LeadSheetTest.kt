@@ -51,10 +51,72 @@ class LeadSheetTest {
 
     @Test fun chordAndMelodyOnsetsUseOneSharedHorizontalPosition() {
         val bar = LeadSheetReader.read(fixture()).measures[0]
-        val x = ScoreLayout.eventX(bar, bar.chords[1].offsetTicks, 84f, 368f)
-        assertEquals(x, ScoreLayout.eventX(bar, bar.melody[3].offsetTicks, 84f, 368f), 0f)
-        val positions = bar.melody.map { ScoreLayout.eventX(bar, it.offsetTicks, 84f, 368f) }
+        val timeline = ScoreLayout.timeline(bar, true) { 60f }
+        val x = timeline.x(bar.chords[1].offsetTicks, 300f)
+        assertEquals(x, timeline.x(bar.melody[3].offsetTicks, 300f), 0f)
+        val positions = bar.melody.map { timeline.x(it.offsetTicks, 300f) }
         assertTrue(positions.zipWithNext().all { (left, right) -> right - left >= 30f })
+    }
+
+    @Test fun systemsFitFourNormalBarsAndLeaveAnIncompleteSystemCompact() {
+        val bar = ScoreMeasure("bar", listOf(ChordEvent("chord", 0, BAR_TICKS, "Cmaj7")),
+            List(4) { MelodyEvent("n$it", it * 480, ScoreDuration(4, 0), ScorePitch("C", 0, 4)) })
+        val sheet = LeadSheet("score", "Study", List(5) { bar.copy(id = "bar$it") })
+        val timelines = sheet.measures.map { ScoreLayout.timeline(it, true) { 80f } }
+        val systems = ScoreLayout.systems(sheet, timelines, 900f, true)
+        assertEquals(listOf(4, 1), systems.map { it.count })
+        assertEquals(listOf(4, 4), systems.map { it.columns })
+        assertTrue(systems.all { it.width == 900f && it.geometry.rowHeight in 150f..170f })
+        val narrow = ScoreLayout.systems(sheet, timelines, 450f, true)
+        assertEquals(2, narrow.first().columns)
+        assertEquals(1, ScoreLayout.systems(sheet, timelines, 230f, true).first().columns)
+    }
+
+    @Test fun aVeryShortLongNamedChordGetsFiniteSpaceAndDoesNotWidenOtherSystems() {
+        val empty = ScoreMeasure("bar", emptyList(), emptyList())
+        val dense = empty.copy(chords = listOf(ChordEvent("c", 959, 1, "A".repeat(32))))
+        val sheet = LeadSheet("score", "Study", listOf(dense) + List(4) { empty })
+        val timelines = sheet.measures.map { ScoreLayout.timeline(it, false) { 700f } }
+        val systems = ScoreLayout.systems(sheet, timelines, 640f, false)
+        assertEquals(1, systems.first().columns)
+        assertTrue(systems.first().width in 750f..850f)
+        assertEquals(640f, systems[1].width)
+        assertEquals(4, systems[1].columns)
+        assertTrue(timelines[0].x(960, timelines[0].width) - timelines[0].x(959, timelines[0].width) >= 724f)
+    }
+
+    @Test fun chordSpansRespectTimingAndAllocateRoomForEachLabel() {
+        val bar = ScoreMeasure("bar", listOf(ChordEvent("c", 0, 480, "Cmaj7"), ChordEvent("g", 960, 960, "G7")), emptyList())
+        val timeline = ScoreLayout.timeline(bar, false) { if (it == "Cmaj7") 140f else 60f }
+        val width = timeline.width + 100
+        assertTrue(timeline.x(480, width) - timeline.x(0, width) >= 164f)
+        assertTrue(timeline.x(1920, width) - timeline.x(960, width) >= 84f)
+        assertTrue(timeline.x(960, width) > timeline.x(480, width))
+        assertEquals(width, timeline.x(BAR_TICKS, width), .001f)
+        val whole = ScoreLayout.timeline(bar.copy(chords = listOf(ChordEvent("f", 0, BAR_TICKS, "F"))), false) { 40f }
+        assertEquals(width / 2, (whole.x(0, width) + whole.x(BAR_TICKS, width)) / 2, .001f)
+    }
+
+    @Test fun extremeLedgerNotesHaveRoomAboveAndBelowTheSystemIncludingTies() {
+        val events = listOf(ScorePitch("B", 0, 6), ScorePitch("C", 0, 3)).mapIndexed { index, pitch ->
+            MelodyEvent("n$index", index * 480, ScoreDuration(4, 0), pitch)
+        }
+        val geometry = ScoreLayout.geometry(LeadSheet("s", "Extremes", listOf(ScoreMeasure("b", emptyList(), events))))
+        assertTrue(geometry.top + 40 - events[0].pitch!!.staffStep * 5 - 8 >= 50f)
+        assertTrue(geometry.rowHeight - (geometry.top + 40 - events[1].pitch!!.staffStep * 5) >= 36f)
+        val highOnly = ScoreLayout.geometry(LeadSheet("h", "High", listOf(ScoreMeasure("b", emptyList(), events.take(1)))))
+        assertTrue(highOnly.rowHeight >= highOnly.top + 64f)
+    }
+
+    @Test fun dottedNotesAndFlagsLeaveRoomForTheFollowingAccidentalAtMinimumWidth() {
+        val bar = ScoreMeasure("bar", emptyList(), listOf(
+            MelodyEvent("dotted", 0, ScoreDuration(8, 1), ScorePitch("C", 0, 4)),
+            MelodyEvent("sharp", 360, ScoreDuration(16, 0), ScorePitch("F", 1, 4)),
+            MelodyEvent("natural", 480, ScoreDuration(4, 0), ScorePitch("F", 0, 4)),
+        ))
+        val timeline = ScoreLayout.timeline(bar, true) { 0f }
+        assertTrue(timeline.x(360, timeline.width) - timeline.x(0, timeline.width) >= 46f)
+        assertTrue(timeline.x(480, timeline.width) - timeline.x(360, timeline.width) >= 46f)
     }
 
     @Test fun aTiedAccidentalDoesNotChangeNewNotesInTheFollowingBar() {

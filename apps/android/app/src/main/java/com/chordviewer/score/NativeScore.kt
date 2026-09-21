@@ -30,42 +30,34 @@ import com.chordviewer.R
 fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
     val context = LocalContext.current
     val musicFont = remember { context.resources.getFont(R.font.bravura) }
+    val chordSize = if (showMelody) 26f else 44f
+    val measureText = remember(chordSize) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.create("serif", Typeface.BOLD); textSize = chordSize
+    } }
     val marks = remember(sheet) { ScoreLayout.marks(sheet) }
-    val geometry = remember(sheet) { ScoreLayout.geometry(sheet) }
+    val timelines = remember(sheet, showMelody) { sheet.measures.map { ScoreLayout.timeline(it, showMelody, measureText::measureText) } }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val minimum = sheet.measures.maxOf(ScoreLayout::minimumMeasureWidth)
-        val perRow = if (maxWidth.value >= minimum * 2) 2 else 1
-        val width = maxOf(maxWidth.value, minimum)
-        val rows = (sheet.measures.size + perRow - 1) / perRow
-        val rowHeight = if (showMelody) geometry.rowHeight else 92f
-        val description = buildString {
-            append("${sheet.title}. C major, four-four time. ")
-            sheet.measures.forEachIndexed { index, measure ->
-                append("Measure ${index + 1}: chords ${measure.chords.joinToString { it.symbol }}. ")
-                if (showMelody) append(measure.melody.joinToString { event ->
-                    (event.pitch?.label ?: "rest") + ", ${event.duration.denominator} denominator" +
-                        (if (event.duration.dots == 1) ", dotted" else "") + (if (event.tieToNext) ", tied" else "")
-                } + ". ")
-            }
-        }
-        Column(Modifier.horizontalScroll(rememberScrollState())) {
-            Canvas(Modifier.width(width.dp).height((rows * rowHeight).dp)
-                .semantics { contentDescription = description }) {
-                val scale = density
-                val measureWidth = width / perRow
-                val painter = StaffPainter(this, musicFont, scale, geometry.top)
-                sheet.measures.forEachIndexed { index, measure ->
-                    val row = index / perRow
-                    val column = index % perRow
-                    painter.measure(measure, marks[index], index, column * measureWidth, row * rowHeight,
-                        measureWidth, column == 0, showMelody)
-                }
-                if (showMelody) sheet.measures.forEachIndexed { index, measure ->
-                    measure.melody.filter { it.tieToNext }.forEach { event ->
-                        val nextInMeasure = measure.melody.firstOrNull { it.offsetTicks == event.offsetTicks + event.duration.ticks }
-                        val targetIndex = if (nextInMeasure != null) index else index + 1
-                        val target = nextInMeasure ?: sheet.measures[targetIndex].melody.first()
-                        painter.tie(measure, event, index, sheet.measures[targetIndex], target, targetIndex, perRow, measureWidth, rowHeight)
+        val systems = remember(sheet, timelines, maxWidth, showMelody) { ScoreLayout.systems(sheet, timelines, maxWidth.value, showMelody) }
+        Column {
+            systems.forEach { system ->
+                // Only an unusually dense system scrolls; ordinary rows retain the viewport width.
+                Column(Modifier.horizontalScroll(rememberScrollState())) {
+                    Canvas(Modifier.width(system.width.dp).height(system.geometry.rowHeight.dp)
+                        .semantics { contentDescription = description(sheet, system, showMelody) }) {
+                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody)
+                        painter.system()
+                        (system.first until system.first + system.count).forEach { index ->
+                            painter.measure(sheet.measures[index], marks[index], index)
+                        }
+                        if (showMelody) (maxOf(0, system.first - 1) until system.first + system.count).forEach { index ->
+                            val measure = sheet.measures[index]
+                            measure.melody.filter { it.tieToNext }.forEach { event ->
+                                val next = measure.melody.firstOrNull { it.offsetTicks == event.offsetTicks + event.duration.ticks }
+                                val targetIndex = if (next != null) index else index + 1
+                                val target = next ?: sheet.measures[targetIndex].melody.first()
+                                painter.tie(event, index, target, targetIndex)
+                            }
+                        }
                     }
                 }
             }
@@ -73,89 +65,118 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean) {
     }
 }
 
-private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val scale: Float, val staffTop: Float) {
-    private val ink = Color(0xFF1D2939)
-    private val staff = Color(0xFF98A2B3)
-    private val gap = 12f
+private fun description(sheet: LeadSheet, system: ScoreSystem, melody: Boolean) = buildString {
+    append("${sheet.title}. C major, four-four time. ")
+    (system.first until system.first + system.count).forEach { index ->
+        val measure = sheet.measures[index]
+        append("Measure ${index + 1}: chords ${measure.chords.joinToString { it.symbol }}. ")
+        if (melody) append(measure.melody.joinToString { event ->
+            (event.pitch?.label ?: "rest") + ", ${event.duration.denominator} denominator" +
+                (if (event.duration.dots == 1) ", dotted" else "") + (if (event.tieToNext) ", tied" else "")
+        } + ". ")
+    }
+}
+
+private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout: ScoreSystem,
+    val timelines: List<MeasureTimeline>, val melody: Boolean) {
+    private val scale = scope.density
+    private val ink = Color(0xFF34453D)
+    private val muted = Color(0xFF697A73)
+    private val gap = 10f
     private val music = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = musicFont; textSize = gap * 4 * scale; color = ink.toArgb() }
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT; textSize = 15 * scale; color = ink.toArgb() }
+    private val chord = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.create("serif", Typeface.BOLD); textSize = (if (melody) 26 else 44) * scale; color = ink.toArgb()
+    }
+    private val number = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT; textSize = 12 * scale; color = muted.toArgb() }
+    private val end = layout.measureWidth * layout.count - 8
 
     private fun glyph(value: Char, x: Float, y: Float) = scope.drawContext.canvas.nativeCanvas.drawText(value.toString(), x * scale, y * scale, music)
-    private fun line(x1: Float, y1: Float, x2: Float, y2: Float, color: Color = ink, width: Float = 1f) =
-        scope.drawLine(color, Offset(x1 * scale, y1 * scale), Offset(x2 * scale, y2 * scale), width * scale)
-    private fun label(value: String, x: Float, y: Float) = scope.drawContext.canvas.nativeCanvas.drawText(value, x * scale, y * scale, text)
-    private fun x(measure: ScoreMeasure, offset: Int, left: Float, width: Float) = ScoreLayout.eventX(measure, offset, left + 84, left + width - 32)
-    private fun y(pitch: ScorePitch, top: Float) = top + staffTop + 4 * gap - pitch.staffStep * gap / 2
+    private fun line(x1: Float, y1: Float, x2: Float, y2: Float, width: Float = 1f) =
+        scope.drawLine(ink, Offset(x1 * scale, y1 * scale), Offset(x2 * scale, y2 * scale), width * scale)
+    private fun left(index: Int) = (index - layout.first) * layout.measureWidth
+    private fun start(index: Int) = left(index) + 16 + if (index == layout.first) layout.prefix else 0f
+    private fun x(index: Int, offset: Int): Float {
+        val start = start(index)
+        val available = (left(index) + layout.measureWidth - 16 - start).coerceAtLeast(timelines[index].width)
+        return start + timelines[index].x(offset, available)
+    }
+    private fun y(pitch: ScorePitch) = layout.geometry.top + 4 * gap - pitch.staffStep * gap / 2
+    private fun contains(index: Int) = index in layout.first until layout.first + layout.count
 
-    fun measure(measure: ScoreMeasure, marks: List<NotationMark>, index: Int, left: Float, top: Float,
-        width: Float, startOfRow: Boolean, showMelody: Boolean) {
-        label("${index + 1}", left + 8, top + 18)
-        measure.chords.forEach { label(it.symbol, x(measure, it.offsetTicks, left, width), top + 42) }
-        if (!showMelody) {
-            line(left + 6, top + 60, left + width - 6, top + 60, staff)
-            line(left + width - 6, top + 30, left + width - 6, top + 68, staff)
+    fun system() {
+        if (!melody) return
+        repeat(5) { line(8f, layout.geometry.top + it * gap, end, layout.geometry.top + it * gap, .8f) }
+        glyph('\uE050', 12f, layout.geometry.top + 3 * gap)
+        if (layout.first == 0) {
+            glyph('\uE084', 45f, layout.geometry.top + gap)
+            glyph('\uE084', 45f, layout.geometry.top + 3 * gap)
+        }
+    }
+
+    fun measure(measure: ScoreMeasure, marks: List<NotationMark>, index: Int) {
+        val left = left(index)
+        val right = left + layout.measureWidth - if (index == layout.first + layout.count - 1) 8 else 0
+        scope.drawContext.canvas.nativeCanvas.drawText("${index + 1}", (left + 8) * scale, 18 * scale, number)
+        measure.chords.forEach { event ->
+            val center = (x(index, event.offsetTicks) + x(index, event.offsetTicks + event.durationTicks)) / 2
+            val labelX = if (melody) x(index, event.offsetTicks) * scale else center * scale - chord.measureText(event.symbol) / 2
+            scope.drawContext.canvas.nativeCanvas.drawText(event.symbol, labelX,
+                (if (melody) 43f else 78f) * scale, chord)
+        }
+        if (!melody) {
+            line(right, 28f, right, 96f, .8f)
             return
         }
-        repeat(5) { line(left + 6, top + staffTop + it * gap, left + width - 6, top + staffTop + it * gap, staff) }
-        line(left + width - 6, top + staffTop, left + width - 6, top + staffTop + 4 * gap, staff)
-        if (startOfRow) {
-            glyph('\uE050', left + 12, top + staffTop + 3 * gap)
-            glyph('\uE084', left + 48, top + staffTop + gap)
-            glyph('\uE084', left + 48, top + staffTop + 3 * gap)
-        }
+        line(right, layout.geometry.top, right, layout.geometry.top + 4 * gap, .8f)
         marks.forEach { mark ->
             val event = mark.event
-            val noteX = x(measure, event.offsetTicks, left, width)
+            val noteX = x(index, event.offsetTicks)
             val pitch = event.pitch
             if (pitch == null) {
                 val rest = when (event.duration.denominator) { 1 -> '\uE4E3'; 2 -> '\uE4E4'; 4 -> '\uE4E5'; 8 -> '\uE4E6'; else -> '\uE4E7' }
-                val restY = top + staffTop + (if (event.duration.denominator == 1) 1 else 2) * gap
+                val restY = layout.geometry.top + (if (event.duration.denominator == 1) 1 else 2) * gap
                 glyph(rest, noteX, restY)
-                if (event.duration.dots == 1) glyph('\uE1E7', noteX + 18, restY - gap / 2)
+                if (event.duration.dots == 1) glyph('\uE1E7', noteX + 16, restY - gap / 2)
             } else {
-                val noteY = y(pitch, top)
+                val noteY = y(pitch)
                 ScoreLayout.ledgerSteps(pitch).forEach { step ->
-                    val ledgerY = top + staffTop + 4 * gap - step * gap / 2
-                    line(noteX - 4, ledgerY, noteX + 19, ledgerY, staff)
+                    val ledgerY = layout.geometry.top + 4 * gap - step * gap / 2
+                    line(noteX - 4, ledgerY, noteX + 17, ledgerY, .8f)
                 }
-                mark.accidental?.let { glyph(when (it) { -1 -> '\uE260'; 1 -> '\uE262'; else -> '\uE261' }, noteX - 18, noteY) }
+                mark.accidental?.let { glyph(when (it) { -1 -> '\uE260'; 1 -> '\uE262'; else -> '\uE261' }, noteX - 16, noteY) }
                 val head = when (event.duration.denominator) { 1 -> '\uE0A2'; 2 -> '\uE0A3'; else -> '\uE0A4' }
                 glyph(head, noteX, noteY)
                 if (event.duration.denominator != 1) {
                     val up = pitch.staffStep < 4
-                    val stemX = noteX + if (up) 13f else 0.7f
-                    val stemEnd = noteY + if (up) -42f else 42f
-                    line(stemX, noteY, stemX, stemEnd, width = 1.2f)
+                    val stemX = noteX + if (up) 11f else .6f
+                    val stemEnd = noteY + if (up) -35f else 35f
+                    line(stemX, noteY, stemX, stemEnd, 1.1f)
                     if (event.duration.denominator >= 8) {
                         val flag = if (event.duration.denominator == 8) { if (up) '\uE240' else '\uE241' }
                             else { if (up) '\uE242' else '\uE243' }
                         glyph(flag, stemX, stemEnd)
                     }
                 }
-                if (event.duration.dots == 1) glyph('\uE1E7', noteX + 20, noteY - if (pitch.staffStep % 2 == 0) gap / 2 else 0f)
+                if (event.duration.dots == 1) glyph('\uE1E7', noteX + 17, noteY - if (pitch.staffStep % 2 == 0) gap / 2 else 0f)
             }
         }
     }
 
-    fun tie(fromBar: ScoreMeasure, from: MelodyEvent, fromIndex: Int, toBar: ScoreMeasure, to: MelodyEvent,
-        toIndex: Int, perRow: Int, width: Float, rowHeight: Float) {
-        val startX = x(fromBar, from.offsetTicks, fromIndex % perRow * width, width) + 8
-        val endX = x(toBar, to.offsetTicks, toIndex % perRow * width, width) + 5
-        val fromY = y(requireNotNull(from.pitch), fromIndex / perRow * rowHeight) + 14
-        val toY = y(requireNotNull(to.pitch), toIndex / perRow * rowHeight) + 14
-        if (fromIndex / perRow == toIndex / perRow) curve(startX, fromY, endX, toY)
-        else {
-            curve(startX, fromY, perRow * width - 8, fromY)
-            curve(72f, toY, endX, toY)
-        }
+    fun tie(from: MelodyEvent, fromIndex: Int, to: MelodyEvent, toIndex: Int) {
+        if (!contains(fromIndex) && !contains(toIndex)) return
+        val fromY = y(requireNotNull(from.pitch)) + 13
+        val toY = y(requireNotNull(to.pitch)) + 13
+        if (contains(fromIndex) && contains(toIndex)) curve(x(fromIndex, from.offsetTicks) + 6, fromY, x(toIndex, to.offsetTicks) + 4, toY)
+        else if (contains(fromIndex)) curve(x(fromIndex, from.offsetTicks) + 6, fromY, end, fromY)
+        else curve(start(toIndex) - 14, toY, x(toIndex, to.offsetTicks) + 4, toY)
     }
 
     private fun curve(x1: Float, y1: Float, x2: Float, y2: Float) {
         val path = Path().apply {
             moveTo(x1 * scale, y1 * scale)
-            cubicTo((x1 + (x2 - x1) / 3) * scale, (y1 + 14) * scale,
-                (x1 + (x2 - x1) * 2 / 3) * scale, (y2 + 14) * scale, x2 * scale, y2 * scale)
+            cubicTo((x1 + (x2 - x1) / 3) * scale, (y1 + 11) * scale,
+                (x1 + (x2 - x1) * 2 / 3) * scale, (y2 + 11) * scale, x2 * scale, y2 * scale)
         }
-        scope.drawPath(path, ink, style = Stroke(1.5f * scale))
+        scope.drawPath(path, ink, style = Stroke(1.3f * scale))
     }
 }

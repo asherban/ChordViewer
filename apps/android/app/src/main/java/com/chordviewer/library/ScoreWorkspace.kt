@@ -62,31 +62,41 @@ fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi:
 private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, melody: Boolean,
     changeMelody: (Boolean) -> Unit, details: () -> Unit, createMode: () -> Unit, model: LibraryViewModel, modifier: Modifier, scroll: Boolean = true) {
     Surface(modifier, color = PaperColor, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, BorderColor)) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(score.title, style = MaterialTheme.typography.headlineMedium)
-                    Text("C major · 4/4 · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved changes" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
+        BoxWithConstraints {
+            val displayToggle = sample || state.mode != LibraryMode.CREATE
+            val inlineToggle = displayToggle && maxWidth >= 700.dp
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(score.title, style = MaterialTheme.typography.headlineMedium)
+                        Text("C major · 4/4 · " + if (sample) "Example · not saved" else if (state.hasUnsavedChanges) "Unsaved changes" else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (inlineToggle) MelodyToggle(melody, changeMelody)
+                    if (!sample) OutlinedButton(onClick = if (state.mode == LibraryMode.PRACTICE) createMode else details,
+                        enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) {
+                        Text(if (state.mode == LibraryMode.PRACTICE) "Edit sheet" else "Sheet details")
+                    }
                 }
-                if (!sample) OutlinedButton(onClick = if (state.mode == LibraryMode.PRACTICE) createMode else details,
-                    enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) {
-                    Text(if (state.mode == LibraryMode.PRACTICE) "Edit sheet" else "Sheet details")
+                if (displayToggle && !inlineToggle) MelodyToggle(melody, changeMelody)
+                val scoreModifier = if (scroll) Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
+                Column(scoreModifier, verticalArrangement = Arrangement.spacedBy(if (displayToggle) 8.dp else 12.dp)) {
+                    if (!sample && state.mode == LibraryMode.CREATE) ChordEntryControls(state, model, melody, changeMelody)
+                    HorizontalDivider(color = BorderColor)
+                    NativeScore(score, melody)
                 }
+                Text(if (state.mode == LibraryMode.CREATE) if (sample) "Save your own sheet from Library to enter chords." else "Chord entry changes only the chord lane. Melody editing comes next."
+                    else "Read your score alongside the notes you play. Guided practice controls are coming later.",
+                    color = MutedColor, style = MaterialTheme.typography.bodySmall)
             }
-            if (sample || state.mode != LibraryMode.CREATE) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Switch(melody, changeMelody, modifier = Modifier.semantics { contentDescription = "Show melody notation" })
-                Text(if (melody) "Chords and melody" else "Chords only", style = MaterialTheme.typography.bodyMedium)
-            }
-            val scoreModifier = if (scroll) Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
-            Column(scoreModifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!sample && state.mode == LibraryMode.CREATE) ChordEntryControls(state, model, melody, changeMelody)
-                HorizontalDivider(color = BorderColor)
-                NativeScore(score, melody)
-            }
-            Text(if (state.mode == LibraryMode.CREATE) if (sample) "Save your own sheet from Library to enter chords." else "Chord entry changes only the chord lane. Melody editing comes next."
-                else "Read your score alongside the notes you play. Guided practice controls are coming later.",
-                color = MutedColor, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+@Composable
+private fun MelodyToggle(melody: Boolean, changeMelody: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Switch(melody, changeMelody, modifier = Modifier.semantics { contentDescription = "Show melody notation" })
+        Text(if (melody) "Chords and melody" else "Chords only", style = MaterialTheme.typography.bodyMedium)
     }
 }
 

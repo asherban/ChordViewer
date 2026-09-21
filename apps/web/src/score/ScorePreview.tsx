@@ -1,190 +1,181 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  durationTicks,
-  type LeadSheet,
-  type MelodyEvent,
-} from "@chordviewer/contracts";
-import {
-  Accidental,
-  Dot,
-  Formatter,
-  Fraction,
-  GhostNote,
-  Renderer,
-  Stave,
-  StaveNote,
-  StaveTie,
-  TextNote,
-  Voice,
-  type Tickable,
-} from "vexflow/bravura";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { durationTicks, type ChordPosition, type LeadSheet, type MelodyEvent } from "@chordviewer/contracts";
+import { Accidental, BarlineType, Dot, Formatter, Fraction, GhostNote, Renderer, Stave, StaveNote, StaveTie, TextNote, Voice, type Tickable } from "vexflow/bravura";
 import { melodyAccidentals } from "./accidentals";
+import { chordSegments, positionChordSegments, scoreSystems, type Measure } from "./layout";
 
-function silence(ticks: number): GhostNote {
-  return new GhostNote({
-    duration: "w",
-    durationOverride: new Fraction(ticks, 1920),
-  });
+export type ScoreEditing = {
+  position: ChordPosition; selectedId: string | null; writable: boolean;
+  selectChord: (id: string) => void; selectPosition: (position: ChordPosition) => void;
+};
+type ChordTarget = { id: string; symbol: string; offset: number; duration: number; bar: number; left: number; top: number; width: number };
+type BarTarget = { index: number; left: number; top: number; width: number; height: number };
+type NotationLayout = { width: number; height: number; chords: ChordTarget[]; bars: BarTarget[] };
+const INK = "#18332f";
+const STAFF = "#79867d";
+const beatLabel = (ticks: number) => String(ticks / 480 + 1);
+const chordLabel = (chord: ChordTarget) => `${chord.symbol}, bar ${chord.bar + 1}, beat ${beatLabel(chord.offset)}, ${chord.duration / 480} ${chord.duration === 480 ? "beat" : "beats"}`;
+function silence(ticks: number) { return new GhostNote({ duration: "w", durationOverride: new Fraction(ticks, 1920) }); }
+
+function voicesFor(measure: Measure, accidentals: Map<string, string>) {
+  const notes: Tickable[] = [];
+  const rendered: { event: MelodyEvent; note: StaveNote }[] = [];
+  let cursor = 0;
+  for (const event of measure.melody) {
+    if (event.offsetTicks > cursor) notes.push(silence(event.offsetTicks - cursor));
+    const keys = event.kind === "note" ? [`${event.pitch.step.toLowerCase()}${event.pitch.alter === 1 ? "#" : event.pitch.alter === -1 ? "b" : ""}/${event.pitch.octave}`] : ["b/4"];
+    const note = new StaveNote({ keys, duration: `${event.duration.denominator}${event.kind === "rest" ? "r" : ""}`, dots: event.duration.dots });
+    if (event.duration.dots) Dot.buildAndAttach([note]);
+    const accidental = accidentals.get(event.id);
+    if (accidental) note.addModifier(new Accidental(accidental), 0);
+    rendered.push({ event, note }); notes.push(note);
+    cursor = event.offsetTicks + durationTicks(event.duration);
+  }
+  if (cursor < 1920) notes.push(silence(1920 - cursor));
+  const chords: Tickable[] = [];
+  const labels: { event: Measure["chords"][number]; note: TextNote }[] = [];
+  cursor = 0;
+  for (const chord of measure.chords) {
+    if (chord.offsetTicks > cursor) chords.push(silence(chord.offsetTicks - cursor));
+    const note = new TextNote({ text: chord.symbol, duration: "w", durationOverride: new Fraction(chord.durationTicks, 1920), font: { family: "Georgia, serif", size: "25px", weight: "bold" } });
+    note.setWidth(Math.max(44, note.width) + 12);
+    labels.push({ event: chord, note }); chords.push(note);
+    cursor = chord.offsetTicks + chord.durationTicks;
+  }
+  if (cursor < 1920) chords.push(silence(1920 - cursor));
+  const voices = [new Voice({ numBeats: 4, beatValue: 4 }).addTickables(notes), new Voice({ numBeats: 4, beatValue: 4 }).addTickables(chords)];
+  const formatter = new Formatter().joinVoices([voices[0]]).joinVoices([voices[1]]);
+  formatter.preCalculateMinTotalWidth(voices);
+  // Reserve actual glyph space. The estimator's duration-variance padding treats a
+  // whole-bar chord beside quarter notes as dense music and needlessly halves the system.
+  return { voices, formatter, rendered, labels, minimum: Math.max(156, formatter.getMinTotalWidth() + 28) };
 }
 
-/** Chord and melody voices share tick contexts so off-beat chords keep their own timeline. */
-function renderScore(element: HTMLDivElement, score: LeadSheet) {
+/** Chord and melody voices share tick contexts; connected systems reflow at their measured minimum widths. */
+function renderScore(element: HTMLDivElement, score: LeadSheet, available: number): NotationLayout {
+  element.dataset.rendered = "false";
   element.replaceChildren();
   const renderer = new Renderer(element, Renderer.Backends.SVG);
-  const rows = Math.ceil(score.measures.length / 2);
-  renderer.resize(880, rows * 205 + 25);
   const context = renderer.getContext();
   const accidentals = melodyAccidentals(score);
+  const measures = score.measures.map(measure => voicesFor(measure, accidentals));
+  const systems = scoreSystems(measures.map(measure => measure.minimum), available, 64);
+  const width = Math.max(available, ...systems.map(system => system.width));
+  // Extreme pitches and stems must clear the chord line and the following system.
+  const pitches = score.measures.flatMap(measure => measure.melody.flatMap(event => event.kind === "note" ? [event.pitch.octave * 7 + "CDEFGAB".indexOf(event.pitch.step) - 30] : []));
+  const above = Math.max(0, (Math.max(8, ...pitches) - 8) * 5);
+  const below = Math.max(0, -Math.min(0, ...pitches) * 5);
+  const rowHeight = 166 + above + below;
+  const height = systems.length * rowHeight + 12;
+  renderer.resize(width, height);
+  context.setFillStyle(INK).setStrokeStyle(INK);
+  const bars: BarTarget[] = [];
+  const targets: ChordTarget[] = [];
   const rendered: { event: MelodyEvent; note: StaveNote; row: number }[] = [];
-  score.measures.forEach((measure, index) => {
-    const row = Math.floor(index / 2);
-    const stave = new Stave(18 + (index % 2) * 420, 45 + row * 205, 420);
-    if (index % 2 === 0) stave.addClef("treble");
-    if (index === 0) stave.addTimeSignature("4/4");
-    stave.setContext(context).draw();
-    context
-      .setFont("Arial", 11)
-      .fillText(String(index + 1), stave.getX() + 6, 35 + row * 205);
-    const notes: Tickable[] = [];
-    let cursor = 0;
-    for (const event of measure.melody) {
-      if (event.offsetTicks > cursor)
-        notes.push(silence(event.offsetTicks - cursor));
-      const keys =
-        event.kind === "note"
-          ? [
-              `${event.pitch.step.toLowerCase()}${event.pitch.alter === 1 ? "#" : event.pitch.alter === -1 ? "b" : ""}/${event.pitch.octave}`,
-            ]
-          : ["b/4"];
-      const note = new StaveNote({
-        keys,
-        duration: `${event.duration.denominator}${event.kind === "rest" ? "r" : ""}`,
-        dots: event.duration.dots,
-      });
-      if (event.duration.dots) Dot.buildAndAttach([note]);
-      if (event.kind === "note") {
-        const accidental = accidentals.get(event.id);
-        if (accidental) note.addModifier(new Accidental(accidental), 0);
-      }
-      rendered.push({ event, note, row });
-      notes.push(note);
-      cursor = event.offsetTicks + durationTicks(event.duration);
+  systems.forEach((system, row) => {
+    for (let column = 0; column < system.count; column++) {
+      const index = system.start + column;
+      const left = column * system.barWidth + (column ? 64 : 0);
+      const barWidth = system.barWidth + (column === 0 ? 64 : 0);
+      const top = row * rowHeight;
+      const stave = new Stave(left, top + 28 + above, barWidth);
+      if (column === 0) stave.addClef("treble"); else stave.setBegBarType(BarlineType.NONE);
+      if (index === 0) stave.addTimeSignature("4/4");
+      stave.setStyle({ strokeStyle: STAFF, fillStyle: INK });
+      stave.setContext(context).draw();
+      context.setFillStyle(STAFF).setFont("Arial", "12px").fillText(String(index + 1), left + 8, top + 16);
+      context.setFillStyle(INK).setStrokeStyle(INK);
+      const measure = measures[index];
+      measure.labels.forEach(label => label.note.setLine(-0.7 - above / 10));
+      measure.formatter.formatToStave(measure.voices, stave);
+      measure.voices.forEach(voice => voice.draw(context, stave));
+      rendered.push(...measure.rendered.map(item => ({ ...item, row })));
+      bars.push({ index, left, top: top + 2, width: barWidth, height: rowHeight - 20 });
+      measure.labels.forEach(({ event, note }) => targets.push({ id: event.id, symbol: event.symbol, bar: index, offset: event.offsetTicks, duration: event.durationTicks,
+        left: note.getAbsoluteX() + note.getTickContext().getMetrics().glyphPx / 2 - 4, top, width: note.getWidth() }));
     }
-    if (cursor < 1920) notes.push(silence(1920 - cursor));
-    const chords: Tickable[] = [];
-    cursor = 0;
-    for (const chord of measure.chords) {
-      if (chord.offsetTicks > cursor)
-        chords.push(silence(chord.offsetTicks - cursor));
-      chords.push(
-        new TextNote({
-          text: chord.symbol,
-          duration: "w",
-          durationOverride: new Fraction(chord.durationTicks, 1920),
-          font: { family: "Arial", size: 14, weight: "bold" },
-        }).setLine(-1.4),
-      );
-      cursor = chord.offsetTicks + chord.durationTicks;
-    }
-    if (cursor < 1920) chords.push(silence(1920 - cursor));
-    const voices = [
-      new Voice({ numBeats: 4, beatValue: 4 }).addTickables(notes),
-      new Voice({ numBeats: 4, beatValue: 4 }).addTickables(chords),
-    ];
-    new Formatter()
-      .joinVoices([voices[0]])
-      .joinVoices([voices[1]])
-      .formatToStave(voices, stave);
-    voices.forEach((voice) => voice.draw(context, stave));
   });
   rendered.forEach((item, index) => {
     if (item.event.kind !== "note" || !item.event.tieToNext) return;
     const next = rendered[index + 1];
-    if (!next) return; // The parser rejects dangling ties before rendering.
-    if (item.row === next.row)
-      new StaveTie({
-        firstNote: item.note,
-        lastNote: next.note,
-        firstIndexes: [0],
-        lastIndexes: [0],
-      })
-        .setContext(context)
-        .draw();
+    if (!next) return;
+    if (item.row === next.row) new StaveTie({ firstNote: item.note, lastNote: next.note, firstIndexes: [0], lastIndexes: [0] }).setContext(context).draw();
     else {
-      new StaveTie({
-        firstNote: item.note,
-        firstIndexes: [0],
-        lastIndexes: [0],
-      })
-        .setContext(context)
-        .draw();
-      new StaveTie({ lastNote: next.note, firstIndexes: [0], lastIndexes: [0] })
-        .setContext(context)
-        .draw();
+      new StaveTie({ firstNote: item.note, firstIndexes: [0], lastIndexes: [0] }).setContext(context).draw();
+      new StaveTie({ lastNote: next.note, firstIndexes: [0], lastIndexes: [0] }).setContext(context).draw();
     }
   });
   const svg = element.querySelector("svg");
   svg?.setAttribute("role", "img");
-  svg?.setAttribute(
-    "aria-label",
-    `${score.title}, ${score.measures.length} measures of melody and chords in C major, 4/4`,
-  );
+  svg?.setAttribute("aria-label", `${score.title}, ${score.measures.length} measures of melody and chords in C major, 4/4`);
   element.dataset.rendered = "true";
+  return { width, height, chords: targets, bars };
 }
 
-export function ScorePreview({
-  score,
-  melody,
-}: {
-  score: LeadSheet;
-  melody: boolean;
-}) {
-  const container = useRef<HTMLDivElement>(null);
+export function ScorePreview({ score, melody, editing }: { score: LeadSheet; melody: boolean; editing?: ScoreEditing }) {
+  const viewport = useRef<HTMLDivElement>(null);
+  const notation = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(800);
+  const [layout, setLayout] = useState<NotationLayout | null>(null);
   const [error, setError] = useState("");
+  const measures = useMemo(() => editing?.position.measureIndex === score.measures.length && score.measures.length < 256
+    ? [...score.measures, { id: "next-bar-preview", chords: [], melody: [] }] : score.measures, [score, editing?.position.measureIndex]);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const observer = new ResizeObserver(entries => { const value = Math.floor(entries[0].contentRect.width); if (value > 0) setWidth(value); });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     let cancelled = false;
     if (!melody) return;
     void document.fonts.ready.then(() => {
-      if (cancelled || !container.current) return;
-      try {
-        renderScore(container.current, score);
-        setError("");
-      } catch {
-        setError(
-          "The score preview could not be drawn. Try reloading the page.",
-        );
-      }
+      if (cancelled || !notation.current) return;
+      try { setLayout(renderScore(notation.current, { ...score, measures }, width)); setError(""); }
+      catch { notation.current.replaceChildren(); setLayout(null); setError("The score preview could not be drawn. Try reloading the page."); }
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [score, melody]);
-  if (!melody)
-    return (
-      <div className="chord-grid" aria-label="Chord-only score">
-        {score.measures.map((measure, index) => (
-          <div className="chord-measure" key={measure.id}>
-            <span className="measure-number">{index + 1}</span>
-            <div>
-              {measure.chords.map((chord) => (
-                <span
-                  key={chord.id}
-                  style={{ left: `${(chord.offsetTicks / 1920) * 100}%` }}
-                >
-                  {chord.symbol}
-                </span>
-              ))}
+    return () => { cancelled = true; };
+  }, [score, measures, melody, width]);
+  const segments = useMemo(() => {
+    const canvas = document.createElement("canvas").getContext("2d");
+    if (canvas) canvas.font = "bold 42px Georgia, serif";
+    return measures.map(measure => chordSegments(measure, text => canvas?.measureText(text).width ?? text.length * 26));
+  }, [measures]);
+  const systems = scoreSystems(segments.map(items => Math.max(174, 24 + items.reduce((sum, item) => sum + item.minimum, 0))), width);
+  return <div ref={viewport} className="score-scroll" aria-label={editing ? "Editable chord score" : melody ? "Melody score" : "Chord-only score"}>
+    {error && melody && <p role="alert">{error}</p>}
+    {melody ? <div className="score-rendering" style={{ width: layout?.width ?? width }}>
+      {editing && layout?.bars.filter(bar => bar.index === editing.position.measureIndex).map(bar => <div key={bar.index} className="score-current-bar" style={{ left: bar.left, top: bar.top, width: bar.width, height: bar.height }} />)}
+      <div ref={notation} className="notation" data-testid="notation" />
+      {editing && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
+        style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={chordLabel(chord)} title={chordLabel(chord)} aria-pressed={editing.selectedId === chord.id}
+        disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
+    </div> : <div className={editing ? "chord-grid editable-chord-grid" : "chord-grid"}>
+      {systems.map(system => <div className="chord-system" key={system.start} style={{ width: system.width, gridTemplateColumns: `repeat(${system.columns}, ${system.barWidth}px)` }}>
+        {measures.slice(system.start, system.start + system.count).map((measure, column) => {
+          const index = system.start + column;
+          const current = editing?.position.measureIndex === index;
+          const slots = positionChordSegments(segments[index], system.barWidth);
+          return <section className={`chord-measure${current ? " current" : ""}`} aria-label={`Bar ${index + 1}`} key={measure.id}>
+            <span className="measure-number">{index + 1}{index === score.measures.length ? " · next bar" : ""}</span>
+            <div className="chord-symbols">
+              {slots.filter(slot => slot.chord).map(slot => {
+                const chord = slot.chord!;
+                const label = chordLabel({ id: chord.id, symbol: chord.symbol, offset: chord.offsetTicks, duration: chord.durationTicks, bar: index, left: 0, top: 0, width: 0 });
+                return editing ? <button key={chord.id} style={{ left: slot.left, width: slot.width }} className={`score-chord editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
+                  aria-label={label} title={label} aria-pressed={editing.selectedId === chord.id} disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}>{chord.symbol}</button>
+                  : <span className="score-chord" key={chord.id} style={{ left: slot.left, width: slot.width }} title={label}>{chord.symbol}</span>;
+              })}
             </div>
-          </div>
-        ))}
-      </div>
-    );
-  return (
-    <>
-      {error && <p role="alert">{error}</p>}
-      <div className="score-scroll">
-        <div ref={container} className="notation" data-testid="notation" />
-      </div>
-    </>
-  );
+            {editing && current && <div className="entry-beats" aria-label={`Choose beat in bar ${index + 1}`}>
+              {Array.from({ length: 8 }, (_, beat) => <button key={beat} className={editing.position.offsetTicks === beat * 240 && !editing.selectedId ? "beat-target selected" : "beat-target"}
+                disabled={!editing.writable || measure.chords.some(chord => chord.offsetTicks <= beat * 240 && chord.offsetTicks + chord.durationTicks > beat * 240)}
+                aria-label={`Insert at bar ${index + 1} beat ${beatLabel(beat * 240)}`} onClick={() => editing.selectPosition({ measureIndex: index, offsetTicks: beat * 240 })}>{beat % 2 === 0 ? beat / 2 + 1 : "·"}</button>)}
+            </div>}
+          </section>;
+        })}
+      </div>)}
+    </div>}
+  </div>;
 }

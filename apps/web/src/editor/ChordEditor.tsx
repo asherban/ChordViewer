@@ -74,35 +74,3 @@ export function ChordEntryControls({ model, view }: { model: ChordDraft; view: D
       <button className="text-button" disabled={!view.writable} onClick={() => model.selectChord(view.lastEventId!)}>Change the last chord or choose another name</button>}
   </section>;
 }
-
-export function ChordTimeline({ model, view }: { model: ChordDraft; view: DraftSnapshot }) {
-  const measures = [...view.score.measures];
-  if (view.position.measureIndex === measures.length && measures.length < 256)
-    measures.push({ id: "next-bar-preview", chords: [], melody: [] });
-  return <div className="editable-chord-grid" aria-label="Editable chord score">
-    {measures.map((measure, measureIndex) => <section className={view.position.measureIndex === measureIndex ? "entry-measure current" : "entry-measure"}
-      aria-label={`Bar ${measureIndex + 1}`} key={measure.id}>
-      <div className="entry-measure-title"><span>Bar {measureIndex + 1}</span>
-        {measureIndex === view.score.measures.length && <span>Added when you play</span>}</div>
-      <div className="entry-beats">
-        {Array.from({ length: 8 }, (_, beat) => {
-          const offset = beat * 240;
-          const occupied = measure.chords.some(chord => chord.offsetTicks <= offset && chord.offsetTicks + chord.durationTicks > offset);
-          return <button key={beat} className={view.position.measureIndex === measureIndex && view.position.offsetTicks === offset && !view.selectedId ? "beat-target selected" : "beat-target"}
-            disabled={!view.writable || occupied} aria-label={`Insert at bar ${measureIndex + 1} beat ${beatLabel(offset)}`}
-            onClick={() => model.selectPosition({ measureIndex, offsetTicks: offset })}>{beat % 2 === 0 ? beat / 2 + 1 : "·"}</button>;
-        })}
-      </div>
-      <div className="entry-chords">
-        {measure.chords.map(chord => <button className={view.selectedId === chord.id ? "editable-chord selected" : "editable-chord"}
-          style={{ left: `${chord.offsetTicks / 1920 * 100}%`, width: `${chord.durationTicks / 1920 * 100}%` }}
-          aria-label={`${chord.symbol}, bar ${measureIndex + 1}, beat ${beatLabel(chord.offsetTicks)}, ${durationLabel(chord.durationTicks)}`}
-          title={`${chord.symbol} · ${durationLabel(chord.durationTicks)}`} disabled={!view.writable}
-          aria-pressed={view.selectedId === chord.id} key={chord.id} onClick={() => model.selectChord(chord.id)}>
-          <span>{chord.symbol}</span><small>{durationLabel(chord.durationTicks)}</small>
-        </button>)}
-        {!measure.chords.length && <span className="empty-chord-bar">Choose a beat, then play</span>}
-      </div>
-    </section>)}
-  </div>;
-}

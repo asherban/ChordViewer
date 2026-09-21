@@ -6,7 +6,7 @@ import { ScorePreview } from "../score/ScorePreview";
 import type { SavedSheet } from "./api";
 import { SheetDetails } from "./SheetDetails";
 import { useChordDraft } from "../editor/useChordDraft";
-import { ChordEntryControls, ChordTimeline } from "../editor/ChordEditor";
+import { ChordEntryControls } from "../editor/ChordEditor";
 
 export function SheetWorkspace({
   score, saved, mode, active, blocked, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, canCreate,
@@ -45,7 +45,7 @@ export function SheetWorkspace({
   }, [active, mode, busy, blocked, detailsOpen, model]);
   return (
     <div className="sheet-workspace">
-      <div className="view-toolbar workspace-toolbar">
+      {(!saved || mode === "Create") && <div className="view-toolbar workspace-toolbar">
         <div className="view-title">
           <h1>{mode === "Practice" ? "Practice" : "Your lead sheet"}</h1>
           <span className="workspace-label">{saved ? view.dirty ? "Unsaved changes" : "Saved · revision " + saved.revision : "Example preview"}</span>
@@ -59,19 +59,16 @@ export function SheetWorkspace({
           {onSaveExample && <button className="secondary" disabled={busy || !canCreate}
             onClick={onSaveExample}>Save an example copy to my library</button>}
         </div>
-      </div>
+      </div>}
       {saved && <div id={detailsId} className="details-drawer" hidden={!detailsOpen || mode === "Practice"}>
         <SheetDetails title={view.title} tutorial={view.tutorial} dirty={view.dirty} busy={busy} conflict={conflict}
           onChange={(title, tutorial) => model.details(title, tutorial)} onSave={save} />
       </div>}
       {conflict && <div className="conflict-notice" role="status"><p>A newer version is available. Your unsaved score and details are still here.
         Reloading discards them only after confirmation.</p><button className="secondary" disabled={busy} onClick={() => void onReload()}>Reload latest version</button></div>}
-      {(!saved || mode === "Practice") && <div className="preview-notice">
-        <span>{mode === "Practice" ? "READ ONLY" : saved ? "SAVED SHEET" : "EXAMPLE"}</span>
-        {saved
-          ? mode === "Practice" ? "Play along with your sheet. Practice navigation is coming next."
-            : "Choose a duration and position, start entry, then release each chord to add it. Save when ready."
-          : "This original example is a preview. It is not in your library unless you explicitly save a copy."}
+      {!saved && <div className="preview-notice">
+        <span>EXAMPLE</span>
+        This original example is a preview. It is not in your library unless you explicitly save a copy.
       </div>}
       <div className="workspace">
         <aside aria-label="Tutorial and MIDI">
@@ -87,7 +84,8 @@ export function SheetWorkspace({
         </aside>
         <section className="sheet-panel" aria-label="Score preview">
           <div className="sheet-toolbar">
-            <span className="small">C major · 4/4</span>
+            <div className="sheet-title"><h2>{view.title}</h2><p>C major · 4/4 · {saved
+              ? view.dirty ? "Unsaved changes" : `Saved · revision ${saved.revision}` : "Original example"}{mode === "Practice" ? " · Read only" : ""}</p></div>
             <div className="segmented" aria-label="Score display">
               <button aria-pressed={melody} onClick={() => setMelody(true)}>Chords + melody</button>
               <button aria-pressed={!melody} onClick={() => setMelody(false)}>Chords only</button>
@@ -95,9 +93,10 @@ export function SheetWorkspace({
           </div>
           <div className="sheet-body" tabIndex={0} aria-label="Scrollable lead sheet">
             {saved && mode === "Create" && <ChordEntryControls model={model} view={view} />}
-            <div className="sheet-title"><h2>{view.title}</h2><p>{saved ? "Your lead sheet" : "Original example"} · C major · 4/4</p></div>
-            {saved && mode === "Create" && <ChordTimeline model={model} view={view} />}
-            {(mode !== "Create" || !saved || melody) && <ScorePreview score={displayedScore} melody={melody} />}
+            <ScorePreview score={displayedScore} melody={melody} editing={saved && mode === "Create" ? {
+              position: view.position, selectedId: view.selectedId, writable: view.writable,
+              selectChord: id => model.selectChord(id), selectPosition: position => model.selectPosition(position),
+            } : undefined} />
           </div>
           <footer className="sheet-footer"><span>{view.score.measures.length} measures</span><span>{saved && mode === "Create" ? "Ctrl+Z undo · Delete selected chord · Esc pause" : "Single melody voice · treble clef"}</span></footer>
         </section>
