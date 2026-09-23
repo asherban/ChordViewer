@@ -1,0 +1,19 @@
+{
+  "matches": [
+    { "symbol": "C", "notes": [52, 55, 60], "result": true },
+    { "symbol": "Db", "notes": [49, 53, 56], "result": true },
+    { "symbol": "C/E", "notes": [52, 55, 60], "result": true },
+    { "symbol": "C/E", "notes": [48, 52, 55], "result": false },
+    { "symbol": "C/F", "notes": [41, 60, 64, 67], "result": true },
+    { "symbol": "C", "notes": [41, 60, 64, 67], "result": false },
+    { "symbol": "C6", "notes": [48, 52, 55, 57], "result": true },
+    { "symbol": "Am7", "notes": [48, 52, 55, 57], "result": true },
+    { "symbol": "E#dim", "notes": [53, 56, 59], "result": true },
+    { "symbol": "B#dim", "notes": [48, 51, 54], "result": true },
+    { "symbol": "Fb", "notes": [52, 56, 59], "result": true },
+    { "symbol": "C7", "notes": [48, 52, 58], "result": true },
+    { "symbol": "C7", "notes": [48, 55, 58], "result": false },
+    { "symbol": "C", "notes": [48, 52, 55, 58], "result": false },
+    { "symbol": "verse", "notes": [48, 52, 55], "result": false }
+  ]
+}

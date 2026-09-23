@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -30,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.chordviewer.R
 
 @Composable
-fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String? = null, selectMelody: ((String) -> Unit)? = null) {
+fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String? = null, selectMelody: ((String) -> Unit)? = null,
+    practiceBar: Int? = null, selectPracticeBar: ((Int) -> Unit)? = null,
+    practiceChordId: String? = null, selectPracticeChord: ((String) -> Unit)? = null) {
     val context = LocalContext.current
     val musicFont = remember { context.resources.getFont(R.font.bravura) }
     val chordSize = if (showMelody) 26f else 44f
@@ -41,17 +47,51 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?
     val timelines = remember(sheet, showMelody) { sheet.measures.map { ScoreLayout.timeline(it, showMelody, measureText::measureText, sheet.measureTicks, sheet.keySignature) } }
     val density = LocalDensity.current.density
     BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val viewportWidth = maxWidth.value
         val systems = remember(sheet, timelines, maxWidth, showMelody) { ScoreLayout.systems(sheet, timelines, maxWidth.value, showMelody) }
         Column {
             systems.forEach { system ->
+                val requester = remember(system.first) { BringIntoViewRequester() }
+                val horizontal = rememberScrollState()
+                LaunchedEffect(practiceBar, practiceChordId, system.first, system.width, system.measureWidth, viewportWidth, horizontal.maxValue) {
+                    if (practiceBar != null && practiceBar in system.first until system.first + system.count) {
+                        requester.bringIntoView()
+                        val event = sheet.measures[practiceBar].chords.firstOrNull { it.id == practiceChordId }
+                        val center = if (event != null) {
+                            if (showMelody) scoreEventX(system, timelines, practiceBar, event.offsetTicks) +
+                                measureText.measureText(event.symbol) / 2f
+                            else (scoreEventX(system, timelines, practiceBar, event.offsetTicks) +
+                                scoreEventX(system, timelines, practiceBar, event.offsetTicks + event.durationTicks)) / 2f
+                        } else (practiceBar - system.first + .5f) * system.measureWidth
+                        val target = ((center - viewportWidth / 2f) * density).roundToInt().coerceIn(0, horizontal.maxValue)
+                        horizontal.scrollTo(target)
+                    }
+                }
                 // Only an unusually dense system scrolls; ordinary rows retain the viewport width.
-                Column(Modifier.horizontalScroll(rememberScrollState())) {
+                Column(Modifier.bringIntoViewRequester(requester).horizontalScroll(horizontal)) {
                     Canvas(Modifier.width(system.width.dp).height(system.geometry.rowHeight.dp)
-                        .then(if (showMelody && selectMelody != null) Modifier.pointerInput(sheet, system, density, selectMelody) {
+                        .then(if (selectPracticeBar != null) Modifier.pointerInput(sheet, system, density, selectPracticeBar) {
+                            detectTapGestures { point ->
+                                val x = point.x / density
+                                val index = system.first + (x / system.measureWidth).toInt().coerceIn(0, system.count - 1)
+                                fun center(event: ChordEvent): Float = if (showMelody) scoreEventX(system, timelines, index, event.offsetTicks) +
+                                    measureText.measureText(event.symbol) / 2f else
+                                    (scoreEventX(system, timelines, index, event.offsetTicks) +
+                                        scoreEventX(system, timelines, index, event.offsetTicks + event.durationTicks)) / 2f
+                                val nearest = sheet.measures[index].chords.minByOrNull { kotlin.math.abs(center(it) - x) }
+                                if (nearest != null && selectPracticeChord != null &&
+                                    kotlin.math.abs(center(nearest) - x) <= maxOf(30f, measureText.measureText(nearest.symbol) / 2f + 12f))
+                                    selectPracticeChord(nearest.id)
+                                else selectPracticeBar(index)
+                            }
+                        } else if (showMelody && selectMelody != null) Modifier.pointerInput(sheet, system, density, selectMelody) {
                             detectTapGestures { point -> melodyAt(sheet, system, timelines, point.x / density, point.y / density)?.let(selectMelody) }
                         } else Modifier)
                         .semantics { contentDescription = description(sheet, system, showMelody) }) {
-                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody, sheet.keySignature, sheet.timeSignature, selectedMelodyId)
+                        if (practiceBar != null && practiceBar in system.first until system.first + system.count)
+                            drawRect(Color(0xFFE6EEE7), topLeft = Offset((practiceBar - system.first) * system.measureWidth * density, 0f),
+                                size = androidx.compose.ui.geometry.Size(system.measureWidth * density, size.height))
+                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody, sheet.keySignature, sheet.timeSignature, selectedMelodyId, practiceChordId)
                         painter.system()
                         (system.first until system.first + system.count).forEach { index ->
                             painter.measure(sheet.measures[index], marks[index], index)
@@ -85,7 +125,8 @@ private fun description(sheet: LeadSheet, system: ScoreSystem, melody: Boolean) 
 }
 
 private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout: ScoreSystem,
-    val timelines: List<MeasureTimeline>, val melody: Boolean, val keySignature: String, val time: ScoreTimeSignature, val selectedId: String?) {
+    val timelines: List<MeasureTimeline>, val melody: Boolean, val keySignature: String, val time: ScoreTimeSignature,
+    val selectedId: String?, val practiceChordId: String?) {
     private val scale = scope.density
     private val ink = Color(0xFF34453D)
     private val muted = Color(0xFF697A73)
@@ -134,6 +175,10 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
         measure.chords.forEach { event ->
             val center = (x(index, event.offsetTicks) + x(index, event.offsetTicks + event.durationTicks)) / 2
             val labelX = if (melody) x(index, event.offsetTicks) * scale else center * scale - chord.measureText(event.symbol) / 2
+            if (event.id == practiceChordId) scope.drawRoundRect(Color(0xFFCEE2D3),
+                topLeft = Offset(labelX - 5 * scale, (if (melody) 13f else 38f) * scale),
+                size = androidx.compose.ui.geometry.Size(chord.measureText(event.symbol) + 10 * scale, 48 * scale),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6 * scale))
             scope.drawContext.canvas.nativeCanvas.drawText(event.symbol, labelX,
                 (if (melody) 43f else 78f) * scale, chord)
         }

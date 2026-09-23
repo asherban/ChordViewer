@@ -72,7 +72,7 @@ async function addManualNote(page: Page, step: string, alter = "0", duration = "
 
 async function reopen(page: Page, title: string) {
   await page.reload();
-  await page.getByRole("button", { name: `Open ${title}`, exact: true }).click();
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
   await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
 }
 

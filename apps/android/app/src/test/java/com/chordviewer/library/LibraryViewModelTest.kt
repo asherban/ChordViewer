@@ -46,7 +46,8 @@ class LibraryViewModelTest {
         assertTrue(model.state.value.hasUnsavedChanges)
         model.undoChord(); assertEquals(ScorePosition(original.measures.size, 480), model.state.value.editor!!.position)
         model.redoChord(); assertEquals(drafted, model.state.value.editor!!.score)
-        model.updateDraft("My chord study", "https://youtu.be/dQw4w9WgXcQ")
+        model.updateDraftTitle("My chord study")
+        model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ")
         model.save(); advanceUntilIdle()
         assertFalse(model.state.value.hasUnsavedChanges)
         assertEquals(EntryMode.PAUSED, model.state.value.editor!!.mode)
@@ -218,7 +219,8 @@ class LibraryViewModelTest {
         advanceUntilIdle()
         assertNotNull(model.state.value.selected)
         assertEquals("Sheet created.", model.state.value.message)
-        model.updateDraft("Renamed", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        model.updateDraftTitle("Renamed")
+        model.updateDraftTutorial("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         assertTrue(model.state.value.hasUnsavedChanges)
         model.save()
         advanceUntilIdle()
@@ -235,13 +237,48 @@ class LibraryViewModelTest {
         advanceUntilIdle()
         model.open(gateway.sheet.id)
         advanceUntilIdle()
-        model.updateDraft("Unsaved title", "https://youtu.be/dQw4w9WgXcQ")
+        model.updateDraftTitle("Unsaved title")
+        model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ")
         gateway.saveFailure = ApiFailure(409, "Changed elsewhere")
         model.save()
         advanceUntilIdle()
         assertEquals(1, model.state.value.selected!!.revision)
         assertEquals("Unsaved title", model.state.value.draftTitle)
         assertTrue(model.state.value.hasUnsavedChanges)
+    }
+
+    @Test fun consecutiveDetailsFieldsDoNotRevertOneAnotherBeforeComposeRecomposes() = runTest(dispatcher) {
+        val gateway = FakeGateway()
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        model.updateDraftTitle("New title")
+        model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ")
+        assertEquals("New title", model.state.value.draftTitle)
+        assertEquals("https://youtu.be/dQw4w9WgXcQ", model.state.value.draftTutorial)
+        model.changeMode(LibraryMode.LIBRARY)
+        model.changeMode(LibraryMode.CREATE)
+        assertEquals("New title", model.state.value.draftTitle)
+        assertEquals("https://youtu.be/dQw4w9WgXcQ", model.state.value.draftTutorial)
+    }
+
+    @Test fun refreshedRemoteRevisionCannotLiftAnOlderSelectedDraftThroughMetadata() = runTest(dispatcher) {
+        val gateway = FakeGateway()
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        model.updateDraftTitle("Unsaved local title")
+        model.updateDraftTutorial("")
+        gateway.remoteRevision = 2
+        model.refresh(); advanceUntilIdle()
+        assertEquals(2, model.state.value.sheets.single().revision)
+        assertEquals(1, model.state.value.selected!!.revision)
+        model.updateMetadata(gateway.sheet.id, favorite = true); advanceUntilIdle()
+        assertEquals(1, gateway.metadataRevision)
+        assertEquals(1, model.state.value.selected!!.revision)
+        assertEquals("Unsaved local title", model.state.value.draftTitle)
+        assertTrue(model.state.value.hasUnsavedChanges)
+        assertTrue(model.state.value.message!!.contains("Reload saved version"))
     }
 
     @Test fun switchingProductModesKeepsSelectedSheetAndUnsavedDetails() = runTest(dispatcher) {
@@ -252,7 +289,8 @@ class LibraryViewModelTest {
         model.open(gateway.sheet.id, LibraryMode.PRACTICE)
         advanceUntilIdle()
         assertEquals(LibraryMode.PRACTICE, model.state.value.mode)
-        model.updateDraft("Kept draft", "https://youtu.be/dQw4w9WgXcQ")
+        model.updateDraftTitle("Kept draft")
+        model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ")
         listOf(LibraryMode.LIBRARY, LibraryMode.CREATE, LibraryMode.PRACTICE).forEach { mode ->
             model.changeMode(mode)
             assertEquals(mode, model.state.value.mode)
@@ -325,7 +363,7 @@ class LibraryViewModelTest {
         assertEquals(480, MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.duration.ticks)
         model.undoChord(); model.redoChord()
         assertEquals("Dm7", model.state.value.editor!!.score.measures.last().chords.single().symbol)
-        model.updateDraft("Melody saved", "https://youtu.be/dQw4w9WgXcQ"); model.save(); advanceUntilIdle()
+        model.updateDraftTitle("Melody saved"); model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ"); model.save(); advanceUntilIdle()
         val saved = model.state.value.editor!!.score
         model.refresh(); advanceUntilIdle(); model.open(gateway.saved!!.id); advanceUntilIdle()
         assertEquals(saved, model.state.value.editor!!.score); assertFalse(model.state.value.hasUnsavedChanges)
@@ -344,6 +382,34 @@ class LibraryViewModelTest {
         model.onMidiEvent(MidiInputEvent.Reset(false)); model.onMidiEvent(MidiInputEvent.Reset(true)); play(model, 60)
         assertEquals(original, model.state.value.editor!!.score)
         model.armEntry(); play(model, 60); assertEquals(original.measures.size + 1, model.state.value.editor!!.score.measures.size)
+    }
+
+    @Test fun practiceRawMidiWaitsForFreshReleaseAcrossDialogAndApiBusy() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id, LibraryMode.PRACTICE); advanceUntilIdle()
+        model.practiceAdvance(true)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 127))) // sustain cannot delay the gesture boundary
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
+        model.practiceBar(0)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 60, 90)))
+        model.setPracticeBlocked(true)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0)))
+        model.setPracticeBlocked(false)
+        assertEquals(0, model.state.value.practice.eventIndex)
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
+        model.practiceBar(0)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 60, 90)))
+        model.refresh() // busy is set synchronously before a Compose frame
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0)))
+        advanceUntilIdle()
+        assertEquals(0, model.state.value.practice.eventIndex)
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
     }
 
     @Test fun importPreviewIsPrivateUntilSavedAsNewAndOldAccountResultsAreIgnored() = runTest(dispatcher) {
@@ -417,13 +483,16 @@ class LibraryViewModelTest {
             val score = JSONObject(javaClass.classLoader!!.getResource("lead-sheet-v1.json")!!.readText())
             LibraryJson.sheet(JSONObject().put("id", score.getString("id")).put("score", score)
                 .put("tutorialUrl", JSONObject.NULL).put("revision", 1)
-                .put("createdAt", "2026-09-20T12:00:00Z").put("updatedAt", "2026-09-20T12:00:00Z"))
+                .put("createdAt", "2026-09-20T12:00:00Z").put("updatedAt", "2026-09-20T12:00:00Z")
+                .put("favorite", false).put("draft", false).put("trashedAt", JSONObject.NULL).put("openedAt", JSONObject.NULL))
         }
         var onGet: () -> Unit = {}
         var signInFailure: Exception? = null
         var listFailure: Exception? = null
         var revokeFailure: Exception? = null
         var saveFailure: Exception? = null
+        var remoteRevision = 1
+        var metadataRevision: Int? = null
         var revocations = 0
         var saved: SavedSheet? = null
         override fun signIn(email: String, password: String, name: String?): AccountSession {
@@ -433,9 +502,14 @@ class LibraryViewModelTest {
         override fun signOut(token: String) { revocations++; revokeFailure?.let { throw it } }
         override fun list(token: String): List<SheetSummary> {
             listFailure?.let { throw it }
-            return listOf(SheetSummary(sheet.id, sheet.score.title, null, 1, sheet.createdAt, sheet.updatedAt))
+            return listOf(SheetSummary(sheet.id, sheet.score.title, null, remoteRevision, sheet.createdAt, sheet.updatedAt))
         }
         override fun get(token: String, id: String): SavedSheet { onGet(); return saved ?: sheet }
+        override fun metadata(token: String, id: String, revision: Int, title: String?, favorite: Boolean?, draft: Boolean?): SavedSheet {
+            metadataRevision = revision
+            if (revision != remoteRevision) throw ApiFailure(409, "This sheet changed elsewhere. In Library, choose Reload saved version.")
+            return sheet.copy(revision = revision + 1)
+        }
         override fun create(token: String, title: String, example: Boolean, key: String, time: ScoreTimeSignature) = sheet
         override fun importScore(token: String, score: LeadSheet, title: String): SavedSheet {
             val imported = score.copy(id = "new_imported_sheet", title = title)

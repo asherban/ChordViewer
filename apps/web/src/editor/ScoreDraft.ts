@@ -56,8 +56,14 @@ export class ScoreDraft {
     if (!canCapture) this.cancel();
     this.update({ writable, canCapture, ...(!canCapture ? { entry: "paused" as const } : {}) });
   }
-  acceptSaved(saved: SavedSheet | null) {
+  acceptSaved(saved: SavedSheet | null, metadataOnly = false) {
     if (!saved || saved === this.saved) return;
+    if (metadataOnly && this.saved?.id === saved.id) {
+      // Library-only metadata advances the guarded revision without touching the local music,
+      // details, undo history or dirty baseline.
+      this.saved = saved;
+      return;
+    }
     this.saved = saved;
     this.cancel();
     const sameMusic = this.music(saved.score) === this.music(this.view.score);
@@ -69,6 +75,14 @@ export class ScoreDraft {
     this.update({ notice: "Saved. Start MIDI entry when you are ready." });
   }
   details(title: string, tutorial: string) { this.pause(); this.update({ title, tutorial }); }
+  restorePosition(position: ChordPosition) {
+    if (this.view.pending) return;
+    const bar = Math.max(0, Math.min(this.view.score.measures.length - 1, Math.trunc(position.measureIndex)));
+    const offsetTicks = Math.max(0, Math.min(measureTicks(this.view.score) - 1, Math.trunc(position.offsetTicks)));
+    if (!Number.isFinite(bar) || !Number.isFinite(offsetTicks)) return;
+    this.cancel();
+    this.update({ position: { measureIndex: bar, offsetTicks }, selectedId: null, entry: "paused" });
+  }
   pause = () => { this.cancel(); this.update({ entry: "paused" }); };
   setLane(lane: EntryLane) {
     if (!this.view.writable || lane === this.view.lane) return;

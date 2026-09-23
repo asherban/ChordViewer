@@ -54,3 +54,19 @@ export function updateInput(value: unknown, id: string): { score: LeadSheet; tut
   title(score.title);
   return { score, tutorialUrl: tutorialUrl(input.tutorialUrl), expectedRevision: Number(input.expectedRevision) };
 }
+export function revisionInput(value: unknown): number {
+  const input = object(value, ['expectedRevision']);
+  if (!Number.isInteger(input.expectedRevision) || Number(input.expectedRevision) < 1 || Number(input.expectedRevision) >= 2_147_483_647)
+    throw new InputError('A current sheet revision is required.');
+  return Number(input.expectedRevision);
+}
+export function metadataInput(value: unknown): { expectedRevision: number; title?: string; favorite?: boolean; draft?: boolean } {
+  const input = object(value, ['expectedRevision', 'title', 'favorite', 'draft']);
+  const expectedRevision = revisionInput({ expectedRevision: input.expectedRevision });
+  if (!['title', 'favorite', 'draft'].some(key => Object.hasOwn(input, key))) throw new InputError('Choose metadata to change.');
+  if (input.favorite !== undefined && typeof input.favorite !== 'boolean') throw new InputError('Favorite must be true or false.');
+  if (input.draft !== undefined && typeof input.draft !== 'boolean') throw new InputError('Draft must be true or false.');
+  return { expectedRevision, ...(input.title === undefined ? {} : { title: title(input.title) }),
+    ...(input.favorite === undefined ? {} : { favorite: input.favorite as boolean }),
+    ...(input.draft === undefined ? {} : { draft: input.draft as boolean }) };
+}

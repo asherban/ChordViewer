@@ -69,6 +69,17 @@ class NativeScoreVisualTest {
                     listOf("C", "D", "E").mapIndexed { note, step -> MelodyEvent("flat-$bar-$note", note * 480, ScoreDuration(4, 0), ScorePitch(step, -1, 4)) })
             }, schemaVersion = 2, keySignature = "Cb", timeSignature = ScoreTimeSignature(3, 4))
             render(flats, LibraryMode.PRACTICE); capture("m5-native-flats.png")
+            val longTitle = "A long rehearsal title that must remain readable beside the favorite action"
+            val longCard = SheetSummary("visual-long-card", longTitle, null, 1, "2026-09-21T00:00:00Z", "2026-09-21T00:00:00Z",
+                keySignature = "C", meter = "4/4", hasChords = true,
+                previewChords = listOf("Cmaj13(#11)/G", "F#m7b5(add9)", "B7alt(#9,b13)", "Emaj9(#11)/B"))
+            instrumentation.runOnMainSync { activity.setContent {
+                ChordViewerTheme { LibraryScreen(LibraryState(user = Account("visual", "Visual review", "visual@example.test"),
+                    sheets = listOf(longCard, longCard.copy(id = "visual-second-card", title = "Second score")), libraryLoaded = true),
+                    LibraryViewModel(null), MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {})) }
+            } }
+            waitFor { nodes().any { it.text?.toString() == longTitle } }
+            capture("m6-native-library-long.png")
         } finally { instrumentation.runOnMainSync { activity.finish() } }
     }
 

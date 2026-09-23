@@ -10,15 +10,19 @@ const study = parseScore({ ...example, id: "score-layout-study", title: "Evening
 
 // Synthetic API responses isolate visual/layout checks from accounts and saved user data.
 async function openStudy(page: Page, score: LeadSheet, mode = "Practice") {
-  const saved = { id: score.id, score, revision: 1, tutorialUrl: null, createdAt: "2026-09-21T00:00:00Z", updatedAt: "2026-09-21T00:00:00Z" };
+  const saved = { id: score.id, score, revision: 1, tutorialUrl: null, createdAt: "2026-09-21T00:00:00Z", updatedAt: "2026-09-21T00:00:00Z",
+    favorite: false, draft: false, trashedAt: null, openedAt: null };
+  const summary = { ...saved, title: score.title, keySignature: score.keySignature, timeSignature: score.timeSignature,
+    hasChords: score.measures.some(measure => measure.chords.length > 0), hasMelody: score.measures.some(measure => measure.melody.length > 0),
+    previewChords: score.measures[0].chords.slice(0, 4).map(chord => chord.symbol) };
   await page.route("**/api/**", route => {
     const path = new URL(route.request().url()).pathname;
     const data = path.endsWith("/me") ? { user: { id: "visual-user", email: "visual@example.test", name: "Layout review" } }
-      : path.endsWith("/sheets") ? { sheets: [{ ...saved, title: score.title }] } : saved;
+      : path.endsWith("/sheets") ? { sheets: [summary] } : saved;
     return route.fulfill({ json: data });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: `${mode === "Create" ? "Open" : "Practice"} ${score.title}`, exact: true }).click();
+  await page.getByRole("button", { name: `${mode === "Create" ? "Edit" : "Practice"} ${score.title}`, exact: true }).click();
 }
 async function capture(page: Page, name: string) {
   if (process.env.CHORDVIEWER_CAPTURE_EVIDENCE === "1") await page.screenshot({ path: `docs/architecture/evidence/score-web-${name}.png` });
@@ -43,6 +47,29 @@ test("practice uses readable chord systems and connected melody without losing n
   await page.getByRole("button", { name: "Chords + melody", exact: true }).click();
   await expect(page.locator(".notation .vf-stavenote")).toHaveCount(48);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("selecting a late chord in a dense bar scrolls that actual chord into view", async ({ page }) => {
+  const measure = structuredClone(example.measures[0]);
+  measure.chords = ["Cmaj13(#11)", "G7b9#11", "F#m7b5", "B7alt"].map((symbol, index) => ({
+    id: `dense-chord-${index}`, offsetTicks: index * 480, durationTicks: 480, symbol,
+  }));
+  measure.melody[4].tieToNext = false;
+  const dense = parseScore({ ...example, id: "dense-practice-study", title: "Dense Practice", measures: [measure] });
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openStudy(page, dense);
+  await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
+  for (const display of ["melody", "chords"]) {
+    if (display === "chords") await page.getByRole("button", { name: "Chords only", exact: true }).click();
+    await page.locator(".practice-events button").last().click();
+    const target = page.locator('[data-practice-chord-current="true"]');
+    await expect(target).toHaveCount(1);
+    const bounds = await target.boundingBox();
+    const viewport = await page.locator(".score-scroll").boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(viewport!.x - 1);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.x + viewport!.width + 1);
+    await page.locator(".practice-events button").first().click();
+  }
 });
 
 test("Create selects and changes the same chord from either score display", async ({ page }) => {

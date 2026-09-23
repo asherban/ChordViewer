@@ -3,9 +3,16 @@ import type { LeadSheet } from './index.js';
 export interface AccountSummary { id: string; name: string; email: string }
 export interface SheetSummary {
   id: string; title: string; tutorialUrl: string | null; revision: number; createdAt: string; updatedAt: string;
+  favorite: boolean; draft: boolean; trashedAt: string | null; openedAt: string | null;
+  keySignature: string; timeSignature: LeadSheet['timeSignature']; hasChords: boolean; hasMelody: boolean;
+  previewChords: string[];
 }
 export interface SavedSheet {
   id: string; score: LeadSheet; tutorialUrl: string | null; revision: number; createdAt: string; updatedAt: string;
+  favorite: boolean; draft: boolean; trashedAt: string | null; openedAt: string | null;
+}
+export interface SheetMetadataRequest {
+  expectedRevision: number; title?: string; favorite?: boolean; draft?: boolean;
 }
 export interface NewSheetRequest {
   title: string; template: 'blank' | 'example'; tutorialUrl?: string | null;

@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: ChordViewer local API
-  version: 1.2.0
+  version: 1.3.0
   description: >-
     Workstation API. Browser authentication uses HttpOnly cookies and a trusted Origin;
     native clients use signed bearer sessions from set-auth-token. Public deployment is deferred.
-    Sheet writes are limited to 1 MiB and libraries to 100 sheets per account.
+    Sheet writes are limited to 1 MiB and libraries to 100 sheets per account,
+    including recoverable Trash. Reads never change recent-open order.
 servers:
   - url: http://127.0.0.1:3000
 paths:
@@ -101,11 +102,11 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
   /api/v1/sheets:
     get:
-      summary: List this account's sheets, newest update first
+      summary: List this account's active and trashed sheet summaries
       security: [{ browserSession: [] }, { nativeSession: [] }]
       responses:
         '200':
-          description: Metadata only; a new account receives an empty sheets array.
+          description: Bounded metadata and at most four first-bar chord labels per sheet; a new account receives an empty array.
           content:
             application/json:
               schema:
@@ -141,7 +142,7 @@ paths:
         '201': { $ref: '#/components/responses/Saved' }
         '400': { description: Invalid title, template, tutorial, key, meter or extra fields. }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { description: 'sheet_limit: account already has 100 sheets.' }
+        '409': { description: 'sheet_limit: account already has 100 sheets, including Trash.' }
         '413': { description: Request exceeds 1 MiB. }
   /api/v1/sheets/import:
     post:
@@ -171,7 +172,7 @@ paths:
         '400': { description: Invalid score, title, tutorial or extra fields. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Missing or untrusted browser Origin. }
-        '409': { description: 'sheet_limit: account already has 100 sheets.' }
+        '409': { description: 'sheet_limit: account already has 100 sheets, including Trash.' }
         '413': { description: Request exceeds 1 MiB including its JSON envelope. }
   /api/v1/sheets/{id}:
     parameters:
@@ -180,7 +181,7 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     get:
-      summary: Read a sheet owned by the authenticated account
+      summary: Read an active sheet owned by the authenticated account without changing recency
       security: [{ browserSession: [] }, { nativeSession: [] }]
       responses:
         '200': { $ref: '#/components/responses/Saved' }
@@ -214,6 +215,94 @@ paths:
         '404': { description: Unknown sheet or sheet belongs to another account. }
         '409': { description: 'revision_conflict: reload before another save.' }
         '413': { description: Request exceeds 1 MiB. }
+  /api/v1/sheets/{id}/open:
+    post:
+      summary: Record an intentional user open for Recent sorting
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false } } }
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid body. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown, trashed or unowned sheet. }
+  /api/v1/sheets/{id}/metadata:
+    patch:
+      summary: Rename, favorite or designate a Draft using an atomic revision check
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expectedRevision]
+              anyOf:
+                - required: [title]
+                - required: [favorite]
+                - required: [draft]
+              properties:
+                expectedRevision: { type: integer, minimum: 1, maximum: 2147483646 }
+                title: { type: string, minLength: 1, maxLength: 200 }
+                favorite: { type: boolean }
+                draft: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid metadata or revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown, trashed or unowned sheet. }
+        '409': { description: Revision conflict. }
+  /api/v1/sheets/{id}/duplicate:
+    post:
+      summary: Create a fresh-ID copy of an active sheet
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RevisionRequest' } } }
+      responses:
+        '201': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown, trashed or unowned source sheet. }
+        '409': { description: Revision conflict or 100-sheet limit including Trash. }
+  /api/v1/sheets/{id}/trash:
+    post:
+      summary: Move an active sheet into recoverable Trash
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RevisionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown or unowned sheet. }
+        '409': { description: Revision conflict. }
+  /api/v1/sheets/{id}/restore:
+    post:
+      summary: Restore a sheet from Trash
+      security: [{ browserSession: [] }, { nativeSession: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RevisionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/Saved' }
+        '400': { description: Invalid revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Missing or untrusted browser Origin. }
+        '404': { description: Unknown or unowned sheet. }
+        '409': { description: Revision conflict. }
 components:
   securitySchemes:
     browserSession: { type: apiKey, in: cookie, name: chordviewer.session_token }
@@ -227,6 +316,12 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/SavedSheet' }
   schemas:
+    RevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: { type: integer, minimum: 1, maximum: 2147483646 }
     Score:
       description: Version 1 remains readable; version 2 adds supported global keys and meters.
       oneOf:
@@ -241,20 +336,29 @@ components:
         No backend URL fetching occurs.
     SheetMetadata:
       type: object
-      required: [id, tutorialUrl, revision, createdAt, updatedAt]
+      required: [id, tutorialUrl, revision, createdAt, updatedAt, favorite, draft, trashedAt, openedAt]
       properties:
         id: { type: string, format: uuid }
         tutorialUrl: { $ref: '#/components/schemas/Tutorial' }
         revision: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        favorite: { type: boolean }
+        draft: { type: boolean }
+        trashedAt: { type: [string, 'null'], format: date-time }
+        openedAt: { type: [string, 'null'], format: date-time }
     SheetSummary:
       allOf:
         - { $ref: '#/components/schemas/SheetMetadata' }
         - type: object
-          required: [title]
+          required: [title, keySignature, timeSignature, hasChords, hasMelody, previewChords]
           properties:
             title: { type: string, minLength: 1, maxLength: 200 }
+            keySignature: { $ref: './src/lead-sheet-v2.schema.json#/properties/keySignature' }
+            timeSignature: { $ref: './src/lead-sheet-v2.schema.json#/properties/timeSignature' }
+            hasChords: { type: boolean }
+            hasMelody: { type: boolean }
+            previewChords: { type: array, maxItems: 4, items: { type: string, maxLength: 64 } }
     SavedSheet:
       allOf:
         - { $ref: '#/components/schemas/SheetMetadata' }

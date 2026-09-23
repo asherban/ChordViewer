@@ -19,7 +19,7 @@
     "build": "npm run build -w @chordviewer/contracts && npm run build -w @chordviewer/api && npm run build -w @chordviewer/web",
     "test:run": "npm run build -w @chordviewer/contracts && vitest run",
     "test:web": "playwright test",
-    "test:api": "node --test --test-concurrency=1 tests/api/storage.test.mjs",
+    "test:api": "node --test --test-concurrency=1 tests/api/storage.test.mjs tests/api/migration.test.mjs",
     "test:persistence": "node --test tests/api/persistence.test.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm run test:run && npm run build"

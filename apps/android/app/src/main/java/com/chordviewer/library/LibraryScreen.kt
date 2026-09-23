@@ -12,6 +12,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import com.chordviewer.MidiInputState
@@ -29,19 +32,28 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     var previousUserId by remember { mutableStateOf(state.user?.id) }
     var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current
+    DisposableEffect(lifecycle, model) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) model.onAppBackground() }
+        lifecycle.lifecycle.addObserver(observer)
+        onDispose { lifecycle.lifecycle.removeObserver(observer) }
+    }
     val documents = rememberSheetDocuments(model, state.user?.id)
     val sample = remember { runCatching {
         context.assets.open("lead-sheet-v1.json").bufferedReader().use { LeadSheetReader.read(it.readText()) }
     }.getOrNull() }
     fun leave(action: () -> Unit) { model.pauseEntry(); if (model.state.value.hasUnsavedChanges) pendingLeave = action else action() }
-    fun details() { model.pauseEntry(); showDetails = true }
-    fun midiSetup() { model.pauseEntry(); showMidi = true }
-    fun account() { model.pauseEntry(); showAccount = true }
+    fun details() { model.pauseEntry(); model.setPracticeBlocked(true); showDetails = true }
+    fun midiSetup() { model.pauseEntry(); model.setPracticeBlocked(true); showMidi = true }
+    fun account() { model.pauseEntry(); model.setPracticeBlocked(true); showAccount = true }
     fun open(id: String, mode: LibraryMode) {
-        if (model.state.value.selected?.id == id) model.changeMode(mode)
+        if (model.state.value.selected?.id == id) { model.changeMode(mode); model.touch(id) }
         else leave { model.open(id, mode) }
     }
-    fun newSheet() { model.pauseEntry(); if (state.user == null) showAccount = true else leave { showNew = true } }
+    fun newSheet() { model.pauseEntry(); model.setPracticeBlocked(true); if (state.user == null) showAccount = true else leave { showNew = true } }
+    LaunchedEffect(showAccount, showNew, showDetails, showMidi, state.importPreview, pendingLeave, state.busy) {
+        model.setPracticeBlocked(showAccount || showNew || showDetails || showMidi || state.importPreview != null || pendingLeave != null || state.busy)
+    }
     LaunchedEffect(state.selected?.id) { showNew = false; showDetails = false; showSample = false }
     LaunchedEffect(state.user?.id) {
         if (previousUserId != null && state.user == null) midi.disconnect()
@@ -64,15 +76,19 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (state.mode == LibraryMode.LIBRARY) {
                     if (state.user == null) AccountLanding(state, model::authenticate, {
-                        showSample = true; model.changeMode(LibraryMode.PRACTICE)
+                        if (sample != null) { showSample = true; model.previewPractice(sample) }
                     })
-                    else LibraryCards(state, { leave(model::refresh) }, ::newSheet, documents.importSheet, ::open)
+                    else LibraryCards(state, model, model::refresh, ::newSheet, documents.importSheet, ::open,
+                        { id -> leave { model.open(id, LibraryMode.CREATE) } },
+                        { id -> if (state.selected?.id == id) leave { model.transition(id, false) } else model.transition(id, false) },
+                        { id, title -> if (state.selected?.id == id) leave { model.updateMetadata(id, title = title) } else model.updateMetadata(id, title = title) })
                 } else {
-                    val score = state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
+                    val score = (if (state.mode == LibraryMode.PRACTICE) state.practiceScore else null)?.copy(title = state.draftTitle)
+                        ?: state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
                     if (score == null) WorkspacePicker(state, ::newSheet,
-                        { model.changeMode(LibraryMode.LIBRARY) }, { showSample = true })
+                        { model.changeMode(LibraryMode.LIBRARY) }, { if (sample != null) { showSample = true; model.previewPractice(sample) } })
                     else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
-                        ::midiSetup, ::details, { model.changeMode(LibraryMode.CREATE) }, model)
+                        ::midiSetup, ::details, model::editFromPractice, model)
                 }
             }
         }
@@ -81,7 +97,8 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         showAccount = false; leave { midi.disconnect(); model.signOut() }
     }, { showAccount = false })
     if (showNew) NewSheetDialog(state, model::create) { showNew = false }
-    if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraft, model::updateScoreSettings, documents.exportSheet, model::save) { showDetails = false }
+    if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraftTitle, model::updateDraftTutorial,
+        model::updateScoreSettings, documents.exportSheet, model::save) { showDetails = false }
     if (state.importPreview != null) ImportPreviewDialog(state, model) { leave(model::saveImport) }
     if (showMidi) AlertDialog(
         onDismissRequest = { showMidi = false }, title = { Text("MIDI connection") },

@@ -8,6 +8,9 @@ export type { AccountSummary, SheetSummary, SavedSheet, NewSheetRequest, SaveShe
 export { CHORD_DURATIONS, ChordEntryError, ChordCapture, insertChord, replaceChord, deleteChord, findChord, recognizeChord } from './chord-entry.js';
 export type { ChordDuration, ChordPosition, ChordEdit, LocatedChord, ChordEntryIssue, ChordCandidate, ChordRecognition } from './chord-entry.js';
 export { MELODY_DURATIONS, MelodyEntryError, midiToPitch, insertMelody, replaceMelody, deleteMelody, findMelody, setMelodyTie } from './melody-entry.js';
+export { practiceEvents, practiceBar, firstPracticeEventInBar, supportsPracticeMatch,
+  matchesPracticeChord, transposePracticeScore } from './practice.js';
+export { PracticeSession } from './practice.js';
 export type { MelodyPosition, MelodySpec, MelodyEdit, LocatedMelody, MelodyEntryIssue } from './melody-entry.js';
 
 export const scoreSchema = schema;

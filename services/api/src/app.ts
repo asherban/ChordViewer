@@ -5,8 +5,8 @@ import { ScoreValidationError, parseScore } from '@chordviewer/contracts';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
 import type { Configuration } from './config.js';
 import { createAuth } from './auth.js';
-import { InputError, createInput, importInput, object, updateInput } from './input.js';
-import { createSheet, getSheet, importSheet, listSheets, updateSheet } from './sheets.js';
+import { InputError, createInput, importInput, metadataInput, object, revisionInput, updateInput } from './input.js';
+import { changeMetadata, createSheet, duplicateSheet, getSheet, importSheet, listSheets, markOpened, updateSheet } from './sheets.js';
 
 export function buildApp(pool: Pool, config: Configuration) {
   const app = Fastify({ logger: false, bodyLimit: 1_048_576, requestTimeout: 15_000, trustProxy: false });
@@ -98,17 +98,23 @@ export function buildApp(pool: Pool, config: Configuration) {
     routes.get('/api/v1/sheets', async request => ({ sheets: await listSheets(pool, request.account!.id) }));
     routes.post('/api/v1/sheets', async (request, reply) => {
       const sheet = await createSheet(pool, request.account!.id, createInput(request.body));
-      if (!sheet) return reply.code(409).send(code('sheet_limit', 'This local milestone supports up to 100 sheets per account.'));
+      if (!sheet) return reply.code(409).send(code('sheet_limit', 'Your account has reached 100 sheets, including Trash.'));
       return reply.code(201).send(sheet);
     });
     routes.post('/api/v1/sheets/import', async (request, reply) => {
       const sheet = await importSheet(pool, request.account!.id, importInput(request.body));
-      if (!sheet) return reply.code(409).send(code('sheet_limit', 'This local milestone supports up to 100 sheets per account.'));
+      if (!sheet) return reply.code(409).send(code('sheet_limit', 'Your account has reached 100 sheets, including Trash.'));
       return reply.code(201).send(sheet);
     });
     function sheetId(value: string): boolean { return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value); }
     routes.get<{ Params: { id: string } }>('/api/v1/sheets/:id', async (request, reply) => {
       const sheet = sheetId(request.params.id) ? await getSheet(pool, request.account!.id, request.params.id) : null;
+      return sheet ?? reply.code(404).send(code('not_found', 'Sheet not found.'));
+    });
+    routes.post<{ Params: { id: string } }>('/api/v1/sheets/:id/open', async (request, reply) => {
+      if (!sheetId(request.params.id)) return reply.code(404).send(code('not_found', 'Sheet not found.'));
+      object(request.body, []);
+      const sheet = await markOpened(pool, request.account!.id, request.params.id);
       return sheet ?? reply.code(404).send(code('not_found', 'Sheet not found.'));
     });
     routes.put<{ Params: { id: string } }>('/api/v1/sheets/:id', async (request, reply) => {
@@ -118,6 +124,30 @@ export function buildApp(pool: Pool, config: Configuration) {
       return result.kind === 'conflict' ? reply.code(409).send(code('revision_conflict', 'This sheet changed on another device. Reload before saving.')) :
         reply.code(404).send(code('not_found', 'Sheet not found.'));
     });
+    routes.patch<{ Params: { id: string } }>('/api/v1/sheets/:id/metadata', async (request, reply) => {
+      if (!sheetId(request.params.id)) return reply.code(404).send(code('not_found', 'Sheet not found.'));
+      const result = await changeMetadata(pool, request.account!.id, request.params.id, metadataInput(request.body));
+      if (result.kind === 'saved') return result.sheet;
+      return result.kind === 'conflict' ? reply.code(409).send(code('revision_conflict', 'This sheet changed. Refresh before changing it.')) :
+        reply.code(404).send(code('not_found', 'Sheet not found.'));
+    });
+    routes.post<{ Params: { id: string } }>('/api/v1/sheets/:id/duplicate', async (request, reply) => {
+      if (!sheetId(request.params.id)) return reply.code(404).send(code('not_found', 'Sheet not found.'));
+      const result = await duplicateSheet(pool, request.account!.id, request.params.id, revisionInput(request.body));
+      if (result.kind === 'saved') return reply.code(201).send(result.sheet);
+      if (result.kind === 'limit') return reply.code(409).send(code('sheet_limit', 'Your account has reached 100 sheets, including Trash.'));
+      return result.kind === 'conflict' ? reply.code(409).send(code('revision_conflict', 'This sheet changed. Refresh before duplicating it.')) :
+        reply.code(404).send(code('not_found', 'Sheet not found.'));
+    });
+    for (const transition of ['trash', 'restore'] as const) {
+      routes.post<{ Params: { id: string } }>(`/api/v1/sheets/:id/${transition}`, async (request, reply) => {
+        if (!sheetId(request.params.id)) return reply.code(404).send(code('not_found', 'Sheet not found.'));
+        const result = await changeMetadata(pool, request.account!.id, request.params.id, { expectedRevision: revisionInput(request.body), transition });
+        if (result.kind === 'saved') return result.sheet;
+        return result.kind === 'conflict' ? reply.code(409).send(code('revision_conflict', 'This sheet changed. Refresh before changing it.')) :
+          reply.code(404).send(code('not_found', 'Sheet not found.'));
+      });
+    }
   });
   return app;
 }

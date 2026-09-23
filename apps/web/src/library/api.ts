@@ -1,5 +1,6 @@
 import {
   parseScore,
+  SUPPORTED_KEYS,
   type AccountSummary as User,
   type SheetSummary,
   type SavedSheet,
@@ -59,7 +60,7 @@ export async function request(
       throw new ApiError(
         response.status,
         code === "sheet_limit"
-          ? "Your library has reached the current limit of 100 sheets."
+          ? "Your library has reached the current limit of 100 sheets, including Trash."
           : (messages[response.status] ??
               "The backend is unavailable. Check the local backend and try again."),
         code,
@@ -122,22 +123,53 @@ export function parseUser(value: unknown): User {
   };
 }
 
-function metadata(value: Record<string, unknown>): Omit<SheetSummary, "title"> {
+function integer(value: unknown): number {
+  if (!Number.isSafeInteger(value) || Number(value) < 1) throw new Error("Invalid sheet revision.");
+  return Number(value);
+}
+function flag(value: unknown): boolean {
+  if (typeof value !== "boolean") throw new Error("Invalid sheet flag.");
+  return value;
+}
+function dateOrNull(value: unknown): string | null {
+  if (value === null) return null;
+  const date = string(value);
+  if (!Number.isFinite(Date.parse(date))) throw new Error("Invalid sheet date.");
+  return date;
+}
+function baseMetadata(value: Record<string, unknown>) {
   if (!Number.isSafeInteger(value.revision) || (value.revision as number) < 1)
     throw new Error("Invalid sheet revision.");
   return {
     id: string(value.id),
     tutorialUrl: safeTutorialUrl(value.tutorialUrl),
-    revision: value.revision as number,
+    revision: integer(value.revision),
     createdAt: string(value.createdAt),
     updatedAt: string(value.updatedAt),
+    favorite: flag(value.favorite),
+    draft: flag(value.draft),
+    trashedAt: dateOrNull(value.trashedAt),
+    openedAt: dateOrNull(value.openedAt),
   };
+}
+function metadata(value: Record<string, unknown>): Omit<SheetSummary, "title"> {
+  const keySignature = string(value.keySignature);
+  if (!SUPPORTED_KEYS.some(key => key === keySignature)) throw new Error("Invalid sheet key.");
+  const meter = record(value.timeSignature);
+  if (typeof meter.numerator !== "number" || !Number.isInteger(meter.numerator) || meter.numerator < 1 || meter.numerator > 12 ||
+    typeof meter.denominator !== "number" || ![2, 4, 8].includes(meter.denominator)) throw new Error("Invalid sheet meter.");
+  if (!Array.isArray(value.previewChords) || value.previewChords.length > 4) throw new Error("Invalid sheet preview.");
+  const previewChords = value.previewChords.map(string);
+  if (previewChords.some(chord => [...chord].length > 64)) throw new Error("Invalid sheet preview.");
+  return { ...baseMetadata(value), keySignature: keySignature as SheetSummary["keySignature"],
+    timeSignature: { numerator: Number(meter.numerator), denominator: Number(meter.denominator) as 2 | 4 | 8 },
+    hasChords: flag(value.hasChords), hasMelody: flag(value.hasMelody), previewChords };
 }
 
 export function parseSavedSheet(value: unknown): SavedSheet {
   const data = record(value);
   const score = parseScore(data.score);
-  const meta = metadata(data);
+  const meta = baseMetadata(data);
   if (meta.id !== score.id) throw new Error("Invalid sheet identity.");
   return { ...meta, score };
 }
@@ -160,5 +192,10 @@ export function summary(sheet: SavedSheet): SheetSummary {
     revision: sheet.revision,
     createdAt: sheet.createdAt,
     updatedAt: sheet.updatedAt,
+    favorite: sheet.favorite, draft: sheet.draft, trashedAt: sheet.trashedAt, openedAt: sheet.openedAt,
+    keySignature: sheet.score.keySignature, timeSignature: sheet.score.timeSignature,
+    hasChords: sheet.score.measures.some(measure => measure.chords.length > 0),
+    hasMelody: sheet.score.measures.some(measure => measure.melody.length > 0),
+    previewChords: sheet.score.measures[0]?.chords.slice(0, 4).map(chord => chord.symbol) ?? [],
   };
 }

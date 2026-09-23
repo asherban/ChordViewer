@@ -21,6 +21,11 @@ interface LibraryGateway {
     fun create(token: String, title: String, example: Boolean, key: String = "C", time: ScoreTimeSignature = ScoreTimeSignature()): SavedSheet
     fun importScore(token: String, score: LeadSheet, title: String): SavedSheet
     fun save(token: String, sheet: SavedSheet, title: String, tutorialUrl: String?): SavedSheet
+    fun markOpened(token: String, id: String): SavedSheet = get(token, id)
+    fun metadata(token: String, id: String, revision: Int, title: String? = null, favorite: Boolean? = null, draft: Boolean? = null): SavedSheet =
+        throw UnsupportedOperationException("Library metadata unavailable")
+    fun duplicate(token: String, id: String, revision: Int): SavedSheet = throw UnsupportedOperationException("Duplication unavailable")
+    fun transition(token: String, id: String, revision: Int, restore: Boolean): SavedSheet = throw UnsupportedOperationException("Trash unavailable")
 }
 
 /** Synchronous transport; callers must execute it off the main thread. */
@@ -39,6 +44,18 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
     override fun signOut(token: String) { request("POST", "/api/auth/sign-out", token, JSONObject()) }
     override fun list(token: String): List<SheetSummary> = LibraryJson.summaries(request("GET", "/api/v1/sheets", token).body)
     override fun get(token: String, id: String): SavedSheet = LibraryJson.sheet(request("GET", sheetPath(id), token).body)
+    override fun markOpened(token: String, id: String): SavedSheet = LibraryJson.sheet(request("POST", sheetPath(id) + "/open", token, JSONObject()).body)
+    override fun metadata(token: String, id: String, revision: Int, title: String?, favorite: Boolean?, draft: Boolean?): SavedSheet {
+        val body = JSONObject().put("expectedRevision", revision)
+        if (title != null) body.put("title", title)
+        if (favorite != null) body.put("favorite", favorite)
+        if (draft != null) body.put("draft", draft)
+        return LibraryJson.sheet(request("PATCH", sheetPath(id) + "/metadata", token, body).body)
+    }
+    override fun duplicate(token: String, id: String, revision: Int): SavedSheet = LibraryJson.sheet(
+        request("POST", sheetPath(id) + "/duplicate", token, JSONObject().put("expectedRevision", revision)).body)
+    override fun transition(token: String, id: String, revision: Int, restore: Boolean): SavedSheet = LibraryJson.sheet(
+        request("POST", sheetPath(id) + if (restore) "/restore" else "/trash", token, JSONObject().put("expectedRevision", revision)).body)
     override fun create(token: String, title: String, example: Boolean, key: String, time: ScoreTimeSignature): SavedSheet = LibraryJson.sheet(request(
         "POST", "/api/v1/sheets", token, JSONObject().put("title", title.trim()).put("template", if (example) "example" else "blank").apply {
             if (!example) put("keySignature", key).put("timeSignature", JSONObject().put("numerator", time.numerator).put("denominator", time.denominator))
@@ -78,7 +95,14 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
                 connection.outputStream.use { it.write(bytes) }
             }
             val status = connection.responseCode
-            if (status !in 200..299) throw ApiFailure(status, messageForStatus(status, method, path))
+            if (status !in 200..299) {
+                val errorCode = if (status == 409) runCatching {
+                    connection.errorStream?.use(::readBounded)?.toString(Charsets.UTF_8)?.let { text ->
+                        JSONObject(text).opt("code") as? String
+                    }
+                }.getOrNull() else null
+                throw ApiFailure(status, messageForStatus(status, method, path, errorCode))
+            }
             val text = connection.inputStream.use(::readBounded).toString(Charsets.UTF_8)
             val sessionToken = connection.getHeaderField("set-auth-token")?.takeIf(::validToken)
             return ApiResponse(JSONObject(text), sessionToken)
@@ -106,14 +130,14 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
             }
             return result.toByteArray()
         }
-        private fun messageForStatus(status: Int, method: String, path: String) = when (status) {
+        private fun messageForStatus(status: Int, method: String, path: String, code: String? = null) = when (status) {
             400, 422 -> "Check the title, account details and YouTube tutorial link, then try again."
             401 -> "Your session ended or the sign-in details were incorrect. Please sign in again."
             403 -> "This action is not allowed. Please sign in again."
             404 -> "This sheet is no longer available. Refresh your library."
-            409 -> if (method == "POST" && path in listOf("/api/v1/sheets", "/api/v1/sheets/import"))
-                "Your library has reached the current limit of 100 sheets. No new sheet was created."
-                else "This sheet changed elsewhere. Open Library, choose Refresh, then reopen the sheet before saving again."
+            409 -> if (code == "sheet_limit" || method == "POST" && path in listOf("/api/v1/sheets", "/api/v1/sheets/import"))
+                "Your library has reached the current limit of 100 sheets, including Trash. No new sheet was created."
+                else "This sheet changed elsewhere. In Library, choose Reload saved version to discard local changes and open the latest score."
             429 -> "Too many requests. Wait a moment before trying again."
             else -> "The local service could not complete this request. Please try again."
         }

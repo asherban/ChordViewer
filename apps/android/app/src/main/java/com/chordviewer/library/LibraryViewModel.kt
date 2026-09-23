@@ -29,6 +29,13 @@ data class LibraryState(
     val editor: ScoreEditorState? = null,
     val midiConnected: Boolean = false,
     val liveChord: String? = null,
+    val practice: PracticePosition = PracticePosition(),
+    val practiceLiveMatch: Boolean? = null,
+    val practiceTargetSupported: Boolean = true,
+    val practiceScore: LeadSheet? = null,
+    val practiceShift: Int = 0,
+    val practiceSize: Int = 100,
+    val tutorialVisible: Boolean = true,
     val importPreview: ImportedScore? = null,
     val importTitle: String = "",
     val busy: Boolean = false,
@@ -55,10 +62,28 @@ class LibraryViewModel(
     private var active: Job? = null
     private var editor: ScoreEditor? = null
     private var recognizer: ChordRecognizer? = null
+    private var practiceRules: PracticeRules? = null
+    private var practiceSession: PracticeSession? = null
+    private var practiceBaseScore: LeadSheet? = null
+    private val editPositions = mutableMapOf<String, ScorePosition>()
+    private val practicePositions = mutableMapOf<String, Pair<Int, String?>>()
     private var midiConnected = false
+    private var practiceUiBlocked = false
+    private var practiceApiBusy = false
+    private val practiceBlocked get() = practiceUiBlocked || practiceApiBusy
     private val capture = ChordGestureCapture(::captureGesture)
+    private val practiceCapture = ChordGestureCapture(::practiceGesture)
+    private fun bookmarkKey(id: String): String? = session?.user?.id?.let { "$it:$id" }
+    private fun rememberPositions() {
+        val id = mutableState.value.selected?.id ?: return
+        val key = bookmarkKey(id) ?: return
+        editor?.state?.position?.let { editPositions[key] = it }
+        practiceSession?.position?.let { position ->
+            practicePositions[key] = position.bar to practiceRules?.events(practiceSession!!.score)?.getOrNull(position.eventIndex)?.id
+        }
+    }
 
-    fun configureChordVocabulary(json: String) { recognizer = ChordRecognizer(json) }
+    fun configureChordVocabulary(json: String) { recognizer = ChordRecognizer(json); practiceRules = PracticeRules(json) }
 
     /** Called synchronously for every ordered transport event, independently of Compose rendering. */
     fun onMidiEvent(event: MidiInputEvent) {
@@ -66,11 +91,15 @@ class LibraryViewModel(
             is MidiInputEvent.Reset -> {
                 midiConnected = event.connected
                 capture.reset()
+                practiceCapture.reset()
+                if (event.connected && !practiceBlocked && mutableState.value.mode == LibraryMode.PRACTICE && practiceSession?.position?.advanceOnMatch == true) practiceCapture.arm()
+                practiceSession?.resetGesture()
                 pauseEntry()
                 editor?.update { it.copy(message = event.reason) }
             }
             is MidiInputEvent.Bytes -> {
                 capture.accept(event.data)
+                practiceCapture.accept(event.data)
                 if (!capture.armed) editor?.update { it.copy(mode = EntryMode.PAUSED) }
             }
         }
@@ -244,11 +273,98 @@ class LibraryViewModel(
     }
     private fun publishEditor() {
         val message = mutableState.value.message.let { if (it == "Changes saved." && editor?.state?.score != mutableState.value.selected?.score) null else it }
+        val target = practiceSession?.let { session -> practiceRules?.events(session.score)?.getOrNull(session.position.eventIndex) }
+        val held = capture.heldKeys.map { it % 128 }
         mutableState.value = mutableState.value.copy(editor = editor?.state, midiConnected = midiConnected,
-            liveChord = recognizer?.recognize(capture.heldKeys.map { it % 128 })?.candidates?.firstOrNull()?.symbol, message = message)
+            liveChord = recognizer?.recognize(held)?.candidates?.firstOrNull()?.symbol,
+            practice = practiceSession?.position ?: mutableState.value.practice,
+            practiceLiveMatch = if (target != null && held.isNotEmpty()) practiceRules?.matches(target.symbol, held) else null,
+            practiceTargetSupported = target?.let { practiceRules?.supported(it.symbol) } ?: true,
+            message = message)
     }
-    private fun opened(sheet: SavedSheet) { capture.pause(); editor = ScoreEditor(sheet.score) }
-    private fun clearEditor() { capture.pause(); editor = null }
+    private fun opened(sheet: SavedSheet) {
+        rememberPositions()
+        capture.pause(); practiceCapture.pause(); editor = ScoreEditor(sheet.score)
+        practiceBaseScore = sheet.score
+        practiceSession = practiceRules?.let { PracticeSession(it, sheet.score) }
+        bookmarkKey(sheet.id)?.let { key ->
+            editPositions[key]?.let { saved ->
+                val bar = saved.measureIndex.coerceIn(0, sheet.score.measures.lastIndex)
+                editor?.update { it.copy(position = ScorePosition(bar, saved.offsetTicks.coerceIn(0, sheet.score.measureTicks - 1))) }
+            }
+            practicePositions[key]?.let { (bar, eventId) ->
+                practiceSession?.selectBar(bar)
+                val index = practiceRules?.events(sheet.score)?.indexOfFirst { it.id == eventId } ?: -1
+                if (index >= 0) practiceSession?.selectEvent(index)
+            }
+        }
+    }
+    private fun clearEditor() { capture.pause(); practiceCapture.pause(); editor = null; practiceSession = null; practiceBaseScore = null }
+    fun previewPractice(score: LeadSheet) {
+        practiceBaseScore = score
+        practiceSession = practiceRules?.let { PracticeSession(it, score) }
+        mutableState.value = mutableState.value.copy(mode = LibraryMode.PRACTICE, practiceScore = score,
+            practice = practiceSession?.position ?: PracticePosition(), practiceShift = 0)
+    }
+
+    private fun practiceGesture(notes: List<Int>) {
+        if (mutableState.value.mode != LibraryMode.PRACTICE || mutableState.value.busy || practiceBlocked || !midiConnected) return
+        practiceSession?.receive(notes)
+        if (practiceSession?.position?.complete == true) practiceCapture.pause()
+        publishEditor()
+    }
+    fun practiceAdvance(onMatch: Boolean) {
+        practiceSession?.advance(onMatch)
+        practiceCapture.pause()
+        if (onMatch && midiConnected && !practiceBlocked) practiceCapture.arm()
+        publishEditor()
+    }
+    fun practiceBar(bar: Int) {
+        practiceSession?.selectBar(bar)
+        practiceCapture.pause()
+        if (practiceSession?.position?.advanceOnMatch == true && midiConnected && !practiceBlocked) practiceCapture.arm()
+        publishEditor()
+    }
+    fun practiceEvent(index: Int) {
+        practiceSession?.selectEvent(index)
+        practiceCapture.pause()
+        if (practiceSession?.position?.advanceOnMatch == true && midiConnected && !practiceBlocked) practiceCapture.arm()
+        publishEditor()
+    }
+    fun practiceChord(id: String) {
+        val index = practiceRules?.events(practiceSession?.score ?: return)?.indexOfFirst { it.id == id } ?: -1
+        if (index >= 0) practiceEvent(index)
+    }
+    fun setPracticeBlocked(blocked: Boolean) {
+        if (blocked == practiceUiBlocked) return
+        practiceUiBlocked = blocked
+        practiceCapture.pause()
+        practiceSession?.resetGesture()
+        if (!practiceBlocked && midiConnected && mutableState.value.mode == LibraryMode.PRACTICE &&
+            practiceSession?.position?.advanceOnMatch == true) practiceCapture.arm()
+        publishEditor()
+    }
+    fun onAppBackground() {
+        practiceCapture.reset()
+        capture.reset()
+        practiceSession?.resetGesture()
+        publishEditor()
+    }
+    fun practiceShift(shift: Int) {
+        val source = editor?.state?.score ?: practiceBaseScore ?: return
+        try {
+            val next = requireNotNull(practiceRules).transpose(source, shift)
+            practiceSession?.setScore(next)
+            practiceCapture.pause()
+            if (practiceSession?.position?.advanceOnMatch == true && midiConnected && !practiceBlocked) practiceCapture.arm()
+            mutableState.value = mutableState.value.copy(practiceShift = shift, practiceScore = next, message = null)
+            publishEditor()
+        } catch (error: IllegalArgumentException) {
+            mutableState.value = mutableState.value.copy(message = error.message ?: "This score cannot be transposed.")
+        }
+    }
+    fun practiceSize(value: Int) { mutableState.value = mutableState.value.copy(practiceSize = value.coerceIn(70, 150)) }
+    fun tutorialVisible(value: Boolean) { mutableState.value = mutableState.value.copy(tutorialVisible = value) }
 
     fun authenticate(email: String, password: String, name: String?) {
         if (mutableState.value.busy || api == null) return
@@ -277,19 +393,88 @@ class LibraryViewModel(
     fun refresh() = authenticated { client, token, request ->
         val sheets = withContext(io) { client.list(token) }
         ensureCurrent(request)
-        clearEditor()
-        mutableState.value.copy(sheets = sheets, libraryLoaded = true, selected = null, editor = null, draftTitle = "", draftTutorial = "", busy = false, message = null)
+        mutableState.value.copy(sheets = sheets, libraryLoaded = true, busy = false, message = null)
     }
 
     fun changeMode(mode: LibraryMode) {
-        if (!mutableState.value.busy) { pauseEntry(); mutableState.value = mutableState.value.copy(mode = mode) }
+        if (!mutableState.value.busy) {
+            pauseEntry(); practiceCapture.pause()
+            rememberPositions()
+            if (mode == LibraryMode.PRACTICE && mutableState.value.mode != LibraryMode.PRACTICE) {
+                val source = editor?.state?.score
+                if (source != null) {
+                    practiceBaseScore = source
+                    if (practiceSession == null) practiceSession = practiceRules?.let { PracticeSession(it, source) }
+                    else practiceSession?.setScore(source)
+                    practiceSession?.advance(false)
+                    mutableState.value = mutableState.value.copy(practiceScore = source, practiceShift = 0)
+                }
+            }
+            mutableState.value = mutableState.value.copy(mode = mode)
+            publishEditor()
+        }
+    }
+
+    /** The explicit Practice action transfers its selected position; header navigation preserves the edit bookmark. */
+    fun editFromPractice() {
+        val source = practiceSession?.score ?: mutableState.value.selected?.score
+        val point = source?.let { practiceRules?.events(it)?.getOrNull(practiceSession?.position?.eventIndex ?: -1) }
+        val bar = practiceSession?.position?.bar ?: 0
+        changeMode(LibraryMode.CREATE)
+        editor?.update { it.copy(position = ScorePosition(point?.bar ?: bar, point?.offsetTicks ?: 0), selectedId = null, selectedMelodyId = null) }
+        publishEditor()
     }
 
     fun open(id: String, mode: LibraryMode = LibraryMode.CREATE) = authenticated { client, token, request ->
-        val sheet = withContext(io) { client.get(token, id) }
+        val sheet = withContext(io) { client.markOpened(token, id) }
         ensureCurrent(request)
         opened(sheet)
-        mutableState.value.copy(selected = sheet, editor = editor?.state, mode = mode, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(), busy = false, message = null)
+        if (mode == LibraryMode.PRACTICE) practiceSession?.advance(false)
+        mutableState.value.copy(sheets = mutableState.value.sheets.map { if (it.id == id) sheet.summary() else it },
+            selected = sheet, editor = editor?.state, mode = mode, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(),
+            practiceScore = if (mode == LibraryMode.PRACTICE) sheet.score else null, practiceShift = 0, busy = false, message = null)
+    }
+    fun touch(id: String) = authenticated { client, token, request ->
+        val sheet = withContext(io) { client.markOpened(token, id) }
+        ensureCurrent(request)
+        mutableState.value.copy(sheets = mutableState.value.sheets.map { if (it.id == id) it.copy(openedAt = sheet.openedAt) else it },
+            selected = mutableState.value.selected?.takeIf { it.id != id } ?: mutableState.value.selected?.copy(openedAt = sheet.openedAt),
+            busy = false, message = null)
+    }
+    fun updateMetadata(id: String, title: String? = null, favorite: Boolean? = null, draft: Boolean? = null) = authenticated { client, token, request ->
+        val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
+        val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
+        val result = withContext(io) { client.metadata(token, id, revision, title, favorite, draft) }
+        ensureCurrent(request)
+        val current = mutableState.value
+        if (title != null && current.selected?.id == id) opened(result)
+        current.copy(sheets = current.sheets.map { if (it.id == id) result.summary() else it },
+            selected = if (title != null && current.selected?.id == id) result else if (current.selected?.id == id) current.selected.copy(
+                revision = result.revision, favorite = result.favorite, draft = result.draft,
+            ) else current.selected,
+            editor = if (title != null && current.selected?.id == id) editor?.state else current.editor,
+            draftTitle = if (current.selected?.id == id && title != null) title else current.draftTitle,
+            busy = false, message = "Library details updated.")
+    }
+    fun duplicate(id: String) = authenticated { client, token, request ->
+        val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
+        val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
+        val copy = withContext(io) { client.duplicate(token, id, revision) }
+        ensureCurrent(request)
+        mutableState.value.copy(sheets = listOf(copy.summary()) + mutableState.value.sheets,
+            busy = false, message = "Saved copy created.")
+    }
+    fun transition(id: String, restore: Boolean) = authenticated { client, token, request ->
+        val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
+        val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
+        val result = withContext(io) { client.transition(token, id, revision, restore) }
+        ensureCurrent(request)
+        val current = mutableState.value
+        if (!restore && current.selected?.id == id) clearEditor()
+        current.copy(sheets = current.sheets.map { if (it.id == id) result.summary() else it },
+            selected = if (!restore && current.selected?.id == id) null else current.selected,
+            editor = if (!restore && current.selected?.id == id) null else current.editor,
+            busy = false, message = if (restore) "Sheet restored." else "Moved to Trash. You can restore it later.")
     }
 
     fun create(title: String, example: Boolean, key: String = "C", time: ScoreTimeSignature = ScoreTimeSignature()) {
@@ -306,10 +491,13 @@ class LibraryViewModel(
         }
     }
 
-    fun updateDraft(title: String, tutorialUrl: String) {
-        if (!mutableState.value.busy && mutableState.value.selected != null) {
-            mutableState.value = mutableState.value.copy(draftTitle = title.take(400), draftTutorial = tutorialUrl.take(500))
-        }
+    fun updateDraftTitle(title: String) {
+        if (!mutableState.value.busy && mutableState.value.selected != null)
+            mutableState.value = mutableState.value.copy(draftTitle = title.take(400))
+    }
+    fun updateDraftTutorial(tutorialUrl: String) {
+        if (!mutableState.value.busy && mutableState.value.selected != null)
+            mutableState.value = mutableState.value.copy(draftTutorial = tutorialUrl.take(500))
     }
 
     fun updateScoreSettings(key: String, time: ScoreTimeSignature) = edit { current ->
@@ -401,10 +589,12 @@ class LibraryViewModel(
     }
 
     fun signOut() {
+        rememberPositions()
         val previous = session
         invalidate()
         clearEditor()
         session = null
+        editPositions.clear(); practicePositions.clear()
         mutableState.value = LibraryState(configured = api != null, message = "Signed out on this device.")
         val request = generation
         if (previous != null && api != null) viewModelScope.launch {
@@ -424,12 +614,20 @@ class LibraryViewModel(
         val client = api ?: return
         if (mutableState.value.busy) return
         pauseEntry()
+        practiceApiBusy = true
+        practiceCapture.pause()
         val request = generation
         mutableState.value = mutableState.value.copy(busy = true, message = null)
         active = viewModelScope.launch {
             try {
                 val next = action(client, current.token, request)
-                if (request == generation) { mutableState.value = next; publishEditor() }
+                if (request == generation) {
+                    mutableState.value = next
+                    practiceApiBusy = false
+                    if (!practiceBlocked && midiConnected && next.mode == LibraryMode.PRACTICE &&
+                        practiceSession?.position?.advanceOnMatch == true) practiceCapture.arm()
+                    publishEditor()
+                }
             } catch (error: Exception) { fail(error, request) }
         }
     }
@@ -437,6 +635,8 @@ class LibraryViewModel(
     private fun fail(error: Exception, request: Long) {
         if (error is CancellationException) throw error
         if (request != generation) return
+        practiceApiBusy = false
+        practiceCapture.pause()
         val message = (error as? ApiFailure)?.userMessage
             ?: if (error is IllegalArgumentException) "The title or server response was invalid. Check your input and try again."
             else "Could not reach the local service. Check that it is running and the Android API connection is set up."
@@ -449,7 +649,11 @@ class LibraryViewModel(
     }
 
     private fun invalidate() { generation++; active?.cancel(); active = null; importJob?.cancel(); importJob = null; importParsing = false }
-    private fun SavedSheet.summary() = SheetSummary(id, score.title, tutorialUrl, revision, createdAt, updatedAt)
+    private fun SavedSheet.summary() = SheetSummary(id, score.title, tutorialUrl, revision, createdAt, updatedAt,
+        favorite, draft, trashedAt, openedAt, score.keySignature,
+        "${score.timeSignature.numerator}/${score.timeSignature.denominator}",
+        score.measures.any { it.chords.isNotEmpty() }, score.measures.any { it.melody.isNotEmpty() },
+        score.measures.firstOrNull()?.chords?.take(4)?.map { it.symbol } ?: emptyList())
     override fun onCleared() { invalidate(); session = null; super.onCleared() }
 }
 

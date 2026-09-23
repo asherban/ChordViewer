@@ -5,13 +5,31 @@ import { ScoreDraft } from "./ScoreDraft";
 
 const base = parseScore({ ...example, measures: [{ ...example.measures[0], chords: [],
   melody: example.measures[0].melody.map(event => "tieToNext" in event ? { ...event, tieToNext: false } : event) }] });
-const saved = { id: base.id, score: base, tutorialUrl: null, revision: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
+const saved = { id: base.id, score: base, tutorialUrl: null, revision: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+  favorite: false, draft: false, trashedAt: null, openedAt: null };
 function editor() { let id = 0; const model = new ScoreDraft(base, saved, () => `test-${++id}`); model.configure(true, true, false); return model; }
 function bytes(model: ScoreDraft, ...data: number[]) { model.receive({ type: "data", data }); }
 function chord(model: ScoreDraft, notes = [60, 64, 67]) {
   notes.forEach(note => bytes(model, 0x90, note, 96));
   notes.forEach(note => bytes(model, 0x80, note, 0));
 }
+it("preserves a dirty score, details and undo across Library metadata, but applies explicit reload", () => {
+  const model = editor();
+  model.addChord("C");
+  model.details("Changed locally", "https://www.youtube.com/watch?v=abcdefghijk");
+  const before = model.getSnapshot();
+  expect(before.dirty).toBe(true);
+  expect(before.undoCount).toBeGreaterThan(0);
+  const metadata = { ...saved, revision: 2, favorite: true };
+  model.acceptSaved(metadata, true);
+  expect(model.getSnapshot().score).toEqual(before.score);
+  expect(model.getSnapshot().title).toBe("Changed locally");
+  expect(model.getSnapshot().undoCount).toBe(before.undoCount);
+  expect(model.getSnapshot().dirty).toBe(true);
+  model.acceptSaved({ ...saved, revision: 2 }); // user confirmed Reload latest, even if backend content is unchanged
+  expect(model.getSnapshot().score).toEqual(base);
+  expect(model.getSnapshot().dirty).toBe(false);
+});
 describe("synchronous chord draft", () => {
   it("keeps every fast gesture without a render between them, selected durations and the melody", () => {
     const model = editor(); model.setDuration(480); model.arm();

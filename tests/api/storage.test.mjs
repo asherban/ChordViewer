@@ -138,6 +138,75 @@ test('schema, body limits and tutorial validation reject unsafe writes without c
   const current = await request(`/api/v1/sheets/${saved.id}`, { token: first.token });
   assert.equal((await current.json()).revision, 2);
 });
+test('Library metadata and recency are owner-scoped, bounded and guarded', async () => {
+  const path = '/api/v1/sheets/' + saved.id;
+  const summary = (await (await request('/api/v1/sheets', { token: first.token })).json()).sheets.find(sheet => sheet.id === saved.id);
+  assert.equal(summary.openedAt, null);
+  assert.equal(summary.keySignature, saved.score.keySignature);
+  assert.deepEqual(summary.timeSignature, saved.score.timeSignature);
+  assert.ok(summary.previewChords.length <= 4);
+  assert.equal((await (await request(path, { token: first.token })).json()).openedAt, null);
+  const opened = await request(path + '/open', { method: 'POST', token: first.token, body: {} });
+  assert.equal(opened.status, 200);
+  assert.ok((await opened.json()).openedAt);
+  assert.equal((await request(path + '/open', { method: 'POST', token: second.token, body: {} })).status, 404);
+  const changed = await request(path + '/metadata', { method: 'PATCH', token: first.token,
+    body: { expectedRevision: 2, title: 'Renamed from Library', favorite: true, draft: true } });
+  assert.equal(changed.status, 200);
+  saved = await changed.json();
+  assert.equal(saved.score.title, 'Renamed from Library');
+  assert.equal(saved.revision, 3);
+  assert.equal(saved.favorite, true);
+  assert.equal(saved.draft, true);
+  assert.equal((await request(path + '/metadata', { method: 'PATCH', token: first.token,
+    body: { expectedRevision: 2, favorite: false } })).status, 409);
+  assert.equal((await request(path + '/metadata', { method: 'PATCH', token: second.token,
+    body: { expectedRevision: 3, favorite: false } })).status, 404);
+});
+test('bounded chord previews preserve complete Unicode score symbols', async () => {
+  const person = await account('Unicode preview');
+  const symbol = '😀'.repeat(32);
+  const score = structuredClone(saved.score);
+  score.measures[0].chords[0].symbol = symbol;
+  const created = await request('/api/v1/sheets/import', { method: 'POST', token: person.token,
+    body: { score, title: 'Unicode chord preview' } });
+  assert.equal(created.status, 201);
+  const record = await created.json();
+  const listing = (await (await request('/api/v1/sheets', { token: person.token })).json()).sheets;
+  assert.equal(listing.find(item => item.id === record.id).previewChords[0], symbol);
+});
+test('duplicate uses a fresh identity and Unicode-safe title; Trash is recoverable and blocks stale saves', async () => {
+  const source = '/api/v1/sheets/' + saved.id;
+  const renamed = await request(source + '/metadata', { method: 'PATCH', token: first.token,
+    body: { expectedRevision: saved.revision, title: '😀'.repeat(199) } });
+  assert.equal(renamed.status, 200);
+  saved = await renamed.json();
+  const response = await request(source + '/duplicate', { method: 'POST', token: first.token,
+    body: { expectedRevision: saved.revision } });
+  assert.equal(response.status, 201);
+  const copy = await response.json();
+  assert.notEqual(copy.id, saved.id);
+  assert.equal([...copy.score.title].length, 200);
+  assert.ok(copy.score.title.endsWith(' (copy)'));
+  assert.deepEqual(copy.score.measures, saved.score.measures);
+  assert.equal(copy.tutorialUrl, saved.tutorialUrl);
+  assert.equal((await request(source + '/duplicate', { method: 'POST', token: second.token,
+    body: { expectedRevision: saved.revision } })).status, 404);
+  const path = '/api/v1/sheets/' + copy.id;
+  const trash = await request(path + '/trash', { method: 'POST', token: first.token, body: { expectedRevision: 1 } });
+  assert.equal(trash.status, 200);
+  const trashed = await trash.json();
+  assert.ok(trashed.trashedAt);
+  assert.equal((await request(path, { token: first.token })).status, 404);
+  assert.equal((await request(path, { method: 'PUT', token: first.token,
+    body: { score: copy.score, tutorialUrl: copy.tutorialUrl, expectedRevision: 1 } })).status, 409);
+  assert.equal((await request(path + '/restore', { method: 'POST', token: first.token,
+    body: { expectedRevision: 1 } })).status, 409);
+  const restored = await request(path + '/restore', { method: 'POST', token: first.token,
+    body: { expectedRevision: trashed.revision } });
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json()).trashedAt, null);
+});
 test('browser cookie writes need a trusted origin and cannot opt into native authentication', async () => {
   const browser = await account('Browser', true);
   const body = { title: 'Cookie sheet', template: 'blank' };
@@ -160,10 +229,13 @@ test('revoked/tampered native credentials are rejected and a fresh login reopens
   assert.equal(login.status, 200);
   const response = await request(`/api/v1/sheets/${saved.id}`, { token: login.headers.get('set-auth-token') });
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).revision, 2);
+  assert.equal((await response.json()).revision, saved.revision);
 });
 test('concurrent creation cannot exceed the personal library limit', async () => {
-  const existing = (await (await request('/api/v1/sheets', { token: second.token })).json()).sheets.length;
+  const before = (await (await request('/api/v1/sheets', { token: second.token })).json()).sheets;
+  const existing = before.length;
+  assert.ok(existing > 0, 'Duplicate needs a source owned by this account');
+  const duplicateSource = before[0];
   for (let index = existing; index < 99; index++) {
     const response = await request('/api/v1/sheets', { method: 'POST', token: second.token,
       body: { title: `Quota check ${index + 1}`, template: 'blank' } });
@@ -172,10 +244,20 @@ test('concurrent creation cannot exceed the personal library limit', async () =>
   const results = await Promise.all([
     request('/api/v1/sheets', { method: 'POST', token: second.token, body: { title: 'Last available blank slot', template: 'blank' } }),
     request('/api/v1/sheets/import', { method: 'POST', token: second.token, body: { title: 'Last available import slot', score: saved.score } }),
+    request(`/api/v1/sheets/${duplicateSource.id}/duplicate`, { method: 'POST', token: second.token,
+      body: { expectedRevision: duplicateSource.revision } }),
   ]);
-  assert.deepEqual(results.map(response => response.status).sort(), [201, 409]);
+  assert.deepEqual(results.map(response => response.status).sort(), [201, 409, 409]);
   const response = await request('/api/v1/sheets', { token: second.token });
-  assert.equal((await response.json()).sheets.length, 100);
+  const full = (await response.json()).sheets;
+  assert.equal(full.length, 100);
+  const moved = await request('/api/v1/sheets/' + full[0].id + '/trash', { method: 'POST', token: second.token,
+    body: { expectedRevision: full[0].revision } });
+  assert.equal(moved.status, 200);
+  assert.equal((await request('/api/v1/sheets', { method: 'POST', token: second.token,
+    body: { title: 'Trash does not free quota', template: 'blank' } })).status, 409);
+  assert.equal((await request(`/api/v1/sheets/${duplicateSource.id}/duplicate`, { method: 'POST', token: second.token,
+    body: { expectedRevision: duplicateSource.revision } })).status, 409);
 });
 test('authentication throttling survives spoofed forwarding headers', async () => {
   let limited = false;

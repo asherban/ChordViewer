@@ -83,7 +83,7 @@ test("real MIDI creates a sheet, corrects it, and persists the full score", asyn
     { symbol: "G", offsetTicks: 0, durationTicks: 480 },
   ]);
   await page.reload();
-  await page.getByRole("button", { name: "Open " + title, exact: true }).click();
+  await page.getByRole("button", { name: "Edit " + title, exact: true }).click();
   await expect(page.locator(".editable-chord")).toHaveCount(5);
   expect(await savedScore(page, title)).toEqual(score);
 });

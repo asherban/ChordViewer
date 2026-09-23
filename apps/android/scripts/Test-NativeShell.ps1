@@ -3,9 +3,11 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern('\A[A-Za-z0-9._:-]+\z')][string]$Serial,
     [Parameter(Mandatory = $true)][string]$FixturePath,
     [switch]$WithMidi,
-    [switch]$Authoring
+    [switch]$Authoring,
+    [switch]$Organization
 )
 $ErrorActionPreference = 'Stop'
+if ($Organization -and ($Authoring -or $WithMidi)) { throw 'Organization acceptance runs separately from MIDI and authoring.' }
 if ($Authoring) { $WithMidi = $true }
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $repositoryRoot 'scripts/development/Initialize-AndroidEnvironment.ps1')
@@ -95,7 +97,9 @@ try {
         $null = $stderr.GetAwaiter().GetResult()
     } finally { Stop-Owned $writer }
     $modeFlag = if ($Authoring) { 'authoringUi' } else { 'shellUi' }
-    $testClass = if ($Authoring) { 'com.chordviewer.library.NativeChordAuthoringTest' } else { 'com.chordviewer.library.NativeShellFlowTest' }
+    $testClass = if ($Authoring) { 'com.chordviewer.library.NativeChordAuthoringTest' }
+        elseif ($Organization) { 'com.chordviewer.library.NativeShellFlowTest#nativeLibraryOrganizationActions' }
+        else { 'com.chordviewer.library.NativeShellFlowTest#nativeLibraryModesRetainDraftsAndSaveToSharedBackend' }
     $runner = Start-Adb @('shell', 'am', 'instrument', '-w', '-r', '-e', $modeFlag, 'true', '-e', 'class',
         $testClass, 'com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner')
     $outLine = $runner.StandardOutput.ReadLineAsync()
@@ -118,6 +122,14 @@ try {
                 $sender = New-Object ChordViewer.LocalMidi.Sender
                 $sender.Send([int[]]@(144, 60, 96))
                 Write-Host 'Holding C4 through native mode changes and metadata save.'
+            }
+            if ($line -match 'M6_PLAYER_HTML') { Write-Host $line }
+            if ($line -match 'M6_NATIVE_MATCH_READY') {
+                if (-not $WithMidi -or -not $sender) { throw 'Unexpected Practice match signal.' }
+                $sender.Send([int[]]@(128, 60, 0))
+                Start-Sleep -Milliseconds 250
+                Send-Chord @(55, 59, 62, 65) 250
+                Write-Host 'Released held C4, then broadcast a fresh G7 Practice gesture.'
             }
             if ($line -match 'M4_NATIVE_ENTRY_READY') {
                 if (-not $Authoring -or $sender) { throw 'Unexpected authoring readiness signal.' }
@@ -175,7 +187,9 @@ try {
     $destination = Join-Path $repositoryRoot '.local/android-ui-evidence'
     $null = New-Item -ItemType Directory -Path $destination -Force
     $captures = if ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png', 'm5-native-melody.png', 'm5-native-import.png', 'm5-native-imported.png') }
-        else { @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png') }
+        elseif ($Organization) { @('m6-native-library-organized.png') }
+        else { @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png',
+            'm6-native-practice-player.png', 'm6-native-practice.png') }
     foreach ($name in $captures) {
         $reader = Start-Adb @('exec-out', 'run-as', 'com.chordviewer.debug', 'cat', "files/ui-evidence/$name")
         try {
@@ -188,9 +202,11 @@ try {
     }
     if ($Authoring) {
         Write-Host 'PASS: native chord/melody MIDI and manual authoring, correction, history, key/meter, save/reopen and document import/export (1 test).'
+    } elseif ($Organization) {
+        Write-Host 'PASS: native Library favorite, Draft, duplicate, Trash and restore through the UI (1 test).'
     } else {
         Write-Host 'PASS: native account UI, Library/Create/Practice, retained draft, shared save, melody preference and sign-out (1 test).'
-        if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; sign-out disconnected MIDI.' }
+        if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; fresh G7 advanced Practice once; sign-out disconnected MIDI.' }
     }
     Write-Host "Screenshots saved under $destination"
 } catch {

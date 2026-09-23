@@ -53,6 +53,7 @@ class LibraryApiTest {
         val score = JSONObject(javaClass.classLoader!!.getResource("lead-sheet-v1.json")!!.readText())
         val record = JSONObject().put("id", score.getString("id")).put("score", score).put("tutorialUrl", JSONObject.NULL)
             .put("revision", 1).put("createdAt", "2026-09-20T12:00:00.000Z").put("updatedAt", "2026-09-20T12:00:00.000Z")
+            .put("favorite", false).put("draft", false).put("trashedAt", JSONObject.NULL).put("openedAt", JSONObject.NULL)
         val saved = LibraryJson.sheet(record)
         val changed = saved.renamedScore("New title")
         assertEquals(score.getJSONArray("measures").toString(), changed.getJSONArray("measures").toString())
@@ -80,12 +81,47 @@ class LibraryApiTest {
         }
     }
 
+    @Test fun duplicateDistinguishesQuotaFromStaleRevisionWithoutShowingServerText() {
+        for ((code, quota) in listOf("sheet_limit" to true, "revision_conflict" to false)) {
+            ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { server ->
+                val replied = CompletableFuture.runAsync {
+                    server.accept().use { socket ->
+                        val input = socket.getInputStream().bufferedReader()
+                        generateSequence { input.readLine() }.takeWhile { it.isNotEmpty() }.toList()
+                        val body = "{\"code\":\"$code\",\"message\":\"private server detail\"}"
+                        socket.getOutputStream().write(("HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n" + body).toByteArray())
+                    }
+                }
+                val error = assertThrows(ApiFailure::class.java) {
+                    LibraryApi("http://127.0.0.1:${server.localPort}", true).duplicate("dummy-token", "sheet-id", 1)
+                }
+                assertEquals(409, error.status)
+                assertEquals(quota, error.userMessage.contains("100 sheets, including Trash"))
+                assertFalse(error.userMessage.contains("private server detail"))
+                replied.get(5, TimeUnit.SECONDS)
+            }
+        }
+    }
+
     @Test fun libraryRejectsDuplicatesFractionalRevisionAndInvalidDates() {
         val entry = JSONObject().put("id", "sheet-a").put("title", "Title").put("tutorialUrl", JSONObject.NULL)
             .put("revision", 1).put("createdAt", "2026-09-20T12:00:00Z").put("updatedAt", "2026-09-20T12:00:00Z")
+            .put("favorite", false).put("draft", false).put("trashedAt", JSONObject.NULL).put("openedAt", JSONObject.NULL)
+            .put("keySignature", "C").put("timeSignature", JSONObject().put("numerator", 4).put("denominator", 4))
+            .put("hasChords", true).put("hasMelody", false).put("previewChords", JSONArray().put("C"))
         assertEquals(1, LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry))).size)
         assertThrows(IllegalArgumentException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry).put(entry))) }
         assertThrows(IllegalArgumentException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry.put("revision", 1.5)))) }
         assertThrows(java.time.format.DateTimeParseException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry.put("revision", 1).put("updatedAt", "invalid")))) }
+        entry.put("updatedAt", "2026-09-20T12:00:00Z")
+        for (invalid in listOf(4.5, "4")) {
+            entry.getJSONObject("timeSignature").put("denominator", invalid)
+            assertThrows(IllegalArgumentException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry))) }
+        }
+        entry.getJSONObject("timeSignature").put("denominator", 4)
+        entry.put("favorite", "false")
+        assertThrows(IllegalArgumentException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry))) }
+        entry.put("favorite", false).put("previewChords", JSONArray().put(3))
+        assertThrows(IllegalArgumentException::class.java) { LibraryJson.summaries(JSONObject().put("sheets", JSONArray().put(entry))) }
     }
 }

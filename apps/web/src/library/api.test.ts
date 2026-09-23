@@ -58,6 +58,7 @@ it("rejects stored scores with invalid notation or a mismatched identity before 
     revision: 1,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    favorite: false, draft: false, trashedAt: null, openedAt: null,
   };
   expect(parseSavedSheet(saved).score.title).toBe("First Sketch");
   expect(() => parseSavedSheet({ ...saved, id: "someone-else" })).toThrow();
@@ -92,7 +93,7 @@ it("distinguishes a sheet limit from a revision conflict", async () => {
   await expect(request("/api/v1/sheets", "POST", {})).rejects.toEqual(
     new ApiError(
       409,
-      "Your library has reached the current limit of 100 sheets.",
+      "Your library has reached the current limit of 100 sheets, including Trash.",
       "sheet_limit",
     ),
   );

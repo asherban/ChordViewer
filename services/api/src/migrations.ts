@@ -33,4 +33,10 @@ CREATE TABLE lead_sheets (
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX lead_sheets_owner_updated ON lead_sheets (owner_id, updated_at DESC, id);
+` }, { id: '002_library_metadata', sql: `
+ALTER TABLE lead_sheets ADD COLUMN favorite boolean NOT NULL DEFAULT false;
+ALTER TABLE lead_sheets ADD COLUMN draft boolean NOT NULL DEFAULT false;
+ALTER TABLE lead_sheets ADD COLUMN trashed_at timestamptz;
+ALTER TABLE lead_sheets ADD COLUMN opened_at timestamptz;
+CREATE INDEX lead_sheets_owner_active ON lead_sheets (owner_id, trashed_at, opened_at DESC NULLS LAST, updated_at DESC, id);
 ` }];

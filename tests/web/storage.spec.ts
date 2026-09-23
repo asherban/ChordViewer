@@ -70,7 +70,7 @@ test("accounts keep separate libraries and saved details reopen in another brows
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Open tutorial on YouTube" }),
+    page.getByRole("link", { name: "Open on YouTube ↗" }),
   ).toHaveAttribute(
     "href",
     /https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ/,
@@ -90,7 +90,7 @@ test("accounts keep separate libraries and saved details reopen in another brows
     await signIn(secondPage, firstAccount);
     await secondPage
       .getByRole("button", {
-        name: "Open Morning <piano> practice",
+        name: "Edit Morning <piano> practice",
         exact: true,
       })
       .click();
@@ -104,7 +104,7 @@ test("accounts keep separate libraries and saved details reopen in another brows
     await secondPage.reload();
     await expect(
       secondPage.getByRole("button", {
-        name: "Open Morning <piano> practice",
+        name: "Edit Morning <piano> practice",
         exact: true,
       }),
     ).toBeVisible();
@@ -142,7 +142,7 @@ test("a real revision conflict retains unsaved fields until the user reloads", a
     await signIn(secondPage, email);
     await secondPage
       .getByRole("button", {
-        name: "Open Shared across my devices",
+        name: "Edit Shared across my devices",
         exact: true,
       })
       .click();
@@ -217,7 +217,7 @@ test("a failed save preserves the draft and a failed refresh preserves the loade
   await expect(page.getByRole("alert")).toContainText("backend is unavailable");
   await expect(
     page.getByRole("button", {
-      name: "Open Keep my unsaved change",
+      name: "Edit Keep my unsaved change",
       exact: true,
     }),
   ).toBeVisible();

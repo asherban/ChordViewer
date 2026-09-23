@@ -130,12 +130,18 @@ function renderScore(element: HTMLDivElement, score: LeadSheet, available: numbe
   return { width, height, chords: targets, melody: melodyTargets, bars };
 }
 
-export function ScorePreview({ score, melody, editing }: { score: LeadSheet; melody: boolean; editing?: ScoreEditing }) {
+export function ScorePreview({ score, melody, editing, practice }: { score: LeadSheet; melody: boolean; editing?: ScoreEditing;
+  practice?: { bar: number; chordId: string | null; selectBar: (bar: number) => void; selectChord: (id: string) => void } }) {
   const viewport = useRef<HTMLDivElement>(null);
   const notation = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const [layout, setLayout] = useState<NotationLayout | null>(null);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (!practice || !viewport.current) return;
+    (viewport.current.querySelector('[data-practice-chord-current="true"]') ??
+      viewport.current.querySelector('[data-practice-current="true"]'))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [practice, melody, layout]);
   const measures = useMemo(() => editing?.position.measureIndex === score.measures.length && score.measures.length < 256
     ? [...score.measures, { id: "next-bar-preview", chords: [], melody: [] }] : score.measures, [score, editing?.position.measureIndex]);
   useEffect(() => {
@@ -164,8 +170,14 @@ export function ScorePreview({ score, melody, editing }: { score: LeadSheet; mel
   return <div ref={viewport} className="score-scroll" aria-label={editing ? editing.lane === "melody" ? "Editable melody score" : "Editable chord score" : melody ? "Melody score" : "Chord-only score"}>
     {error && melody && <p role="alert">{error}</p>}
     {melody ? <div className="score-rendering" style={{ width: layout?.width ?? width }}>
-      {editing && layout?.bars.filter(bar => bar.index === editing.position.measureIndex).map(bar => <div key={bar.index} className="score-current-bar" style={{ left: bar.left, top: bar.top, width: bar.width, height: bar.height }} />)}
+      {(editing || practice) && layout?.bars.filter(bar => bar.index === (practice?.bar ?? editing?.position.measureIndex)).map(bar => <div key={bar.index} className="score-current-bar" data-practice-current={practice ? "true" : undefined} style={{ left: bar.left, top: bar.top, width: bar.width, height: bar.height }} />)}
       <div ref={notation} className="notation" data-testid="notation" />
+      {practice && layout?.bars.map(bar => <button key={bar.index} className="practice-bar-target" style={{ left: bar.left + 2, top: bar.top + 2 }}
+        aria-label={`Select bar ${bar.index + 1}`} onClick={() => practice.selectBar(bar.index)} />)}
+      {practice && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target practice-chord-target${practice.chordId === chord.id ? " selected" : ""}`}
+        style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={`Select ${chordLabel(chord, score)}`}
+        data-practice-chord-current={practice.chordId === chord.id ? "true" : undefined}
+        aria-pressed={practice.chordId === chord.id} onClick={() => practice.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
       {editing && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
         style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={chordLabel(chord, score)} title={chordLabel(chord, score)} aria-pressed={editing.selectedId === chord.id}
         disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
@@ -176,17 +188,22 @@ export function ScorePreview({ score, melody, editing }: { score: LeadSheet; mel
       {systems.map(system => <div className="chord-system" key={system.start} style={{ width: system.width, gridTemplateColumns: `repeat(${system.columns}, ${system.barWidth}px)` }}>
         {measures.slice(system.start, system.start + system.count).map((measure, column) => {
           const index = system.start + column;
-          const current = editing?.position.measureIndex === index;
+          const current = (practice?.bar ?? editing?.position.measureIndex) === index;
           const slots = positionChordSegments(segments[index], system.barWidth);
-          return <section className={`chord-measure${current ? " current" : ""}`} aria-label={`Bar ${index + 1}`} key={measure.id}>
-            <span className="measure-number">{index + 1}{index === score.measures.length ? " · next bar" : ""}</span>
+          return <section className={`chord-measure${current ? " current" : ""}`} data-practice-current={practice && current ? "true" : undefined} aria-label={`Bar ${index + 1}`} key={measure.id}>
+            {practice ? <button className="measure-number practice-bar-number" onClick={() => practice.selectBar(index)} aria-label={`Select bar ${index + 1}`}>{index + 1}</button>
+              : <span className="measure-number">{index + 1}{index === score.measures.length ? " · next bar" : ""}</span>}
             <div className="chord-symbols">
               {slots.filter(slot => slot.chord).map(slot => {
                 const chord = slot.chord!;
                 const label = chordLabel({ id: chord.id, symbol: chord.symbol, offset: chord.offsetTicks, duration: chord.durationTicks, bar: index, left: 0, top: 0, width: 0 }, score);
                 return editing ? <button key={chord.id} style={{ left: slot.left, width: slot.width }} className={`score-chord editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
                   aria-label={label} title={label} aria-pressed={editing.selectedId === chord.id} disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}>{chord.symbol}</button>
-                  : <span className="score-chord" key={chord.id} style={{ left: slot.left, width: slot.width }} title={label}>{chord.symbol}</span>;
+                  : practice ? <button className={`score-chord practice-chord${practice.chordId === chord.id ? " selected" : ""}`} key={chord.id}
+                      style={{ left: slot.left, width: slot.width }} aria-label={`Select ${label}`} aria-pressed={practice.chordId === chord.id}
+                      data-practice-chord-current={practice.chordId === chord.id ? "true" : undefined}
+                      onClick={() => practice.selectChord(chord.id)}>{chord.symbol}</button>
+                    : <span className="score-chord" key={chord.id} style={{ left: slot.left, width: slot.width }} title={label}>{chord.symbol}</span>;
               })}
             </div>
             {editing && current && <div className="entry-beats" aria-label={`Choose beat in bar ${index + 1}`}>

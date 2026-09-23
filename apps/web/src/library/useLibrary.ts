@@ -14,6 +14,7 @@ import {
 } from "./api";
 
 export function useLibrary() {
+  type LocalSavedSheet = SavedSheet & { metadataOnly?: boolean };
   const epoch = useRef(0);
   const opening = useRef(0);
   const listing = useRef(0);
@@ -22,7 +23,7 @@ export function useLibrary() {
   const [authBusy, setAuthBusy] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
   const [sheets, setSheets] = useState<SheetSummary[] | null>(null);
-  const [selected, setSelected] = useState<SavedSheet | null>(null);
+  const [selected, setSelected] = useState<LocalSavedSheet | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [message, setMessage] = useState("");
@@ -172,12 +173,11 @@ export function useLibrary() {
     setError("");
     setMessage("");
     try {
-      const result = parseSavedSheet(
-        await request(`/api/v1/sheets/${encodeURIComponent(id)}`),
-      );
+      const result = parseSavedSheet(await request(`/api/v1/sheets/${encodeURIComponent(id)}/open`, "POST", {}));
       if (epoch.current !== sessionEpoch || opening.current !== requestId)
         return false;
       setSelected(result);
+      setSheets(previous => previous?.map(sheet => sheet.id === id ? { ...sheet, openedAt: result.openedAt } : sheet) ?? null);
       setConflict(false);
       return true;
     } catch (problem) {
@@ -187,6 +187,67 @@ export function useLibrary() {
       if (epoch.current === sessionEpoch && opening.current === requestId)
         setBusy(false);
     }
+  }
+  async function touchSheet(id: string): Promise<void> {
+    const sessionEpoch = epoch.current;
+    try {
+      const result = parseSavedSheet(await request(`/api/v1/sheets/${encodeURIComponent(id)}/open`, "POST", {}));
+      if (epoch.current !== sessionEpoch) return;
+      setSheets(previous => previous?.map(sheet => sheet.id === id ? { ...sheet, openedAt: result.openedAt } : sheet) ?? null);
+    } catch (problem) { failure(problem, sessionEpoch); }
+  }
+  async function changeMetadata(id: string, changes: { title?: string; favorite?: boolean; draft?: boolean }): Promise<boolean> {
+    const target = sheets?.find(sheet => sheet.id === id);
+    if (!target || busy) return false;
+    const expectedRevision = selected?.id === id ? selected.revision : target.revision;
+    const sessionEpoch = epoch.current;
+    listing.current++; setLoadingLibrary(false);
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = parseSavedSheet(await request(`/api/v1/sheets/${encodeURIComponent(id)}/metadata`, "PATCH",
+        { ...changes, expectedRevision }));
+      if (epoch.current !== sessionEpoch) return false;
+      setSheets(previous => previous?.map(sheet => sheet.id === id ? summary(result) : sheet) ?? null);
+      // A metadata response must not overwrite the user's unsaved score or editor history.
+      setSelected(previous => previous?.id === id ? { ...previous, revision: result.revision,
+        favorite: result.favorite, draft: result.draft, trashedAt: result.trashedAt,
+        score: { ...previous.score, title: result.score.title }, metadataOnly: changes.title === undefined } : previous);
+      setMessage("Library details updated.");
+      return true;
+    } catch (problem) { if (epoch.current === sessionEpoch && selected?.id === id && problem instanceof ApiError && problem.code === "revision_conflict") setConflict(true);
+      failure(problem, sessionEpoch); return false; }
+    finally { if (epoch.current === sessionEpoch) setBusy(false); }
+  }
+  async function duplicateSheet(id: string): Promise<boolean> {
+    const target = sheets?.find(sheet => sheet.id === id);
+    if (!target || busy) return false;
+    const expectedRevision = selected?.id === id ? selected.revision : target.revision;
+    const sessionEpoch = epoch.current; listing.current++; setLoadingLibrary(false); setBusy(true); setError(""); setMessage("");
+    try {
+      const result = parseSavedSheet(await request(`/api/v1/sheets/${encodeURIComponent(id)}/duplicate`, "POST",
+        { expectedRevision }));
+      if (epoch.current !== sessionEpoch) return false;
+      setSheets(previous => [summary(result), ...(previous ?? [])]); setMessage("Saved copy created."); return true;
+    } catch (problem) { if (epoch.current === sessionEpoch && selected?.id === id && problem instanceof ApiError && problem.code === "revision_conflict") setConflict(true);
+      failure(problem, sessionEpoch); return false; }
+    finally { if (epoch.current === sessionEpoch) setBusy(false); }
+  }
+  async function transitionSheet(id: string, transition: "trash" | "restore"): Promise<boolean> {
+    const target = sheets?.find(sheet => sheet.id === id);
+    if (!target || busy) return false;
+    const expectedRevision = selected?.id === id ? selected.revision : target.revision;
+    const sessionEpoch = epoch.current; listing.current++; setLoadingLibrary(false); setBusy(true); setError(""); setMessage("");
+    try {
+      const result = parseSavedSheet(await request(`/api/v1/sheets/${encodeURIComponent(id)}/${transition}`, "POST",
+        { expectedRevision }));
+      if (epoch.current !== sessionEpoch) return false;
+      setSheets(previous => previous?.map(sheet => sheet.id === id ? summary(result) : sheet) ?? null);
+      if (transition === "trash") setSelected(previous => previous?.id === id ? null : previous);
+      setMessage(transition === "trash" ? "Moved to Trash. You can restore it later." : "Sheet restored.");
+      return true;
+    } catch (problem) { if (epoch.current === sessionEpoch && selected?.id === id && problem instanceof ApiError && problem.code === "revision_conflict") setConflict(true);
+      failure(problem, sessionEpoch); return false; }
+    finally { if (epoch.current === sessionEpoch) setBusy(false); }
   }
   async function createSheet(fields: NewSheet): Promise<boolean> {
     return createRequest("/api/v1/sheets", fields);
@@ -286,8 +347,12 @@ export function useLibrary() {
     signOut,
     loadLibrary,
     openSheet,
+    touchSheet,
     createSheet,
     importSheet,
     saveSheet,
+    changeMetadata,
+    duplicateSheet,
+    transitionSheet,
   };
 }

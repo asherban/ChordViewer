@@ -87,14 +87,15 @@ fun NewSheetDialog(state: LibraryState, create: (String, Boolean, String, ScoreT
 }
 
 @Composable
-fun SheetDetailsDialog(state: LibraryState, update: (String, String) -> Unit, settings: (String, ScoreTimeSignature) -> Unit, export: () -> Unit, save: () -> Unit, close: () -> Unit) {
+fun SheetDetailsDialog(state: LibraryState, updateTitle: (String) -> Unit, updateTutorial: (String) -> Unit,
+    settings: (String, ScoreTimeSignature) -> Unit, export: () -> Unit, save: () -> Unit, close: () -> Unit) {
     val score = state.editor?.score ?: state.selected?.score ?: return
     var key by remember(score.keySignature) { mutableStateOf(score.keySignature) }
     var time by remember(score.timeSignature) { mutableStateOf(score.timeSignature) }
     AlertDialog(onDismissRequest = close, title = { Text("Sheet details") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedTextField(state.draftTitle, { update(it, state.draftTutorial) }, label = { Text("Sheet title") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(state.draftTutorial, { update(state.draftTitle, it) }, label = { Text("YouTube tutorial URL (optional)") }, singleLine = true, enabled = !state.busy,
+            OutlinedTextField(state.draftTitle, updateTitle, label = { Text("Sheet title") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(state.draftTutorial, updateTutorial, label = { Text("YouTube tutorial URL (optional)") }, singleLine = true, enabled = !state.busy,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
             ScoreSettingsFields(key, time, !state.busy, { key = it }, { time = it })
             OutlinedButton(onClick = { settings(key, time) }, enabled = !state.busy && (key != score.keySignature || time != score.timeSignature), modifier = Modifier.heightIn(min = 48.dp)) { Text("Apply key and meter") }
