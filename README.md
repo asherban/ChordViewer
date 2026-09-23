@@ -2,13 +2,13 @@
 
 Create lead sheets at the piano, keep a YouTube lesson beside the score, and practice on the web or a native Android tablet.
 
-**Rebuild status: M5 melody, direct editing and import.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Enter chords and melody in separate MIDI passes or add chords, notes and rests by hand. Correct/delete/replace entries, undo/redo, choose a key/meter, link a YouTube tutorial and save/reopen the full sheet. Import supported MusicXML or ChordViewer JSON after a preview, and export the current score as JSON. Embedded tutorial playback and practice advancement arrive in M6.
+**Rebuild status: M0–M6 complete locally; M7 validation is next.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Enter chords and melody in separate MIDI passes or add chords, notes and rests by hand. Correct/delete/replace entries, undo/redo, choose a key/meter, link a YouTube tutorial and save/reopen the full sheet. Import supported MusicXML or ChordViewer JSON after a preview, and export the current score as JSON. Library now supports search, filters, favorites, Draft designation, rename, duplicate and recoverable Trash. Practice offers manual navigation, optional fresh-gesture chord matching, temporary transposition and independent YouTube playback.
 
 The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
 
 Scores use large serif chord names and compact four-bar rows, with connected staves when melody is visible. Narrow windows and dense music reflow into fewer bars at a readable size. See the [score layout screenshots and verification](docs/development/score-layout-verification.md). Run the testing launcher without `-SkipBuild` after pulling Android source changes so the emulator receives the updated app.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M5 verification record](docs/development/m5-verification.md) for melody/import checks and current screenshots, the [M4 record](docs/development/m4-verification.md) for the original chord-entry acceptance, the [M3 record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M6 verification record](docs/development/m6-verification.md) for current Library/Practice checks and screenshots, the [M5 record](docs/development/m5-verification.md) for melody/import, the [M4 record](docs/development/m4-verification.md) for chord-entry acceptance, the [M3 record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -65,6 +65,8 @@ Wait for the **ready** message, then:
 
 Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client to compare drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
 
+For an M6 smoke pass, search and filter Library, favorite and mark a sheet Draft, duplicate it, and move the copy to Trash and restore it. Open the original in Practice: Manual is the default; move between bars, enable On match, then broadcast **P** for a fresh chord gesture that matches the highlighted chart chord. Check live comparison and target advancement without changing saved notation. Link a YouTube URL in Sheet details, tap **Play tutorial**, hide it, and use **Edit sheet** to return to the selected Practice position. Run `npx playwright test tests/web/library-practice.spec.ts tests/web/library-practice-midi.spec.ts` for the focused browser checks; set `$env:CHORDVIEWER_REAL_MIDI='1'` first on this Windows/LoopBe workstation to run the physical-MIDI case (otherwise it skips). Native API, visual and UI commands below cover the emulator; add `-Organization` to `Test-NativeShell.ps1` for its isolated Library favorite/Draft/duplicate/Trash/restore UI check.
+
 Useful options:
 
 ```powershell
@@ -109,7 +111,7 @@ npm run dev
 
 The helper generates private local credentials once, builds the API image and starts PostgreSQL and the API in the background. Keep the `npm run dev` terminal running for the web server and contract watcher. Open **http://127.0.0.1:5173/** in Chrome or Edge; this is the configured browser origin. The API is at **http://127.0.0.1:3000/**, and Vite proxies `/api` and `/health` to it. PostgreSQL has no published host port. No NAS is required.
 
-Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** offers a blank sheet or an explicit example copy. **Open** enters Create; use **Sheet details** for the title/tutorial. **Practice** displays the current draft with live MIDI feedback and never inserts chords. Switching modes retains the draft; opening a different sheet or signing out asks before discarding changes. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account and 1 MiB per write.
+Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** offers a blank sheet or an explicit example copy. **Edit** enters Create; use **Sheet details** for the title/tutorial. Library cards can be searched, filtered by favorites, Draft, Trash, notation or tutorial, and sorted by recent open or title. Their bounded first-bar chord labels describe actual stored music. **Practice** displays the current in-memory score with live MIDI feedback and never inserts chords. Manual movement is the default; On match waits for a new completed chord gesture. The tutorial plays independently in a YouTube embed after an explicit tap. Display mode, size and transposition are temporary. Switching modes retains the draft; opening a different sheet or signing out asks before discarding changes. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account including Trash, and 1 MiB per write.
 
 ### Create a chord sheet
 
@@ -161,7 +163,7 @@ npm run test:api
 .\scripts\development\Stop-LocalBackend.ps1 -Environment test
 ```
 
-`check` runs lint, unit/contract tests and web/API builds. Install Chromium once. `test:web` starts/stops its own Vite server, so stop `npm run dev` first; it uses the separate test API on **127.0.0.1:3001**. The integration suites create random accounts in the test database and check persistence, isolation, conflicts and failures. Windows-only `test:persistence` checks session renewal/expiry and restarts, rebuilds and recreates the labelled test containers while retaining their volume. Close interactive test clients before that suite; it does not operate on development containers. Run suites sequentially: API throttling tests deliberately exhaust sign-in limits for up to 60 seconds. These checks do not replace real LoopBe testing below.
+`check` runs lint, unit/contract tests and web/API builds. Install Chromium once. `test:web` starts/stops its own Vite server, so stop `npm run dev` first; it uses the separate test API on **127.0.0.1:3001**. The integration suites create random accounts in the test database and check persistence, isolation, conflicts, Library metadata/Trash/quota, and Practice UI. Start the isolated backend with `./scripts/development/Start-LocalBackend.ps1 -Environment test` before `npm run test:api` or `npm run test:web`; stop it with `./scripts/development/Stop-LocalBackend.ps1 -Environment test` when done. Windows-only `test:persistence` checks session renewal/expiry and restarts, rebuilds and recreates the labelled test containers while retaining their volume. Close interactive test clients before that suite; it does not operate on development containers. Run suites sequentially: API throttling tests deliberately exhaust sign-in limits for up to 60 seconds. These checks do not replace real LoopBe testing below.
 
 Additional commands:
 
@@ -302,7 +304,13 @@ For the optional native UI acceptance test, prepare a synthetic account with at 
 .\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -WithMidi
 ```
 
-This changes a test sheet's title, checks mode/draft preservation, holds a real LoopBe note through navigation and saving, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. It passes credentials over stdin, not command-line arguments. It requires the test API on port 3001 and refuses conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only acceptance. See the [native guide](apps/android/README.md) for fixture details.
+This changes a test sheet's title, checks draft preservation and read-only Practice, holds a real LoopBe note through navigation and saving, advances on a fresh matching gesture, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. Run the separate Library organization UI check with the same private fixture and test API:
+
+```powershell
+.\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -Organization
+```
+
+The organization check uses a fresh synthetic sheet for favorite, Draft, duplicate, Trash and restore. Both commands pass credentials over stdin, not command-line arguments. They require the test API on port 3001 and refuse conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only Practice acceptance. See the [native guide](apps/android/README.md) for fixture details.
 
 For native chord/melody authoring acceptance, use the same private synthetic account and running bridge:
 
@@ -324,4 +332,4 @@ The debug bridge is excluded from the Android release build. Emulator testing do
 
 ## Next milestones
 
-M6 completes the Library and Practice workflow. NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).
+M6 Library and Practice implementation and local validation are recorded in the [M6 verification record](docs/development/m6-verification.md). NAS deployment stays at M8, after local validation. See the [milestone roadmap](docs/architecture/milestones.md) and [score contract](docs/architecture/score-contract.md).

@@ -16,6 +16,9 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [M4 verification record](../development/m4-verification.md) | Real LoopBe chord creation on both clients, full-score persistence, reviews and screenshots. |
 | [M5 melody and import rules](melody-authoring.md) | Separate entry passes, direct editing, expanded keys/meters, safe import and JSON export. |
 | [M5 verification record](../development/m5-verification.md) | Product tests, real MIDI authoring, import/export, reviews and actual application captures. |
+| [M6 execution plan](m6-execution-plan.md) | Library/Practice scope, implementation order, acceptance and review gates. |
+| [M6 Library and Practice contract](library-practice.md) | Storage, matching, transposition, bookmarks and tutorial boundaries. |
+| [M6 verification record](../development/m6-verification.md) | Product checks, browser/native acceptance, screenshots and remaining limits. |
 | [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |

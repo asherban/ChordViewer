@@ -48,7 +48,7 @@ The score should remain editable throughout. Proposed chord recognition must not
 - While inspecting or editing an existing event, normal MIDI auto-insertion pauses so exploratory playing cannot create unwanted entries. The UI shows when MIDI entry is active, paused or replacing an event.
 - Provide touch actions on Android and web, plus desktop keyboard shortcuts. Undo/Delete should be easy to reach from the music stand.
 
-## Library: proposed role and behavior
+## Library: role and behavior
 
 Library is the user's home for finding, organizing and reopening lead sheets.
 
@@ -62,7 +62,7 @@ Library is the user's home for finding, organizing and reopening lead sheets.
 - Draft describes work in progress, not unsaved data. Autosave and saved/sync status remain separate from that designation.
 - A library selection and the current sheet persist when switching between Create and Practice. If no sheet is open, either mode should offer a sheet picker; Create should also offer a blank sheet.
 
-## Practice: proposed role and behavior
+## Practice: role and behavior
 
 Practice is for reading and playing an existing sheet with optional tutorial playback and live MIDI feedback. Piano input never edits the saved score in this mode.
 
@@ -85,11 +85,11 @@ Practice is for reading and playing an existing sheet with optional tutorial pla
 | Library | Import | Import preview, then an editable personal sheet |
 | Library | Edit on a sheet | Create mode at its last edit position |
 | Library | Practice on a sheet | Practice mode at its last practice position, with manual movement initially selected |
-| Create | Practice | Save current draft state, pause writing from MIDI, open the same sheet for practice |
+| Create | Practice | Preserve the current draft in memory without auto-saving, pause writing from MIDI, open the same score for practice |
 | Practice | Edit sheet | Open the same sheet at the selected musical position in Create, with entry paused until the edit target is chosen |
 | Either sheet mode | Library | Preserve current sheet state and return to the user's collection |
 
-These transitions are proposed interaction details, not yet implemented behavior.
+These Library/Create/Practice transitions are implemented for M6 local validation. Draft content stays in memory across mode changes and requires an explicit save to persist.
 
 ## Proposed implementation principles
 
