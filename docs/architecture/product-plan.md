@@ -59,7 +59,7 @@ Library is the user's home for finding, organizing and reopening lead sheets.
 - Resume the previous edit position or practice position for the selected sheet.
 - Show a useful empty state with New sheet and Import.
 - Show only personal sheets and imports for the first release. Sharing comes later; no community/marketplace tab is planned initially.
-- Draft describes work in progress, not unsaved data. Autosave and saved/sync status remain separate from that designation.
+- Draft describes work in progress, not unsaved data. Local recovery status and explicit server Save remain separate from that designation.
 - A library selection and the current sheet persist when switching between Create and Practice. If no sheet is open, either mode should offer a sheet picker; Create should also offer a blank sheet.
 
 ## Practice: role and behavior
@@ -89,7 +89,7 @@ Practice is for reading and playing an existing sheet with optional tutorial pla
 | Practice | Edit sheet | Open the same sheet at the selected musical position in Create, with entry paused until the edit target is chosen |
 | Either sheet mode | Library | Preserve current sheet state and return to the user's collection |
 
-These Library/Create/Practice transitions are implemented for M6 local validation. Draft content stays in memory across mode changes and requires an explicit save to persist.
+These Library/Create/Practice transitions are implemented. Draft content stays in memory across mode changes and M7 retains confirmed local recovery copies across reload/process restart. Updating the shared Library still requires explicit Save.
 
 ## Proposed implementation principles
 
@@ -109,7 +109,7 @@ Both clients connect directly to the piano and communicate with the backend for 
 - Represent chord events and melody events separately on the same musical timeline, with explicit duration, pitch spelling, rests and measure information. The current array of chord strings is insufficient for melody notation.
 - Keep live held/sustained MIDI notes separate from saved score events.
 - Treat the musical score as editable data, not a picture or PDF. Import the supported MusicXML subset or exact ChordViewer JSON; export score JSON without account or tutorial metadata.
-- Use a local draft and explicit synchronization status so a temporary server connection loss does not interrupt creation. M3 preserves metadata drafts during a failed save and rejects stale revisions; durable offline drafts and conflict merging remain to be designed.
+- Use local recovery and explicit Save so a temporary server connection loss does not interrupt creation. M7 preserves complete drafts and their original revisions. After authentication, restore deliberately; conflicts offer Save as new or a confirmed reload. No automatic merge or server autosave is planned. See [draft recovery](draft-recovery.md).
 - Use one versioned API contract for web and Android. Native Android has its own UI and MIDI integration; shared behavior does not imply shared UI code.
 - Keep each client's MIDI processing separable from its input transport. Web tests can use the real Web MIDI path through LoopBe1; Android emulator tests will use a local bridge and debug input adapter feeding the same native processing used by device input. The adapter remains outside release builds. See [Local MIDI testing](local-midi-testing.md) for verified results and remaining work.
 - M3 implements TypeScript/Fastify, PostgreSQL and self-hosted Better Auth email/password with database-backed sessions. Web uses HttpOnly SameSite cookies through its same-origin proxy; Android uses signed bearer credentials held only in memory. HTTP is limited to workstation loopback for this milestone. Public HTTPS, account recovery/verification and payment access remain later work. See the [backend contract](backend-contract.md).
@@ -135,7 +135,7 @@ The workstation audit, preservation steps and cleanup inventory are recorded in 
 4. M4 exposes chord-name alternatives; M5 chooses key-aware MIDI spelling and allows direct pitch correction. Further shortcuts can follow usability testing.
 5. MusicXML plus ChordViewer JSON, explicit preview/new-sheet import and manual chord/note/rest editing are agreed for M5.
 6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.
-7. Offline draft synchronization and simultaneous edits from two devices.
+7. Resolved for M7: device-local recovery with explicit Save, original revision checks and Save as new for simultaneous edits; automatic merging/synchronization remains outside scope.
 8. Measure combined local service resource use as backend work is added. M1 selected and verified the tablet emulator configuration in the [local setup guide](../development/local-setup.md). Verify NAS capacity when the later deployment milestone begins. Exact tablet model and physical piano compatibility remain unverified hardware details, but do not block the local test workflow.
 
 ## Mockup notes

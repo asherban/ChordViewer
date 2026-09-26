@@ -19,6 +19,10 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [M6 execution plan](m6-execution-plan.md) | Library/Practice scope, implementation order, acceptance and review gates. |
 | [M6 Library and Practice contract](library-practice.md) | Storage, matching, transposition, bookmarks and tutorial boundaries. |
 | [M6 verification record](../development/m6-verification.md) | Product checks, browser/native acceptance, screenshots and remaining limits. |
+| [M7 execution plan](m7-execution-plan.md) | Recovery policy, complete local acceptance and review scope. |
+| [Local draft recovery](draft-recovery.md) | Explicit Save, device-local copies, conflict resolution, account isolation and limits. |
+| [Local backup and restore](../development/local-backup-restore.md) | Private archives, fresh isolated restore targets and cleanup commands. |
+| [M7 verification record](../development/m7-verification.md) | Restart/outage/conflict checks, backup comparison, release/resource validation and evidence. |
 | [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |

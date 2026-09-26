@@ -2,13 +2,13 @@
 
 Create lead sheets at the piano, keep a YouTube lesson beside the score, and practice on the web or a native Android tablet.
 
-**Rebuild status: M0–M6 complete locally; M7 validation is next.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Enter chords and melody in separate MIDI passes or add chords, notes and rests by hand. Correct/delete/replace entries, undo/redo, choose a key/meter, link a YouTube tutorial and save/reopen the full sheet. Import supported MusicXML or ChordViewer JSON after a preview, and export the current score as JSON. Library now supports search, filters, favorites, Draft designation, rename, duplicate and recoverable Trash. Practice offers manual navigation, optional fresh-gesture chord matching, temporary transposition and independent YouTube playback.
+**Rebuild status: M0–M7 complete locally; M8 private NAS deployment is next.** Create an account in the browser or native Android app and use the same personal Library from both. New accounts start empty. Enter chords and melody in separate MIDI passes or add chords, notes and rests by hand. Correct/delete/replace entries, undo/redo, choose a key/meter, link a YouTube tutorial and save/reopen the full sheet. Import supported MusicXML or ChordViewer JSON after a preview, and export the current score as JSON. Library supports search, filters, favorites, Draft designation, rename, duplicate and recoverable Trash. Practice offers manual navigation, optional fresh-gesture chord matching, temporary transposition and independent YouTube playback. Both clients keep confirmed local recovery copies; restore them from Library after a restart, then explicitly Save or resolve a conflict by saving as new.
 
 The web and Android clients now use the shared cream/sage design from the mockups: a compact Library/Create/Practice header, personal sheet cards, and a score workspace with tutorial and live MIDI feedback beside it. The web app fills the browser window; **Enter full screen** in the header also hides the browser chrome. Use **Exit full screen** or **Esc** to leave that mode. Browsers that disallow it still get the full-window layout.
 
 Scores use large serif chord names and compact four-bar rows, with connected staves when melody is visible. Narrow windows and dense music reflow into fewer bars at a readable size. See the [score layout screenshots and verification](docs/development/score-layout-verification.md). Run the testing launcher without `-SkipBuild` after pulling Android source changes so the emulator receives the updated app.
 
-The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M6 verification record](docs/development/m6-verification.md) for current Library/Practice checks and screenshots, the [M5 record](docs/development/m5-verification.md) for melody/import, the [M4 record](docs/development/m4-verification.md) for chord-entry acceptance, the [M3 record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
+The [product plan, selected mockups and milestones](docs/architecture/README.md) describe the agreed product. See the [M7 verification record](docs/development/m7-verification.md) for recovery, complete local regression checks, backup restoration and resource measurements; the [M6 record](docs/development/m6-verification.md) for Library/Practice design and screenshots, the [M5 record](docs/development/m5-verification.md) for melody/import, the [M4 record](docs/development/m4-verification.md) for chord-entry acceptance, the [M3 record](docs/development/m3-verification.md) for persistence, and the [UI alignment record](docs/development/m3-ui-verification.md) for the shared design. [Notation licenses](docs/development/third-party-notices.md) document bundled components. The previous browser app remains recoverable from history and a private baseline; this checkout contains the rebuild. The existing `chordviewer.app` deployment and DNS have not been changed.
 
 ## Repository
 
@@ -61,7 +61,7 @@ Wait for the **ready** message, then:
 1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android sign-in is required again after each app-process restart.
 2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
 3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the chord/smoke fixture. Enter **M** for a six-note melody sequence. Both go to every connected client without producing audio. To write music, open a saved sheet in **Create**, choose the matching chord or melody pass, select a free position/duration and press **Start MIDI entry** on each client. For **M**, G major, 3/4 and quarter-note duration fill two bars. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
-4. Save any draft edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback; unsaved drafts do not survive shutdown.
+4. Save your edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback. Confirmed local recovery copies survive ordinary shutdown; pending writes and unfinished MIDI gestures may not.
 
 Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client to compare drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
 
@@ -111,7 +111,7 @@ npm run dev
 
 The helper generates private local credentials once, builds the API image and starts PostgreSQL and the API in the background. Keep the `npm run dev` terminal running for the web server and contract watcher. Open **http://127.0.0.1:5173/** in Chrome or Edge; this is the configured browser origin. The API is at **http://127.0.0.1:3000/**, and Vite proxies `/api` and `/health` to it. PostgreSQL has no published host port. No NAS is required.
 
-Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** offers a blank sheet or an explicit example copy. **Edit** enters Create; use **Sheet details** for the title/tutorial. Library cards can be searched, filtered by favorites, Draft, Trash, notation or tutorial, and sorted by recent open or title. Their bounded first-bar chord labels describe actual stored music. **Practice** displays the current in-memory score with live MIDI feedback and never inserts chords. Manual movement is the default; On match waits for a new completed chord gesture. The tutorial plays independently in a YouTube embed after an explicit tap. Display mode, size and transposition are temporary. Switching modes retains the draft; opening a different sheet or signing out asks before discarding changes. Drafts are not durable across reloads. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account including Trash, and 1 MiB per write.
+Create an account using a password of 12–128 characters. Email verification and password recovery are not configured for this private milestone. Your Library starts empty; **New sheet** offers a blank sheet or an explicit example copy. **Edit** enters Create; use **Sheet details** for the title/tutorial. Library cards can be searched, filtered by favorites, Draft, Trash, notation or tutorial, and sorted by recent open or title. Their bounded first-bar chord labels describe actual stored music. **Practice** displays the current in-memory score with live MIDI feedback and never inserts chords. Manual movement is the default; On match waits for a new completed chord gesture. The tutorial plays independently in a YouTube embed after an explicit tap. Display mode, size and transposition are temporary. Switching modes retains the draft; opening a different sheet or signing out asks before leaving unsaved work. Confirmed local recovery copies survive ordinary reload/process restart. A stale revision produces a conflict instead of overwriting another device's changes. The local limit is 100 sheets per account including Trash, and 1 MiB per write.
 
 ### Create a chord sheet
 
@@ -148,6 +148,32 @@ After backend changes, rerun `Start-LocalBackend.ps1` to rebuild/recreate the AP
 ```
 
 Ports 3000 and 5173 must be free. Private settings live in ignored `.local/backend/development.env`; keep this file with its existing database volume. Do not replace credentials while retaining the volume. See [local container setup](docs/development/m3-containers.md) for isolation, resources and troubleshooting.
+
+## Recover unsaved work
+
+Both apps keep a local recovery copy automatically while **Save remains explicit**. Wait for **Local recovery copy updated** before closing. After restarting, sign into the same account and use **Recover unsaved work → Restore draft** in Library. The recovered sheet starts with MIDI entry paused and fresh undo history.
+
+If another client saved meanwhile, use **Save as new sheet** to keep both versions, or confirm **Reload latest version** to replace your draft. A failed save during an outage leaves the draft available; retry after reconnecting. Signing out hides local copies without deleting them.
+
+Each device/browser store allows 20 copies, without silently deleting old drafts. Save or explicitly delete copies to free space. Storage failures are visible; save/export while the sheet is open. Browser/app data clearing, uninstalling or device loss can remove copies. Cold-start sign-in needs a reachable backend. Details and privacy limits are in the [recovery contract](docs/architecture/draft-recovery.md).
+
+## Back up and rehearse a restore locally
+
+Run in the initialized development PowerShell with Docker Desktop and the source backend running:
+
+```powershell
+.\scripts\development\Backup-LocalBackend.ps1 -Environment development
+# Use -Environment test for the isolated test database.
+
+# Replace the placeholder with the completed directory printed by Backup.
+.\scripts\development\Restore-LocalBackend.ps1 -BackupDirectory .local\backups\<timestamp-id>
+Invoke-RestMethod http://127.0.0.1:3002/health
+
+# Replace the placeholder with the restore ID printed above.
+.\scripts\development\Stop-RestoredBackend.ps1 -RestoreId <12-character-id>
+```
+
+Backups include saved data and the exact running API image. Restore verifies the archives, creates a separate project/volume on port 3002 and leaves the source unchanged. Sign in again to the restored backend. Stop preserves restored data. Backups contain private accounts and music; keep completed directories in protected storage on another device for disaster recovery. See [backup contents, limits and cleanup](docs/development/local-backup-restore.md). These commands do not back up unsaved device-local drafts.
 
 ## Build and check
 
@@ -311,6 +337,16 @@ This changes a test sheet's title, checks draft preservation and read-only Pract
 ```
 
 The organization check uses a fresh synthetic sheet for favorite, Draft, duplicate, Trash and restore. Both commands pass credentials over stdin, not command-line arguments. They require the test API on port 3001 and refuse conflicting emulator port mappings. Remove an existing development mapping with `adb -s emulator-5554 reverse --remove tcp:3000` before the test; restore `adb -s emulator-5554 reverse tcp:3000 tcp:3000` afterward. Omit `-WithMidi` for UI-only Practice acceptance. See the [native guide](apps/android/README.md) for fixture details.
+
+M7 recovery acceptance uses a separate synthetic account with an empty Library and a private fixture containing `email`, `password` and optional `apiPort` (defaults to 3001). Build the debug and test APKs first, then run both phases in order on an isolated emulator:
+
+```powershell
+npx playwright test tests/web/recovery.spec.ts
+.\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\m7-native-fixture.json -RecoveryPhase 1
+.\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\m7-native-fixture.json -RecoveryPhase 2
+```
+
+Phase 1 creates music through the native UI, temporarily disconnects its backend route, retries Save after reconnecting, and leaves a confirmed unsaved recovery copy. Phase 2 force-stops/relaunches the app, changes the saved original from another client, restores the local copy and saves it as a new sheet. Phase 1 requires its own port-3000 reverse mapping; the runner preserves unrelated mappings. These are product acceptance tests using the development adapter, not tests for the adapter itself. Screenshots are under `.local/android-ui-evidence`; [M7 verification](docs/development/m7-verification.md) records checked results.
 
 For native chord/melody authoring acceptance, use the same private synthetic account and running bridge:
 

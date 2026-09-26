@@ -1,6 +1,6 @@
 # Implemented foundation
 
-The root [README](../../README.md) is the developer command reference. Product intent and future behavior are in the [architecture plan](../architecture/README.md); this document describes the implementation through M5.
+The root [README](../../README.md) is the developer command reference. Product intent and future behavior are in the [architecture plan](../architecture/README.md); this document describes the implementation through M7.
 
 ## Boundaries
 
@@ -19,8 +19,10 @@ The web uses VexFlow 5 with bundled fonts; Android uses native Canvas and Bravur
 
 ## Development and release boundary
 
+Both clients retain bounded account-scoped recovery snapshots locally and keep server Save explicit. Web uses IndexedDB transactions and independent writer identities; Android uses AtomicFile in its no-backup private directory. Original revisions survive restore, with Save as new or an explicit reload for conflicts. See [draft recovery](../architecture/draft-recovery.md). Library organization and read-only Practice are described in [Library and Practice](../architecture/library-practice.md).
+
 The npm workspace pins Node in `.node-version`, keeps one lockfile and builds contracts before their web/API consumers. Vite proxies API calls during local development. Android has its own pinned Gradle/JDK toolchain. CI checks web/API lint, tests, builds and browser acceptance, plus native unit tests/lint/APKs. Real LoopBe testing remains a workstation check.
 
-The [backend contract](../architecture/backend-contract.md) describes the implemented M3 authentication, owner checks, conflict responses, input limits and explicit migrations. API/database containers have separate development/test settings and retained volumes. Windows lifecycle acceptance verifies persistence across restarts and recreation. CI starts an isolated container backend for browser/API tests; native API and real LoopBe acceptance run on this workstation. Public HTTPS, email recovery/verification, offline recovery and backup restoration remain later milestones.
+The [backend contract](../architecture/backend-contract.md) describes authentication, owner checks, conflict responses, input limits and explicit migrations. API/database containers have separate development/test settings and retained volumes. Windows lifecycle acceptance verifies persistence across restarts and recreation; [local backup/restore](local-backup-restore.md) rehearses private archives in a fresh isolated target. CI starts an isolated container backend for browser/API tests; native API and real LoopBe acceptance run on this workstation. Public HTTPS and email account recovery/verification remain later milestones.
 
 The previous browser app, automatic Pages publication instructions and starter assets were retired after every removed file was matched to the private baseline. Relevant chord recognition and display behavior survives in focused modules/tests and language-independent fixtures. The domain, license, history, private settings and agreed mockups remain intact.
