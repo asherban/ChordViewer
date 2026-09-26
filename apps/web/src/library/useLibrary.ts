@@ -8,14 +8,13 @@ import {
   request,
   summary,
   type NewSheet,
-  type SavedSheet,
   type SheetSummary,
   type User,
 } from "./api";
 import { parseRecovery, type RecoveryDraft } from "./recovery";
+import type { SelectedSheet } from "./selection";
 
 export function useLibrary() {
-  type LocalSavedSheet = SavedSheet & { metadataOnly?: boolean };
   const epoch = useRef(0);
   const opening = useRef(0);
   const listing = useRef(0);
@@ -24,7 +23,7 @@ export function useLibrary() {
   const [authBusy, setAuthBusy] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
   const [sheets, setSheets] = useState<SheetSummary[] | null>(null);
-  const [selected, setSelected] = useState<LocalSavedSheet | null>(null);
+  const [selected, setSelected] = useState<SelectedSheet | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [message, setMessage] = useState("");
@@ -225,10 +224,18 @@ export function useLibrary() {
         { ...changes, expectedRevision }));
       if (epoch.current !== sessionEpoch) return false;
       setSheets(previous => previous?.map(sheet => sheet.id === id ? summary(result) : sheet) ?? null);
-      // A metadata response must not overwrite the user's unsaved score or editor history.
-      setSelected(previous => previous?.id === id ? { ...previous, revision: result.revision,
-        favorite: result.favorite, draft: result.draft, trashedAt: result.trashedAt,
-        score: { ...previous.score, title: result.score.title }, metadataOnly: changes.title === undefined } : previous);
+      if (changes.title !== undefined && selected?.id === id) {
+        // Rename follows a confirmed departure from the draft. Start a new writer,
+        // so accepting the renamed baseline cannot delete the draft being left.
+        setSelected(result);
+        setRestored(null);
+        setRecoverySelection(previous => previous + 1);
+      } else {
+        // Library flags advance the revision without replacing local music or history.
+        setSelected(previous => previous?.id === id ? { ...previous, revision: result.revision,
+          updatedAt: result.updatedAt, favorite: result.favorite, draft: result.draft,
+          trashedAt: result.trashedAt, metadataOnly: true } : previous);
+      }
       setMessage("Library details updated.");
       return true;
     } catch (problem) { if (epoch.current === sessionEpoch && selected?.id === id && problem instanceof ApiError && problem.code === "revision_conflict") setConflict(true);

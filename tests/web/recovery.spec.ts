@@ -126,6 +126,41 @@ test("restoring another copy of the same sheet preserves the unsaved draft being
   expect((await (await page.request.get(`/api/v1/sheets/${id}`)).json()).revision).toBe(1);
 });
 
+test("a damaged recovery copy does not hide valid drafts and remains stored after restore", async ({ page }) => {
+  page.on("dialog", dialog => void dialog.accept());
+  await account(page); await create(page); await details(page, "Readable recovery draft");
+  const damagedId = await page.evaluate(() => new Promise<string>((resolve, reject) => {
+    const opening = indexedDB.open("chordviewer-recovery", 1);
+    opening.onerror = () => reject(new Error("Open failed"));
+    opening.onsuccess = () => {
+      const db = opening.result, tx = db.transaction("drafts", "readwrite"), store = tx.objectStore("drafts");
+      const id = crypto.randomUUID(), read = store.getAll();
+      read.onsuccess = () => store.put({ ...read.result[0], id, score: null });
+      tx.oncomplete = () => { db.close(); resolve(id); };
+      tx.onabort = () => { db.close(); reject(new Error("Write failed")); };
+    };
+  }));
+  await page.reload();
+  const copies = page.getByRole("region", { name: "Local recovery copies" });
+  await expect(copies.getByRole("alert")).toHaveText("One local recovery copy could not be read. It remains stored on this device.");
+  await expect(copies.getByRole("article")).toHaveCount(1);
+  await expect(copies.getByText("Readable recovery draft", { exact: true })).toBeVisible();
+  await copies.getByRole("button", { name: "Restore draft" }).click();
+  await expect(page.getByRole("heading", { name: "Readable recovery draft", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save sheet", exact: true })).toBeEnabled();
+  expect(await page.evaluate(id => new Promise<boolean>((resolve, reject) => {
+    const opening = indexedDB.open("chordviewer-recovery", 1);
+    opening.onerror = () => reject(new Error("Open failed"));
+    opening.onsuccess = () => {
+      const db = opening.result, tx = db.transaction("drafts", "readonly"), read = tx.objectStore("drafts").get(id);
+      let retained = false;
+      read.onsuccess = () => { retained = read.result?.id === id && read.result.score === null; };
+      tx.oncomplete = () => { db.close(); resolve(retained); };
+      tx.onabort = () => { db.close(); reject(new Error("Read failed")); };
+    };
+  }), damagedId)).toBe(true);
+});
+
 test("full local storage reports failure without evicting drafts or blocking explicit Save", async ({ page, context }) => {
   page.on("dialog", dialog => void dialog.accept());
   await account(page); await create(page); await details(page, "Existing local copy");

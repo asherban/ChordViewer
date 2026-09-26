@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseScore } from "@chordviewer/contracts";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
-import { parseRecovery, type RecoveryDraft } from "./recovery";
+import { parseRecovery, parseRecoveryList, RECOVERY_LIMIT, type RecoveryDraft } from "./recovery";
 import { ScoreDraft } from "../editor/ScoreDraft";
 
 const score = parseScore(example);
@@ -11,6 +11,16 @@ const copy: RecoveryDraft = { version: 1, id: "d426dbf3-baf2-47df-9953-693eea428
   updatedAt: 42, base, score, title: "Recovered title", tutorial: "", position: { measureIndex: 1, offsetTicks: 480 } };
 
 describe("local recovery boundary", () => {
+  it("lists valid copies despite damaged rows and never exposes another account's draft", () => {
+    const newer = { ...copy, id: "857737d6-e035-438c-b8d6-6c1fa790d3b0", updatedAt: 43 };
+    const damaged = { ...copy, score: null };
+    const foreign = { ...copy, accountId: "account-b" };
+    const rows = [copy, damaged, foreign, newer];
+    expect(parseRecoveryList(rows, "account-a")).toEqual({ drafts: [newer, copy], unreadableCount: 2 });
+    expect(rows).toEqual([copy, damaged, foreign, newer]);
+    expect(parseRecoveryList([damaged], "account-a")).toEqual({ drafts: [], unreadableCount: 1 });
+    expect(() => parseRecoveryList(Array.from({ length: RECOVERY_LIMIT + 1 }, () => copy), "account-a")).toThrow("Too many");
+  });
   it("restores authored content with the original revision, paused MIDI and a fresh history", () => {
     const model = new ScoreDraft(score, base);
     model.configure(true, true, false); model.arm();

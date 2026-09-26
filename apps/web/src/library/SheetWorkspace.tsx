@@ -3,7 +3,7 @@ import { PracticeSession, matchesPracticeChord, parseScore, practiceEvents, supp
 import { MidiMonitor } from "../midi/MidiMonitor";
 import type { MidiInputModel } from "../midi/useMidiInput";
 import { ScorePreview } from "../score/ScorePreview";
-import type { SavedSheet } from "./api";
+import type { SelectedSheet } from "./selection";
 import { SheetDetails } from "./SheetDetails";
 import { useScoreDraft } from "../editor/useScoreDraft";
 import { ScoreEntryControls } from "../editor/ScoreEditor";
@@ -15,7 +15,7 @@ import { useLocalRecovery } from "./useLocalRecovery";
 export function SheetWorkspace({
   score, saved, accountId, mode, active, blocked, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, onEdit, canCreate, recovered, onSaveCopy,
 }: {
-  score: LeadSheet; saved: (SavedSheet & { metadataOnly?: boolean }) | null; accountId: string | null;
+  score: LeadSheet; saved: SelectedSheet | null; accountId: string | null;
   mode: "Create" | "Practice"; midi: MidiInputModel;
   active: boolean; blocked: boolean;
   busy: boolean; conflict: boolean; onDirty: (dirty: boolean) => void;

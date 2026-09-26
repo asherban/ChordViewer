@@ -1,10 +1,10 @@
 import { useLayoutEffect, useState, useSyncExternalStore } from "react";
 import type { LeadSheet } from "@chordviewer/contracts";
-import type { SavedSheet } from "../library/api";
+import type { SelectedSheet } from "../library/selection";
 import type { MidiInputModel } from "../midi/useMidiInput";
 import { ScoreDraft } from "./ScoreDraft";
 
-export function useScoreDraft(score: LeadSheet, saved: (SavedSheet & { metadataOnly?: boolean }) | null, midi: MidiInputModel, writable: boolean, blocked: boolean) {
+export function useScoreDraft(score: LeadSheet, saved: SelectedSheet | null, midi: MidiInputModel, writable: boolean, blocked: boolean) {
   const [model] = useState(() => new ScoreDraft(score, saved));
   const { subscribe } = midi;
   const view = useSyncExternalStore(model.subscribe, model.getSnapshot);

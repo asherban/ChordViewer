@@ -8,6 +8,7 @@ export type RecoveryDraft = {
   version: 1; id: string; accountId: string; updatedAt: number;
   base: SavedSheet; score: LeadSheet; title: string; tutorial: string; position: ChordPosition;
 };
+export type RecoveryListing = { drafts: RecoveryDraft[]; unreadableCount: number };
 
 /** Local storage is untrusted input, and must never supply credentials or a newer revision. */
 export function parseRecovery(value: unknown, accountId: string): RecoveryDraft {
@@ -26,6 +27,18 @@ export function parseRecovery(value: unknown, accountId: string): RecoveryDraft 
       position.offsetTicks < 0 || position.offsetTicks > 11520) throw new Error("Invalid recovery score or position.");
   return { version: 1, id: r.id, accountId, updatedAt: r.updatedAt as number, base, score,
     title: r.title, tutorial: r.tutorial, position };
+}
+
+/** One damaged copy must not prevent restoring other work from this account. */
+export function parseRecoveryList(rows: unknown[], accountId: string): RecoveryListing {
+  if (rows.length > RECOVERY_LIMIT) throw new Error("Too many local recovery copies.");
+  const drafts: RecoveryDraft[] = [];
+  let unreadableCount = 0;
+  for (const row of rows) {
+    try { drafts.push(parseRecovery(row, accountId)); }
+    catch { unreadableCount++; }
+  }
+  return { drafts: drafts.sort((a, b) => b.updatedAt - a.updatedAt), unreadableCount };
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -60,13 +73,12 @@ async function transaction<T>(mode: IDBTransactionMode, action: (store: IDBObjec
 }
 
 export const recoveryStore = {
-  async list(accountId: string): Promise<RecoveryDraft[]> {
+  async list(accountId: string): Promise<RecoveryListing> {
     const rows = await transaction<unknown[]>("readonly", (store, result) => {
       const read = store.index("account").getAll(accountId, RECOVERY_LIMIT + 1);
       read.onsuccess = () => result(read.result);
     });
-    if (rows.length > RECOVERY_LIMIT) throw new Error("Too many local recovery copies.");
-    return rows.map(row => parseRecovery(row, accountId)).sort((a, b) => b.updatedAt - a.updatedAt);
+    return parseRecoveryList(rows, accountId);
   },
   async put(record: RecoveryDraft): Promise<void> {
     const clean = parseRecovery(record, record.accountId);

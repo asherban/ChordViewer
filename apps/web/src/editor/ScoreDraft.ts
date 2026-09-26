@@ -72,6 +72,8 @@ export class ScoreDraft {
       // Library-only metadata advances the guarded revision without touching the local music,
       // details, undo history or dirty baseline.
       this.saved = saved;
+      // Recovery also observes the saved base, even while the editor is inactive.
+      for (const listener of this.listeners) listener();
       return;
     }
     this.saved = saved;
@@ -87,7 +89,7 @@ export class ScoreDraft {
   details(title: string, tutorial: string) { this.pause(); this.update({ title, tutorial }); }
   restorePosition(position: ChordPosition) {
     if (this.view.pending) return;
-    const bar = Math.max(0, Math.min(this.view.score.measures.length - 1, Math.trunc(position.measureIndex)));
+    const bar = Math.max(0, Math.min(this.view.score.measures.length, 255, Math.trunc(position.measureIndex)));
     const offsetTicks = Math.max(0, Math.min(measureTicks(this.view.score) - 1, Math.trunc(position.offsetTicks)));
     if (!Number.isFinite(bar) || !Number.isFinite(offsetTicks)) return;
     this.cancel();

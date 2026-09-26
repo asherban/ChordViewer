@@ -31,6 +31,20 @@ it("preserves a dirty score, details and undo across Library metadata, but appli
   expect(model.getSnapshot().dirty).toBe(false);
 });
 describe("synchronous chord draft", () => {
+  it("restores the next-bar insertion position without moving into the completed bar", () => {
+    const original = editor();
+    original.addChord("C");
+    const draft = original.getSnapshot();
+    expect(draft.position).toEqual({ measureIndex: 1, offsetTicks: 0 });
+
+    const restored = new ScoreDraft(base, saved);
+    restored.configure(true, true, false);
+    restored.restoreDraft(draft.score, draft.title, draft.tutorial, draft.position);
+    expect(restored.getSnapshot().position).toEqual(draft.position);
+    expect(restored.addChord("F")).toBe(true);
+    expect(restored.getSnapshot().score.measures.map(measure => measure.chords.map(chord => chord.symbol)))
+      .toEqual([["C"], ["F"]]);
+  });
   it("keeps every fast gesture without a render between them, selected durations and the melody", () => {
     const model = editor(); model.setDuration(480); model.arm();
     chord(model); chord(model, [65, 69, 72]); chord(model, [67, 71, 74]);
