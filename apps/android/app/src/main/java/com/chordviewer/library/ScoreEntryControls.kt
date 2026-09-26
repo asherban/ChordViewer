@@ -39,7 +39,7 @@ fun ScoreEntryControls(state: LibraryState, model: LibraryViewModel, melody: Boo
             Text("Melody", style = MaterialTheme.typography.bodySmall)
             OutlinedButton(model::undoChord, enabled = !state.busy && editor.canUndo, modifier = Modifier.heightIn(min = 48.dp)) { Text("Undo") }
             OutlinedButton(model::redoChord, enabled = !state.busy && editor.canRedo, modifier = Modifier.heightIn(min = 48.dp)) { Text("Redo") }
-            Button(model::save, enabled = !state.busy && state.hasUnsavedChanges, modifier = Modifier.heightIn(min = 48.dp)) { Text("Save sheet") }
+            Button(model::save, enabled = !state.busy && !state.conflict && state.hasUnsavedChanges, modifier = Modifier.heightIn(min = 48.dp)) { Text("Save sheet") }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { model.pauseEntry(); durationPicker = true }, enabled = !state.busy,

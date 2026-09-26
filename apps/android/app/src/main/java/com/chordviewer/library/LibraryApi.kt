@@ -7,7 +7,7 @@ import java.net.URI
 import org.json.JSONObject
 import com.chordviewer.score.*
 
-class ApiFailure(val status: Int, val userMessage: String) : Exception(userMessage)
+class ApiFailure(val status: Int, val userMessage: String, val code: String? = null) : Exception(userMessage)
 
 data class ApiResponse(val body: JSONObject, val sessionToken: String?) {
     override fun toString() = "ApiResponse(redacted)"
@@ -20,6 +20,8 @@ interface LibraryGateway {
     fun get(token: String, id: String): SavedSheet
     fun create(token: String, title: String, example: Boolean, key: String = "C", time: ScoreTimeSignature = ScoreTimeSignature()): SavedSheet
     fun importScore(token: String, score: LeadSheet, title: String): SavedSheet
+    fun importDraft(token: String, score: LeadSheet, title: String, tutorial: String): SavedSheet =
+        throw UnsupportedOperationException("Draft copy is unavailable")
     fun save(token: String, sheet: SavedSheet, title: String, tutorialUrl: String?): SavedSheet
     fun markOpened(token: String, id: String): SavedSheet = get(token, id)
     fun metadata(token: String, id: String, revision: Int, title: String? = null, favorite: Boolean? = null, draft: Boolean? = null): SavedSheet =
@@ -68,6 +70,10 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
         "PUT", sheetPath(sheet.id), token, JSONObject().put("score", sheet.renamedScore(title))
             .put("tutorialUrl", tutorialUrl?.trim()?.ifEmpty { null } ?: JSONObject.NULL).put("expectedRevision", sheet.revision),
     ).body)
+    override fun importDraft(token: String, score: LeadSheet, title: String, tutorial: String): SavedSheet = LibraryJson.sheet(request(
+        "POST", "/api/v1/sheets/import", token, JSONObject().put("score", JSONObject(LeadSheetWriter.write(score)))
+            .put("title", title.trim()).put("tutorialUrl", tutorial.trim().ifEmpty { null } ?: JSONObject.NULL),
+    ).body)
 
     private fun sheetPath(id: String): String {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,64}")))
@@ -101,7 +107,7 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
                         JSONObject(text).opt("code") as? String
                     }
                 }.getOrNull() else null
-                throw ApiFailure(status, messageForStatus(status, method, path, errorCode))
+                throw ApiFailure(status, messageForStatus(status, method, path, errorCode), errorCode)
             }
             val text = connection.inputStream.use(::readBounded).toString(Charsets.UTF_8)
             val sessionToken = connection.getHeaderField("set-auth-token")?.takeIf(::validToken)

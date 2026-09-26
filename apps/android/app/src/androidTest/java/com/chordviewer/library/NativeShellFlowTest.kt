@@ -112,7 +112,7 @@ class NativeShellFlowTest {
                 }
             }
             click("Play tutorial")
-            SystemClock.sleep(8000)
+            waitFor("native tutorial document ready", 30_000) { mountedPlayerHtml(playerHtml(activity), activity) }
             val html = playerHtml(activity)
             instrumentation.sendStatus(0, Bundle().apply { putString("stream", "M6_PLAYER_HTML $html\n") })
             assertTrue("Native player must render its own HTML and iframe: $html", mountedPlayerHtml(html, activity))

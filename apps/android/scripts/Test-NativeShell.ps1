@@ -4,9 +4,11 @@ param(
     [Parameter(Mandatory = $true)][string]$FixturePath,
     [switch]$WithMidi,
     [switch]$Authoring,
-    [switch]$Organization
+    [switch]$Organization,
+    [ValidateRange(0,2)][int]$RecoveryPhase = 0
 )
 $ErrorActionPreference = 'Stop'
+if ($RecoveryPhase -and ($Organization -or $Authoring -or $WithMidi)) { throw 'Recovery acceptance runs separately from other native scenarios.' }
 if ($Organization -and ($Authoring -or $WithMidi)) { throw 'Organization acceptance runs separately from MIDI and authoring.' }
 if ($Authoring) { $WithMidi = $true }
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
@@ -82,6 +84,7 @@ try {
     $null = Invoke-Adb @('shell', 'am', 'force-stop', 'com.chordviewer.debug')
     Ensure-Reverse 'tcp:3000' "tcp:$apiPort"
     Ensure-Reverse "tcp:$apiPort" "tcp:$apiPort"
+    if ($RecoveryPhase -eq 1 -and -not $createdMappings.Contains('tcp:3000')) { throw 'Recovery outage acceptance requires its own app reverse mapping; use an isolated emulator.' }
     if ($WithMidi) { Ensure-Reverse 'tcp:39173' 'tcp:39173' }
     $null = Invoke-Adb @('shell', 'run-as', 'com.chordviewer.debug', 'mkdir', '-p', 'files')
     # Tee is executed as the debug app. Credential data uses stdin, never process arguments or console output.
@@ -96,8 +99,12 @@ try {
         $null = $stdout.GetAwaiter().GetResult()
         $null = $stderr.GetAwaiter().GetResult()
     } finally { Stop-Owned $writer }
-    $modeFlag = if ($Authoring) { 'authoringUi' } else { 'shellUi' }
-    $testClass = if ($Authoring) { 'com.chordviewer.library.NativeChordAuthoringTest' }
+    $delivered = Invoke-Adb @('shell', 'run-as', 'com.chordviewer.debug', 'wc', '-c', 'files/ui-fixture.json')
+    if ($delivered -notmatch '^\s*(\d+)\s' -or [int]$Matches[1] -ne $inputBytes.Length) { throw 'The private UI fixture was not delivered completely.' }
+    $modeFlag = if ($RecoveryPhase) { 'recoveryUi' } elseif ($Authoring) { 'authoringUi' } else { 'shellUi' }
+    $testClass = if ($RecoveryPhase -eq 1) { 'com.chordviewer.library.NativeRecoveryFlowTest#writeRecoveryAcrossConnectionLoss' }
+        elseif ($RecoveryPhase -eq 2) { 'com.chordviewer.library.NativeRecoveryFlowTest#restoreAfterProcessRestartAndSaveConflictAsNew' }
+        elseif ($Authoring) { 'com.chordviewer.library.NativeChordAuthoringTest' }
         elseif ($Organization) { 'com.chordviewer.library.NativeShellFlowTest#nativeLibraryOrganizationActions' }
         else { 'com.chordviewer.library.NativeShellFlowTest#nativeLibraryModesRetainDraftsAndSaveToSharedBackend' }
     $runner = Start-Adb @('shell', 'am', 'instrument', '-w', '-r', '-e', $modeFlag, 'true', '-e', 'class',
@@ -117,6 +124,16 @@ try {
             foreach ($secret in $secrets) { if ($secret) { $line = $line.Replace($secret, '[redacted]') } }
             $transcript.Add($line)
             if ($transcript.Count -gt 1000) { throw 'Native UI runner output exceeded its bound.' }
+            if ($line -match 'M7_NATIVE_OFFLINE_READY') {
+                if ($RecoveryPhase -ne 1) { throw 'Unexpected outage signal.' }
+                $null = Invoke-Adb @('reverse', '--remove', 'tcp:3000')
+                Write-Host 'Temporarily disconnected the app route; verification route remains available.'
+            }
+            if ($line -match 'M7_NATIVE_ONLINE_READY') {
+                if ($RecoveryPhase -ne 1) { throw 'Unexpected reconnect signal.' }
+                $null = Invoke-Adb @('reverse', '--no-rebind', 'tcp:3000', "tcp:$apiPort")
+                Write-Host 'Restored the app route for an explicit save retry.'
+            }
             if ($line -match 'NATIVE_UI_MIDI_READY') {
                 if (-not $WithMidi -or $sender) { throw 'Unexpected MIDI readiness signal.' }
                 $sender = New-Object ChordViewer.LocalMidi.Sender
@@ -186,7 +203,9 @@ try {
         $result -match '(?im)FAILURES|INSTRUMENTATION_FAILED|skipped|AssumptionFailure|^INSTRUMENTATION_STATUS_CODE:\s*-[1234]\s*$') { throw 'Native UI acceptance failed.' }
     $destination = Join-Path $repositoryRoot '.local/android-ui-evidence'
     $null = New-Item -ItemType Directory -Path $destination -Force
-    $captures = if ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png', 'm5-native-melody.png', 'm5-native-import.png', 'm5-native-imported.png') }
+    $captures = if ($RecoveryPhase -eq 1) { @('m7-native-before-restart.png') }
+        elseif ($RecoveryPhase -eq 2) { @('m7-native-recovery.png', 'm7-native-conflict.png', 'm7-native-recovered-practice.png') }
+        elseif ($Authoring) { @('m4-native-entry.png', 'm4-native-practice.png', 'm4-native-reopened.png', 'm5-native-melody.png', 'm5-native-import.png', 'm5-native-imported.png') }
         elseif ($Organization) { @('m6-native-library-organized.png') }
         else { @('ui-native-library.png', 'ui-native-create.png', 'ui-native-practice.png', 'ui-native-chords.png',
             'm6-native-practice-player.png', 'm6-native-practice.png') }
@@ -200,7 +219,9 @@ try {
             $null = $errorRead.GetAwaiter().GetResult()
         } finally { Stop-Owned $reader }
     }
-    if ($Authoring) {
+    if ($RecoveryPhase) {
+        Write-Host "PASS: native recovery phase $RecoveryPhase (1 test)."
+    } elseif ($Authoring) {
         Write-Host 'PASS: native chord/melody MIDI and manual authoring, correction, history, key/meter, save/reopen and document import/export (1 test).'
     } elseif ($Organization) {
         Write-Host 'PASS: native Library favorite, Draft, duplicate, Trash and restore through the UI (1 test).'

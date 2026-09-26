@@ -216,8 +216,8 @@ button.score-chord:hover { background: #176f5b10; }
   .entry-target-row select { padding: 6px; }
   .correction-fields { grid-template-columns: 1fr; gap: 0; }
 }
-.conflict-notice { grid-column: 1 / -1; padding: 12px; background: #fff2d8; border-radius: 7px; margin-bottom: 14px; }
-.conflict-notice p { color: #745c2a; }
+.conflict-notice { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; background: #fff2d8; border-radius: 7px; margin-bottom: 14px; }
+.conflict-notice p { color: #745c2a; flex: 1 1 380px; margin: 0; }
 .app-dialog { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; box-shadow: 0 16px 60px #18332f28; }
 .app-dialog::backdrop { background: #142e2859; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
@@ -287,3 +287,8 @@ button.score-chord:hover { background: #176f5b10; }
 @media (prefers-reduced-motion: no-preference) {
   button, a { transition: background-color 120ms ease; }
 }
+/* Recovery is visible alongside the Library and never changes the score layout. */
+.recovery-library { margin: 16px 24px; padding: 20px; background: var(--paper, #fffefa); border: 1px solid #dce5dd; border-radius: 16px; }
+.recovery-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid #dce5dd; }
+.recovery-row > div { flex: 1 1 240px; overflow-wrap: anywhere; }
+.recovery-status { padding: 8px 12px; margin: 0 0 8px; color: #416358; }

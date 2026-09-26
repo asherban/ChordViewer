@@ -17,7 +17,9 @@ import com.chordviewer.ui.*
 
 @Composable
 fun LibraryCards(state: LibraryState, model: LibraryViewModel, refresh: () -> Unit, newSheet: () -> Unit, importSheet: () -> Unit,
-    open: (String, LibraryMode) -> Unit, reload: (String) -> Unit, trash: (String) -> Unit, rename: (String, String) -> Unit) {
+    open: (String, LibraryMode) -> Unit, reload: (String) -> Unit, trash: (String) -> Unit, rename: (String, String) -> Unit,
+    recover: (RecoveryDraft) -> Unit) {
+    var recoveryOpen by remember { mutableStateOf(false) }
     var query by remember(state.user?.id) { mutableStateOf("") }
     var filter by remember(state.user?.id) { mutableStateOf("All") }
     var content by remember(state.user?.id) { mutableStateOf("Any") }
@@ -43,6 +45,9 @@ fun LibraryCards(state: LibraryState, model: LibraryViewModel, refresh: () -> Un
                 }
             }
             if (!wide) LibraryActions(state.busy, refresh, newSheet, importSheet)
+            if (state.recoveryCopies.isNotEmpty()) OutlinedButton(onClick = { recoveryOpen = true }, enabled = !state.busy) {
+                Text("Recover unsaved work (${state.recoveryCopies.size})")
+            }
             if (state.sheets.isNotEmpty()) {
                 OutlinedTextField(query, { query = it }, label = { Text("Search sheets") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -84,6 +89,7 @@ fun LibraryCards(state: LibraryState, model: LibraryViewModel, refresh: () -> Un
             }
         }
     }
+    if (recoveryOpen) RecoveryDialog(state, model, { recoveryOpen = false; recover(it) }, { recoveryOpen = false })
 }
 
 @Composable

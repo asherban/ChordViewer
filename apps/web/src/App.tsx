@@ -11,6 +11,7 @@ import { AppDialog } from "./layout/AppDialog";
 import type { NewSheet } from "./library/api";
 import type { LeadSheet } from "@chordviewer/contracts";
 import { ImportSheet } from "./import/ImportSheet";
+import { RecoveryLibrary } from "./library/RecoveryLibrary";
 
 type Mode = "Library" | "Create" | "Practice";
 const sample = parseScore(example);
@@ -29,7 +30,7 @@ export function App() {
   const [tutorialOnly, setTutorialOnly] = useState(false);
   const [librarySort, setLibrarySort] = useState<"Recent" | "Title">("Recent");
   function mayLeave() {
-    return !library.selected || !editing || window.confirm("Discard the unsaved changes to this sheet?");
+    return !library.selected || !editing || window.confirm("Leave this unsaved sheet? Its last confirmed local recovery copy remains on this device.");
   }
   function navigate(destination: Mode) {
     // Switching modes keeps the current workspace mounted, including its draft.
@@ -161,6 +162,9 @@ export function App() {
                 <span className="small">Personal library · {library.user.email}</span>
                 {editing && <span className="draft-badge">Unsaved changes in your open sheet</span>}
               </div>}
+              {library.user && mode === "Library" && <RecoveryLibrary key={library.user.id} accountId={library.user.id} busy={library.busy} onRestore={draft => {
+                if (mayLeave() && library.restoreLocal(draft)) { setMode("Create"); setCreating(false); setImporting(false); setPreview(false); }
+              }} />}
               {!library.user ? (
                 <div className="account-view">
                   <AccountForm busy={library.authBusy || library.signOutPending} onSubmit={library.authenticate} />
@@ -237,18 +241,20 @@ export function App() {
             {hasWorkspace && (
               <div className="workspace-container" hidden={!showWorkspace}>
                 <SheetWorkspace
-                  key={viewing ? library.user?.id + ":" + viewing.id : "sample"}
+                  key={viewing ? library.user?.id + ":" + viewing.id + ":" + library.recoverySelection : "sample"}
                   accountId={library.user?.id ?? null}
                   score={viewing ? viewing.score : sample} saved={viewing || null}
                   mode={mode === "Practice" ? "Practice" : "Create"} midi={midi}
                   active={showWorkspace} blocked={creating || importing}
                   onEdit={() => navigate("Create")}
                   busy={library.busy} conflict={library.conflict} onDirty={setEditing}
+                  recovered={library.restored}
+                  onSaveCopy={async (title, tutorial, score) => { const saved = await library.importSheet(score, title, tutorial); if (saved) setEditing(false); return saved; }}
                   onSave={async (title, tutorial, score) => {
                     if (await library.saveSheet(title, tutorial, score)) setEditing(false);
                   }}
                   onReload={async () => {
-                    if (viewing && mayLeave() && await library.openSheet(viewing.id)) setEditing(false);
+                    if (viewing && window.confirm("Reload the server version? This replaces the current draft and removes its recovery copy after the reload succeeds.") && await library.openSheet(viewing.id)) setEditing(false);
                   }}
                   onSaveExample={library.user && !viewing ? () => void createSheet({ title: "First Sketch", template: "example" }) : undefined}
                   canCreate={canCreate}

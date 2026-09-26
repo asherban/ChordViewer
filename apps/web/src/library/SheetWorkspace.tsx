@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { PracticeSession, matchesPracticeChord, parseScore, practiceEvents, supportsPracticeMatch, transposePracticeScore, type LeadSheet } from "@chordviewer/contracts";
 import { MidiMonitor } from "../midi/MidiMonitor";
 import type { MidiInputModel } from "../midi/useMidiInput";
@@ -9,9 +9,11 @@ import { useScoreDraft } from "../editor/useScoreDraft";
 import { ScoreEntryControls } from "../editor/ScoreEditor";
 import { settingsLabel } from "../score/labels";
 import { MAX_IMPORT_BYTES } from "../import/score-import";
+import type { RecoveryDraft } from "./recovery";
+import { useLocalRecovery } from "./useLocalRecovery";
 
 export function SheetWorkspace({
-  score, saved, accountId, mode, active, blocked, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, onEdit, canCreate,
+  score, saved, accountId, mode, active, blocked, midi, busy, conflict, onDirty, onSave, onReload, onSaveExample, onEdit, canCreate, recovered, onSaveCopy,
 }: {
   score: LeadSheet; saved: (SavedSheet & { metadataOnly?: boolean }) | null; accountId: string | null;
   mode: "Create" | "Practice"; midi: MidiInputModel;
@@ -20,8 +22,10 @@ export function SheetWorkspace({
   onSave: (title: string, tutorialUrl: string | null, score: LeadSheet) => Promise<void>;
   onReload: () => Promise<void>; onSaveExample?: () => void; canCreate: boolean;
   onEdit: () => void;
+  recovered?: RecoveryDraft | null;
+  onSaveCopy?: (title: string, tutorialUrl: string | null, score: LeadSheet) => Promise<boolean>;
 }) {
-  const [melody, setMelody] = useState(() => !saved || score.measures.some(measure => measure.melody.length > 0));
+  const [melody, setMelody] = useState(() => !saved || (recovered?.score ?? score).measures.some(measure => measure.melody.length > 0));
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [exportError, setExportError] = useState("");
   const [size, setSize] = useState(100);
@@ -30,6 +34,10 @@ export function SheetWorkspace({
   const [showTutorial, setShowTutorial] = useState(true);
   const detailsId = useId();
   const { model, view } = useScoreDraft(score, saved, midi, !!saved && active && mode === "Create" && !busy, blocked || detailsOpen);
+  useLayoutEffect(() => {
+    if (recovered) model.restoreDraft(recovered.score, recovered.title, recovered.tutorial, recovered.position);
+  }, [model, recovered]);
+  const { status: recoveryStatus, clear: clearRecovery } = useLocalRecovery(model, accountId, recovered);
   const displayedScore = useMemo(() => ({ ...view.score, title: view.title }), [view.score, view.title]);
   const transposed = useMemo(() => {
     try { return { score: transposePracticeScore(displayedScore, transpose), error: "" }; }
@@ -50,14 +58,14 @@ export function SheetWorkspace({
     initialBookmark.current = true;
     try {
       const stored = JSON.parse(sessionStorage.getItem(bookmarkKey) ?? "{}");
-      if (stored.edit && Number.isSafeInteger(stored.edit.measureIndex) && Number.isSafeInteger(stored.edit.offsetTicks)) model.restorePosition(stored.edit);
+      if (!recovered && stored.edit && Number.isSafeInteger(stored.edit.measureIndex) && Number.isSafeInteger(stored.edit.offsetTicks)) model.restorePosition(stored.edit);
       if (stored.practice && Number.isSafeInteger(stored.practice.bar)) {
         practice.selectBar(stored.practice.bar);
         const index = practiceEvents(practiceScore).findIndex(event => event.id === stored.practice.eventId);
         if (index >= 0) practice.selectEvent(index);
       }
     } catch { /* Private session storage may be unavailable. */ }
-  }, [bookmarkKey, model, practiceScore, practice]);
+  }, [bookmarkKey, model, practiceScore, practice, recovered]);
   useEffect(() => {
     if (!bookmarkKey) return;
     if (skipFirstEditBookmark.current) { skipFirstEditBookmark.current = false; return; }
@@ -162,8 +170,13 @@ export function SheetWorkspace({
           onSettings={(key, time) => model.settings(key, time) ? null : model.getSnapshot().notice}
           onChange={(title, tutorial) => model.details(title, tutorial)} onSave={save} />
       </div>}
-      {conflict && <div className="conflict-notice" role="status"><p>A newer version is available. Your unsaved score and details are still here.
-        Reloading discards them only after confirmation.</p><button className="secondary" disabled={busy} onClick={() => void onReload()}>Reload latest version</button></div>}
+      {recoveryStatus && <p className="recovery-status" role="status">{recoveryStatus}</p>}
+      {conflict && <div className="conflict-notice" role="status"><p>The saved sheet changed or is unavailable. Your draft is still here. Save a new sheet to keep both versions, or reload after confirmation.</p>
+        <button className="secondary" disabled={busy} onClick={() => void onReload()}>Reload latest version</button>
+        {onSaveCopy && <button className="primary" disabled={busy || !canCreate || !view.title.trim()} onClick={async () => {
+          model.pause(); if (await onSaveCopy(view.title.trim(), view.tutorial.trim() || null, view.score)) await clearRecovery();
+        }}>Save as new sheet</button>}
+      </div>}
       {!saved && <div className="preview-notice">
         <span>EXAMPLE</span>
         This original example is a preview. It is not in your library unless you explicitly save a copy.

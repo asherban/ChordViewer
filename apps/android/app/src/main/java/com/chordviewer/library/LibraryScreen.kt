@@ -73,6 +73,16 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                     Text(message, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            state.recoveryStatus?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+            if (state.conflict && state.selected != null && state.mode != LibraryMode.LIBRARY) {
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                    Text("The saved sheet changed or is unavailable. Keep both versions by saving a new sheet, or reload the server version.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(model::saveAsNew, enabled = !state.busy && state.sheets.size < 100 && state.draftTitle.isNotBlank()) { Text("Save as new sheet") }
+                        OutlinedButton(onClick = { leave { model.open(state.selected.id) } }, enabled = !state.busy) { Text("Reload latest version") }
+                    }
+                }
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (state.mode == LibraryMode.LIBRARY) {
                     if (state.user == null) AccountLanding(state, model::authenticate, {
@@ -81,7 +91,8 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                     else LibraryCards(state, model, model::refresh, ::newSheet, documents.importSheet, ::open,
                         { id -> leave { model.open(id, LibraryMode.CREATE) } },
                         { id -> if (state.selected?.id == id) leave { model.transition(id, false) } else model.transition(id, false) },
-                        { id, title -> if (state.selected?.id == id) leave { model.updateMetadata(id, title = title) } else model.updateMetadata(id, title = title) })
+                        { id, title -> if (state.selected?.id == id) leave { model.updateMetadata(id, title = title) } else model.updateMetadata(id, title = title) },
+                        { draft -> leave { model.restoreRecovery(draft) } })
                 } else {
                     val score = (if (state.mode == LibraryMode.PRACTICE) state.practiceScore else null)?.copy(title = state.draftTitle)
                         ?: state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
@@ -109,9 +120,9 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         confirmButton = { TextButton(onClick = { showMidi = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
     )
     if (pendingLeave != null) AlertDialog(
-        onDismissRequest = { pendingLeave = null }, title = { Text("Discard unsaved changes?") },
-        text = { Text("Your score, title and tutorial changes have not been saved.") },
-        confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Discard changes") } },
+        onDismissRequest = { pendingLeave = null }, title = { Text("Leave unsaved changes?") },
+        text = { Text("The last confirmed recovery copy stays on this device. Reloading the current sheet replaces its draft and removes that copy after success.") },
+        confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Continue") } },
         dismissButton = { TextButton(onClick = { pendingLeave = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep editing") } },
     )
 }

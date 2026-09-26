@@ -38,6 +38,16 @@ export class ScoreDraft {
     this.baseline = this.content();
   }
   getSnapshot = () => this.view;
+  getSavedBase = () => this.saved;
+  restoreDraft(score: LeadSheet, title: string, tutorial: string, position: ChordPosition) {
+    if (!this.saved || score.id !== this.saved.id) throw new Error("Recovery belongs to another sheet.");
+    this.cancel(); this.past = []; this.future = [];
+    this.lanePositions = { chords: { measureIndex: 0, offsetTicks: 0 }, melody: { measureIndex: 0, offsetTicks: 0 } };
+    this.update({ score, title, tutorial, lane: "chords", duration: measureTicks(score), melodyDuration: { denominator: 4, dots: 0 },
+      entry: "paused", pending: null, selectedId: null, lastEventId: null,
+      alternatives: [], notice: "Recovered local draft. Review it, then save explicitly." });
+    this.restorePosition(position);
+  }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private music(score: LeadSheet) { return JSON.stringify([score.schemaVersion, score.keySignature, score.timeSignature, score.measures]); }
   private content() { return JSON.stringify([this.music(this.view.score), this.view.title, this.view.tutorial]); }

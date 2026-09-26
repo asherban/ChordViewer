@@ -105,7 +105,7 @@ fun SheetDetailsDialog(state: LibraryState, updateTitle: (String) -> Unit, updat
             Text(if (state.hasUnsavedChanges) "Unsaved changes stay here until you save or discard them." else "Saved · revision ${state.selected?.revision}", color = MutedColor, style = MaterialTheme.typography.bodySmall)
             state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         } },
-        confirmButton = { Button(onClick = save, enabled = !state.busy && state.draftTitle.isNotBlank() && state.hasUnsavedChanges,
+        confirmButton = { Button(onClick = save, enabled = !state.busy && !state.conflict && state.draftTitle.isNotBlank() && state.hasUnsavedChanges,
             modifier = Modifier.heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("Save changes") } },
         dismissButton = { TextButton(onClick = close, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
     )

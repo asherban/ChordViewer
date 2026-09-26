@@ -12,6 +12,7 @@ import {
   type SheetSummary,
   type User,
 } from "./api";
+import { parseRecovery, type RecoveryDraft } from "./recovery";
 
 export function useLibrary() {
   type LocalSavedSheet = SavedSheet & { metadataOnly?: boolean };
@@ -29,6 +30,8 @@ export function useLibrary() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const [restored, setRestored] = useState<RecoveryDraft | null>(null);
+  const [recoverySelection, setRecoverySelection] = useState(0);
   const invalidateSession = useCallback(() => {
     epoch.current++;
   }, []);
@@ -37,6 +40,7 @@ export function useLibrary() {
     setUser(null);
     setSheets(null);
     setSelected(null);
+    setRestored(null);
     setConflict(false);
     setBusy(false);
     setLoadingLibrary(false);
@@ -177,6 +181,7 @@ export function useLibrary() {
       if (epoch.current !== sessionEpoch || opening.current !== requestId)
         return false;
       setSelected(result);
+      setRestored(null);
       setSheets(previous => previous?.map(sheet => sheet.id === id ? { ...sheet, openedAt: result.openedAt } : sheet) ?? null);
       setConflict(false);
       return true;
@@ -195,6 +200,18 @@ export function useLibrary() {
       if (epoch.current !== sessionEpoch) return;
       setSheets(previous => previous?.map(sheet => sheet.id === id ? { ...sheet, openedAt: result.openedAt } : sheet) ?? null);
     } catch (problem) { failure(problem, sessionEpoch); }
+  }
+  function restoreLocal(value: RecoveryDraft): boolean {
+    if (!user || busy) return false;
+    const draft = parseRecovery(value, user.id);
+    const current = sheets?.find(sheet => sheet.id === draft.base.id);
+    opening.current++;
+    setSelected(draft.base); setRestored({ ...draft });
+    // A deliberate restore starts a new writer, preserving the draft we just left.
+    setRecoverySelection(previous => previous + 1);
+    setConflict(!current || !!current.trashedAt || current.revision !== draft.base.revision);
+    setMessage("Local draft restored. Review it before saving."); setError("");
+    return true;
   }
   async function changeMetadata(id: string, changes: { title?: string; favorite?: boolean; draft?: boolean }): Promise<boolean> {
     const target = sheets?.find(sheet => sheet.id === id);
@@ -270,6 +287,7 @@ export function useLibrary() {
       if (epoch.current !== sessionEpoch) return false;
       setSelected(result);
       setSheets((previous) => [summary(result), ...(previous ?? [])]);
+      setRestored(null);
       setConflict(false);
       setMessage("Sheet created and saved.");
       return true;
@@ -321,7 +339,7 @@ export function useLibrary() {
       if (
         epoch.current === sessionEpoch &&
         problem instanceof ApiError &&
-        problem.status === 409
+        (problem.code === "revision_conflict" || problem.status === 404)
       )
         setConflict(true);
       failure(problem, sessionEpoch);
@@ -343,6 +361,9 @@ export function useLibrary() {
     message,
     error,
     conflict,
+    restored,
+    recoverySelection,
+    restoreLocal,
     authenticate,
     signOut,
     loadLibrary,

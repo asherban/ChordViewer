@@ -38,6 +38,7 @@ class NativeChordAuthoringTest {
         val api = LibraryApi("http://127.0.0.1:$port", true)
         val account = api.signIn(fixture.getString("email"), fixture.getString("password"))
         val sheet = api.create(account.token, "M4 native study ${System.currentTimeMillis()}", false)
+        val savedTitle = "Native MIDI saved study ${sheet.id.take(8)}"
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         val token = fixture.getString("midiToken").also { require(it.matches(Regex("[a-f0-9]{64}"))) }
         intent.putExtra("chordviewer.midi.token", token)
@@ -86,7 +87,8 @@ class NativeChordAuthoringTest {
             assertEquals(listOf(480, 480), saved.score.measures.first().chords.map { it.durationTicks })
             click("Practice")
             signal("M4_NATIVE_PRACTICE_READY")
-            waitFor("practice receives live MIDI", 30_000) { nodes().any { it.contentDescription?.toString()?.startsWith("Held notes: C4") == true } }
+            // The sidebar monitor can be below the viewport; assert the real live MIDI model without scrolling away from the score.
+            waitFor("practice receives live MIDI", 30_000) { model?.state?.value?.liveChord == "C" }
             SystemClock.sleep(700)
             assertEquals(saved.score, api.get(account.token, sheet.id).score)
             assertEquals(listOf("Cmaj7", "G"), chordSymbols())
@@ -100,17 +102,17 @@ class NativeChordAuthoringTest {
             clickDescription("Choose insertion position"); click("Next bar"); click("Done"); click("Start MIDI entry")
             signal("M4_NATIVE_RECONNECT_READY")
             waitFor("fresh chord after reconnect", 30_000) { chordSymbols(1) == listOf("G") }
-            click("Sheet details"); setField("Sheet title", "Native MIDI saved study")
+            click("Sheet details"); setField("Sheet title", savedTitle)
             setField("YouTube tutorial URL (optional)", "https://youtu.be/dQw4w9WgXcQ")
             click("Save changes")
             waitFor("full save") { api.get(account.token, sheet.id).revision == 3 }
             click("Done"); click("Library"); click("Refresh")
-            waitFor("refreshed library") { model?.state?.value?.let { !it.busy && it.selected == null && it.libraryLoaded } == true && nodes().any { it.text?.toString() == "Native MIDI saved study" } }
-            openCard("Native MIDI saved study")
+            waitFor("refreshed library") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id && it.libraryLoaded } == true }
+            openCard(savedTitle, reload = true)
             waitFor("reopened authored score") { chordSymbols(1) == listOf("G") }
             assertEquals("Reopen must select the newly saved sheet", sheet.id, model?.state?.value?.selected?.id)
             saved = api.get(account.token, sheet.id)
-            assertEquals("Native MIDI saved study", saved.score.title)
+            assertEquals(savedTitle, saved.score.title)
             assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", saved.tutorialUrl)
             assertEquals(listOf("Cmaj7", "G", "G"), saved.score.measures.flatMap { it.chords }.map { it.symbol })
             capture("m4-native-reopened.png")
@@ -153,8 +155,8 @@ class NativeChordAuthoringTest {
             assertEquals("D", saved.score.keySignature); assertEquals(ScoreTimeSignature(3, 4), saved.score.timeSignature)
             capture("m5-native-melody.png")
             click("Library"); click("Refresh")
-            waitFor("melody library refresh") { model?.state?.value?.let { !it.busy && it.selected == null } == true }
-            openCard(melodyTitle)
+            waitFor("melody library refresh") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id } == true }
+            openCard(melodyTitle, reload = true)
             waitFor("reopened saved melody") { model?.state?.value?.editor?.score == saved.score }
             assertEquals(saved.score, model?.state?.value?.editor?.score)
             click("Sheet details"); click("Export ChordViewer JSON")
@@ -230,17 +232,22 @@ class NativeChordAuthoringTest {
         waitFor("MIDI control") { nodes().firstOrNull { it.text?.toString()?.contains("MIDI connected") == true }?.let(::performClick) == true }
         instrumentation.waitForIdleSync()
     }
-    private fun openCard(title: String) {
+    private fun openCard(title: String, reload: Boolean = false) {
+        setField("Search sheets", title)
         waitFor("library card") {
             var node: AccessibilityNodeInfo? = nodes().firstOrNull { it.text?.toString() == title }
+            var grid: AccessibilityNodeInfo? = null
             while (node != null) {
-                val button = descendants(node).firstOrNull { it.text?.toString() == "Open sheet" }
-                if (button != null) return@waitFor performClick(button)
+                val button = descendants(node).firstOrNull { it.text?.toString() == if (reload) "More actions" else "Edit" }
+                if (button != null && button.isVisibleToUser && performClick(button)) return@waitFor true
+                if (node.isScrollable && grid == null) grid = node
                 node = node.parent
             }
+            (grid ?: nodes().firstOrNull { it.isScrollable })?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
             false
         }
         instrumentation.waitForIdleSync()
+        if (reload) click("Reload saved version")
     }
     private fun performClick(target: AccessibilityNodeInfo): Boolean {
         var node: AccessibilityNodeInfo? = target
