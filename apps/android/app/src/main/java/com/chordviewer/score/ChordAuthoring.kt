@@ -7,7 +7,9 @@ fun chordDurationLabel(ticks: Int, measureTicks: Int = BAR_TICKS) = if (ticks ==
     240 -> "⅛"; 480 -> "¼"; 720 -> "Dotted ¼"; 960 -> "½"; 1440 -> "Dotted ½"; 1920 -> "Whole note"; else -> "${ticks / 480.0} quarter notes"
 }
 data class ScorePosition(val measureIndex: Int = 0, val offsetTicks: Int = 0) {
-    val label get() = "Bar ${measureIndex + 1} · beat ${1 + offsetTicks / 480}${if (offsetTicks % 480 == 240) ".5" else ""}"
+    /** An authoring cursor may point at the virtual next bar without creating it. */
+    fun clampedTo(score: LeadSheet) = ScorePosition(measureIndex.coerceIn(0, score.measures.size),
+        offsetTicks.coerceIn(0, score.measureTicks - 1))
     fun advance(duration: Int, measureTicks: Int = BAR_TICKS): ScorePosition = if (offsetTicks + duration == measureTicks) ScorePosition(measureIndex + 1) else copy(offsetTicks = offsetTicks + duration)
 }
 data class ChordMutation(val score: LeadSheet, val position: ScorePosition, val eventId: String)

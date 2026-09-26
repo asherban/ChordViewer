@@ -103,6 +103,36 @@ class LibraryViewModelTest {
         assertNull(model.state.value.editor!!.pending)
     }
 
+    @Test fun reopeningPreservesTheVirtualNextBarBookmark() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        val nextBar = ScorePosition(gateway.sheet.score.measures.size, 480)
+        model.setPosition(nextBar)
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        assertEquals(nextBar, model.state.value.editor!!.position)
+        model.setDuration(480); model.addChord("C")
+        assertEquals(gateway.sheet.score.measures.size + 1, model.state.value.editor!!.score.measures.size)
+        assertEquals(480, model.state.value.editor!!.score.measures.last().chords.single().offsetTicks)
+    }
+
+    @Test fun backgroundingImmediatelyPausesDisplayedEntryAndCancelsTheHeldGesture() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        val original = model.state.value.editor!!.score
+        model.setPosition(ScorePosition(original.measures.size)); model.armEntry()
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 60, 90, 144, 64, 90, 144, 67, 90)))
+        model.onAppBackground()
+        assertEquals(EntryMode.PAUSED, model.state.value.editor!!.mode)
+        assertNull(model.state.value.liveChord)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0, 128, 64, 0, 128, 67, 0)))
+        play(model, 62, 65, 69)
+        assertEquals(original, model.state.value.editor!!.score)
+        model.armEntry(); play(model, 60, 64, 67)
+        assertEquals(original.measures.size + 1, model.state.value.editor!!.score.measures.size)
+    }
+
     @Test fun replacementIsExplicitOneShotAndDeletingKeepsTimeline() = runTest(dispatcher) {
         val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
@@ -278,7 +308,26 @@ class LibraryViewModelTest {
         assertEquals(1, model.state.value.selected!!.revision)
         assertEquals("Unsaved local title", model.state.value.draftTitle)
         assertTrue(model.state.value.hasUnsavedChanges)
+        assertTrue(model.state.value.conflict)
         assertTrue(model.state.value.message!!.contains("Reload saved version"))
+    }
+
+    @Test fun anotherSheetsConflictOrRemovalDoesNotBlockSavingTheOpenDraft() = runTest(dispatcher) {
+        val gateway = FakeGateway().apply { includeAnotherSheet = true }
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        model.updateDraftTitle("Keep my changes")
+        for (status in listOf(409, 404)) {
+            gateway.metadataFailure = ApiFailure(status, "The other sheet changed or was removed.")
+            model.updateMetadata("other-sheet", favorite = true); advanceUntilIdle()
+            assertFalse("Another sheet's $status must not block this draft", model.state.value.conflict)
+            assertEquals("Keep my changes", model.state.value.draftTitle)
+            assertTrue(model.state.value.hasUnsavedChanges)
+        }
+        model.save(); advanceUntilIdle()
+        assertEquals("Keep my changes", gateway.saved!!.score.title)
+        assertFalse(model.state.value.hasUnsavedChanges)
     }
 
     @Test fun switchingProductModesKeepsSelectedSheetAndUnsavedDetails() = runTest(dispatcher) {
@@ -492,6 +541,8 @@ class LibraryViewModelTest {
         var revokeFailure: Exception? = null
         var saveFailure: Exception? = null
         var remoteRevision = 1
+        var includeAnotherSheet = false
+        var metadataFailure: Exception? = null
         var metadataRevision: Int? = null
         var revocations = 0
         var saved: SavedSheet? = null
@@ -502,11 +553,13 @@ class LibraryViewModelTest {
         override fun signOut(token: String) { revocations++; revokeFailure?.let { throw it } }
         override fun list(token: String): List<SheetSummary> {
             listFailure?.let { throw it }
-            return listOf(SheetSummary(sheet.id, sheet.score.title, null, remoteRevision, sheet.createdAt, sheet.updatedAt))
+            val summary = SheetSummary(sheet.id, sheet.score.title, null, remoteRevision, sheet.createdAt, sheet.updatedAt)
+            return if (includeAnotherSheet) listOf(summary, summary.copy(id = "other-sheet")) else listOf(summary)
         }
         override fun get(token: String, id: String): SavedSheet { onGet(); return saved ?: sheet }
         override fun metadata(token: String, id: String, revision: Int, title: String?, favorite: Boolean?, draft: Boolean?): SavedSheet {
             metadataRevision = revision
+            metadataFailure?.let { throw it }
             if (revision != remoteRevision) throw ApiFailure(409, "This sheet changed elsewhere. In Library, choose Reload saved version.")
             return sheet.copy(revision = revision + 1)
         }

@@ -76,8 +76,8 @@ class NativeRecoveryFlowTest {
             waitFor("explicit save") { !model(activity).state.value.busy && !model(activity).state.value.hasUnsavedChanges }
             assertEquals(2, api.get(account.token, original.id).revision)
             click("Sheet details"); setField("Sheet title", "M7 recovered native study"); click("Done")
-            waitFor("private file committed") { store().list(account.user.id).singleOrNull()?.title == "M7 recovered native study" }
-            val draft = store().list(account.user.id).single()
+            waitFor("private file committed") { store().list(account.user.id).copies.singleOrNull()?.title == "M7 recovered native study" }
+            val draft = store().list(account.user.id).copies.single()
             assertEquals(2, draft.base.revision)
             assertEquals("D", draft.score.measures.first().melody.first().pitch?.step)
             capture("m7-native-before-restart.png")
@@ -87,7 +87,7 @@ class NativeRecoveryFlowTest {
     @Test fun restoreAfterProcessRestartAndSaveConflictAsNew() {
         val fixture = fixture(); val api = api(fixture)
         val account = api.signIn(fixture.getString("email"), fixture.getString("password"))
-        val draft = store().list(account.user.id).single()
+        val draft = store().list(account.user.id).copies.single()
         val latest = api.get(account.token, draft.base.id)
         val remote = api.save(account.token, latest, "M7 other device version", latest.tutorialUrl)
         val activity = start(fixture)
@@ -104,7 +104,7 @@ class NativeRecoveryFlowTest {
             val copied = api.get(account.token, requireNotNull(model(activity).state.value.selected).id)
             assertEquals(draft.title, copied.score.title); assertEquals(draft.score.measures, copied.score.measures)
             assertEquals(draft.tutorial, copied.tutorialUrl); assertEquals(remote, api.get(account.token, remote.id))
-            waitFor("consumed files removed") { store().list(account.user.id).isEmpty() }
+            waitFor("consumed files removed") { store().list(account.user.id).copies.isEmpty() }
             click("Practice"); click("Next bar"); capture("m7-native-recovered-practice.png")
         } finally { api.signOut(account.token); instrumentation.runOnMainSync { activity.finish() } }
     }

@@ -20,7 +20,7 @@ class DraftRecoveryTest {
         first.authenticate("a", "long-password-value", null); advanceUntilIdle(); first.open(api.sheet.id); advanceUntilIdle()
         first.updateDraftTitle("Recovered melody"); first.updateDraftTutorial("https://youtu.be/M7lc1UVf-VE")
         first.setPosition(ScorePosition(1, 480)); advanceUntilIdle()
-        val copy = store.list("account-a").single()
+        val copy = store.list("account-a").copies.single()
         val second = model(api, store)
         second.authenticate("a", "long-password-value", null); advanceUntilIdle()
         second.restoreRecovery(second.state.value.recoveryCopies.single()); advanceUntilIdle()
@@ -35,7 +35,7 @@ class DraftRecoveryTest {
         second.save(); advanceUntilIdle()
         assertEquals(1, api.saves)
         assertFalse(second.state.value.hasUnsavedChanges)
-        assertEquals("Other workspace continues", store.list("account-a").single().title)
+        assertEquals("Other workspace continues", store.list("account-a").copies.single().title)
     }
 
     @Test fun outageAndConflictKeepDraftAndSaveAsNewPreservesTutorial() = runTest(dispatcher) {
@@ -45,7 +45,7 @@ class DraftRecoveryTest {
         api.failure = ApiFailure(0, "Offline")
         first.save(); advanceUntilIdle()
         assertTrue(first.state.value.hasUnsavedChanges)
-        assertEquals(1, store.list("account-a").size)
+        assertEquals(1, store.list("account-a").copies.size)
         api.failure = null; api.revision = 2
         val restarted = model(api, store)
         restarted.authenticate("a", "long-password-value", null); advanceUntilIdle()
@@ -56,14 +56,33 @@ class DraftRecoveryTest {
         assertEquals("My changes", restarted.state.value.selected!!.score.title)
         assertEquals("https://youtu.be/M7lc1UVf-VE", restarted.state.value.selected!!.tutorialUrl)
         assertEquals(0, api.saves)
-        assertTrue(store.list("account-a").isEmpty())
+        assertTrue(store.list("account-a").copies.isEmpty())
+    }
+
+    @Test fun recoveryPreservesTheVirtualNextBarAndItsInitialGap() = runTest(dispatcher) {
+        val api = Gateway(); val store = MemoryStore(); val first = model(api, store)
+        first.authenticate("a", "long-password-value", null); advanceUntilIdle(); first.open(api.sheet.id); advanceUntilIdle()
+        val original = api.sheet.score
+        val nextBar = ScorePosition(original.measures.size, 480)
+        first.updateDraftTitle("Continue in the next bar")
+        first.setPosition(nextBar); advanceUntilIdle()
+
+        val restarted = model(api, store)
+        restarted.authenticate("a", "long-password-value", null); advanceUntilIdle()
+        restarted.restoreRecovery(restarted.state.value.recoveryCopies.single()); advanceUntilIdle()
+        assertEquals(nextBar, restarted.state.value.editor!!.position)
+        restarted.setDuration(480); restarted.addChord("Dm")
+        val score = restarted.state.value.editor!!.score
+        assertEquals(original.measures, score.measures.take(original.measures.size))
+        assertEquals(original.measures.size + 1, score.measures.size)
+        assertEquals(480, score.measures.last().chords.single().offsetTicks)
     }
 
     @Test fun accountBoundaryAndStorageFailureRemainVisible() = runTest(dispatcher) {
         val api = Gateway(); val store = MemoryStore(); val first = model(api, store)
         first.authenticate("a", "long-password-value", null); advanceUntilIdle(); first.open(api.sheet.id); advanceUntilIdle()
         first.updateDraftTitle("Private draft"); advanceUntilIdle()
-        val copy = store.list("account-a").single()
+        val copy = store.list("account-a").copies.single()
         first.signOut(); advanceUntilIdle()
         assertTrue(first.state.value.recoveryCopies.isEmpty())
         first.authenticate("b", "long-password-value", null); advanceUntilIdle()
@@ -85,7 +104,26 @@ class DraftRecoveryTest {
         current.saveAsNew(); advanceUntilIdle()
         assertFalse(current.state.value.conflict)
         assertTrue(current.state.value.hasUnsavedChanges)
-        assertEquals("Keep this work", store.list("account-a").single().title)
+        assertEquals("Keep this work", store.list("account-a").copies.single().title)
+    }
+
+    @Test fun unreadableCopiesRemainVisibleWhileHealthyDraftsCanBeSavedAndRestored() = runTest(dispatcher) {
+        val api = Gateway(); val store = MemoryStore().apply { unreadableCount = 2 }; val first = model(api, store)
+        first.authenticate("a", "long-password-value", null); advanceUntilIdle()
+        assertEquals(2, first.state.value.recoveryUnreadableCount)
+        assertTrue(first.state.value.recoveryWarning!!.contains("2 local recovery copies"))
+        first.open(api.sheet.id); advanceUntilIdle(); first.updateDraftTitle("Healthy copy"); advanceUntilIdle()
+        assertEquals(1, first.state.value.recoveryCopies.size)
+        assertEquals(2, first.state.value.recoveryUnreadableCount)
+        assertTrue(first.state.value.recoveryStatus!!.contains("updated"))
+
+        val restarted = model(api, store)
+        restarted.authenticate("a", "long-password-value", null); advanceUntilIdle()
+        restarted.restoreRecovery(restarted.state.value.recoveryCopies.single()); advanceUntilIdle()
+        assertEquals("Healthy copy", restarted.state.value.draftTitle)
+        assertEquals(2, restarted.state.value.recoveryUnreadableCount)
+        restarted.signOut(); advanceUntilIdle()
+        assertNull(restarted.state.value.recoveryWarning)
     }
 
     @Test fun codecRejectsForeignMalformedAndOversizedData() {
@@ -100,8 +138,8 @@ class DraftRecoveryTest {
     }
 
     private class MemoryStore : RecoveryStore {
-        val copies = mutableMapOf<String, RecoveryDraft>(); var failWrites = false
-        override fun list(accountId: String) = copies.values.filter { it.accountId == accountId }
+        val copies = mutableMapOf<String, RecoveryDraft>(); var failWrites = false; var unreadableCount = 0
+        override fun list(accountId: String) = RecoveryListing(copies.values.filter { it.accountId == accountId }, unreadableCount)
         override fun put(draft: RecoveryDraft) { check(!failWrites); copies[draft.id] = draft }
         override fun remove(draft: RecoveryDraft) { if (copies[draft.id]?.updatedAt == draft.updatedAt) copies.remove(draft.id) }
     }

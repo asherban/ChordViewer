@@ -42,9 +42,13 @@ data class LibraryState(
     val busy: Boolean = false,
     val message: String? = null,
     val recoveryCopies: List<RecoveryDraft> = emptyList(),
+    val recoveryUnreadableCount: Int = 0,
     val recoveryStatus: String? = null,
     val conflict: Boolean = false,
 ) {
+    val recoveryWarning: String? get() = recoveryUnreadableCount.takeIf { it > 0 }?.let {
+        "$it local recovery ${if (it == 1) "copy" else "copies"} could not be read. The unreadable data has been kept on this device."
+    }
     val hasUnsavedChanges: Boolean get() = selected?.let {
         draftTitle != it.score.title || draftTutorial != it.tutorialUrl.orEmpty() || editor?.score?.let { score -> score != it.score } == true
     } ?: false
@@ -85,9 +89,9 @@ class LibraryViewModel(
         recoveryJob = viewModelScope.launch {
             previous?.join()
             try {
-                val copies = withContext(io) { action(store); store.list(owner) }
+                val listing = withContext(io) { action(store); store.list(owner) }
                 if (request == generation && mutableState.value.user?.id == owner) {
-                    mutableState.value = mutableState.value.copy(recoveryCopies = copies,
+                    mutableState.value = mutableState.value.copy(recoveryCopies = listing.copies, recoveryUnreadableCount = listing.unreadableCount,
                         recoveryStatus = if (sequence == recoverySequence && savedStatus != null) savedStatus else mutableState.value.recoveryStatus)
                 }
             } catch (error: Exception) {
@@ -128,8 +132,7 @@ class LibraryViewModel(
         val clean = RecoveryJson.read(RecoveryJson.write(draft), draft.accountId)
         opened(clean.base)
         editor = ScoreEditor(clean.score)
-        editor?.update { it.copy(position = ScorePosition(clean.position.measureIndex.coerceIn(0, clean.score.measures.lastIndex),
-            clean.position.offsetTicks.coerceIn(0, clean.score.measureTicks - 1)), mode = EntryMode.PAUSED) }
+        editor?.update { it.copy(position = clean.position.clampedTo(clean.score), mode = EntryMode.PAUSED) }
         recoveredSource = clean
         val server = value.sheets.find { it.id == clean.base.id }
         mutableState.value = value.copy(selected = clean.base, editor = editor?.state, mode = LibraryMode.CREATE,
@@ -381,8 +384,7 @@ class LibraryViewModel(
         practiceSession = practiceRules?.let { PracticeSession(it, sheet.score) }
         bookmarkKey(sheet.id)?.let { key ->
             editPositions[key]?.let { saved ->
-                val bar = saved.measureIndex.coerceIn(0, sheet.score.measures.lastIndex)
-                editor?.update { it.copy(position = ScorePosition(bar, saved.offsetTicks.coerceIn(0, sheet.score.measureTicks - 1))) }
+                editor?.update { it.copy(position = saved.clampedTo(sheet.score)) }
             }
             practicePositions[key]?.let { (bar, eventId) ->
                 practiceSession?.selectBar(bar)
@@ -439,6 +441,7 @@ class LibraryViewModel(
     fun onAppBackground() {
         practiceCapture.reset()
         capture.reset()
+        editor?.update { it.copy(mode = EntryMode.PAUSED) }
         practiceSession?.resetGesture()
         publishEditor()
     }
@@ -518,7 +521,7 @@ class LibraryViewModel(
         publishEditor()
     }
 
-    fun open(id: String, mode: LibraryMode = LibraryMode.CREATE) = authenticated { client, token, request ->
+    fun open(id: String, mode: LibraryMode = LibraryMode.CREATE) = authenticated(id) { client, token, request ->
         val sheet = withContext(io) { client.markOpened(token, id) }
         ensureCurrent(request)
         if (mutableState.value.selected?.id == id) {
@@ -531,14 +534,14 @@ class LibraryViewModel(
             selected = sheet, editor = editor?.state, mode = mode, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(),
             practiceScore = if (mode == LibraryMode.PRACTICE) sheet.score else null, practiceShift = 0, busy = false, message = null, conflict = false)
     }
-    fun touch(id: String) = authenticated { client, token, request ->
+    fun touch(id: String) = authenticated(id) { client, token, request ->
         val sheet = withContext(io) { client.markOpened(token, id) }
         ensureCurrent(request)
         mutableState.value.copy(sheets = mutableState.value.sheets.map { if (it.id == id) it.copy(openedAt = sheet.openedAt) else it },
             selected = mutableState.value.selected?.takeIf { it.id != id } ?: mutableState.value.selected?.copy(openedAt = sheet.openedAt),
             busy = false, message = null)
     }
-    fun updateMetadata(id: String, title: String? = null, favorite: Boolean? = null, draft: Boolean? = null) = authenticated { client, token, request ->
+    fun updateMetadata(id: String, title: String? = null, favorite: Boolean? = null, draft: Boolean? = null) = authenticated(id) { client, token, request ->
         val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
         val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
         val result = withContext(io) { client.metadata(token, id, revision, title, favorite, draft) }
@@ -553,7 +556,7 @@ class LibraryViewModel(
             draftTitle = if (current.selected?.id == id && title != null) title else current.draftTitle,
             busy = false, message = "Library details updated.")
     }
-    fun duplicate(id: String) = authenticated { client, token, request ->
+    fun duplicate(id: String) = authenticated(id) { client, token, request ->
         val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
         val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
         val copy = withContext(io) { client.duplicate(token, id, revision) }
@@ -561,7 +564,7 @@ class LibraryViewModel(
         mutableState.value.copy(sheets = listOf(copy.summary()) + mutableState.value.sheets,
             busy = false, message = "Saved copy created.")
     }
-    fun transition(id: String, restore: Boolean) = authenticated { client, token, request ->
+    fun transition(id: String, restore: Boolean) = authenticated(id) { client, token, request ->
         val target = requireNotNull(mutableState.value.sheets.find { it.id == id })
         val revision = mutableState.value.selected?.takeIf { it.id == id }?.revision ?: target.revision
         val result = withContext(io) { client.transition(token, id, revision, restore) }
@@ -678,7 +681,7 @@ class LibraryViewModel(
         val draft = selected.copy(score = draftScore, scoreJson = LeadSheetWriter.write(draftScore))
         val title = mutableState.value.draftTitle
         val tutorialUrl = mutableState.value.draftTutorial
-        authenticated { client, token, request ->
+        authenticated(selected.id) { client, token, request ->
             val sheet = withContext(io) { client.save(token, draft, title, tutorialUrl) }
             ensureCurrent(request)
             editor?.update { it.copy(score = sheet.score) }
@@ -708,7 +711,7 @@ class LibraryViewModel(
     }
 
     private fun ensureCurrent(request: Long) { if (request != generation) throw CancellationException("Account changed") }
-    private fun authenticated(action: suspend (LibraryGateway, String, Long) -> LibraryState) {
+    private fun authenticated(sheetId: String? = null, action: suspend (LibraryGateway, String, Long) -> LibraryState) {
         val current = session ?: return
         val client = api ?: return
         if (mutableState.value.busy) return
@@ -727,11 +730,11 @@ class LibraryViewModel(
                         practiceSession?.position?.advanceOnMatch == true) practiceCapture.arm()
                     publishEditor()
                 }
-            } catch (error: Exception) { fail(error, request) }
+            } catch (error: Exception) { fail(error, request, sheetId) }
         }
     }
 
-    private fun fail(error: Exception, request: Long) {
+    private fun fail(error: Exception, request: Long, sheetId: String? = null) {
         if (error is CancellationException) throw error
         if (request != generation) return
         practiceApiBusy = false
@@ -745,7 +748,8 @@ class LibraryViewModel(
             generation++
             mutableState.value = LibraryState(message = message)
         } else mutableState.value = mutableState.value.copy(busy = false, message = message,
-            conflict = mutableState.value.conflict || error is ApiFailure && (error.status == 404 || error.status == 409 && error.code != "sheet_limit"))
+            conflict = mutableState.value.conflict || sheetId != null && sheetId == mutableState.value.selected?.id &&
+                error is ApiFailure && (error.status == 404 || error.status == 409 && error.code != "sheet_limit"))
     }
 
     private fun invalidate() { generation++; active?.cancel(); active = null; importJob?.cancel(); importJob = null; importParsing = false }

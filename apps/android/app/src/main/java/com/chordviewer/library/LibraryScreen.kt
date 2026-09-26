@@ -74,6 +74,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                 }
             }
             state.recoveryStatus?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+            state.recoveryWarning?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
             if (state.conflict && state.selected != null && state.mode != LibraryMode.LIBRARY) {
                 Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                     Text("The saved sheet changed or is unavailable. Keep both versions by saving a new sheet, or reload the server version.")

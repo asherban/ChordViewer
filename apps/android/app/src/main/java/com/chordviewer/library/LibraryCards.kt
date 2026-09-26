@@ -45,7 +45,7 @@ fun LibraryCards(state: LibraryState, model: LibraryViewModel, refresh: () -> Un
                 }
             }
             if (!wide) LibraryActions(state.busy, refresh, newSheet, importSheet)
-            if (state.recoveryCopies.isNotEmpty()) OutlinedButton(onClick = { recoveryOpen = true }, enabled = !state.busy) {
+            if (state.recoveryCopies.isNotEmpty() || state.recoveryUnreadableCount > 0) OutlinedButton(onClick = { recoveryOpen = true }, enabled = !state.busy) {
                 Text("Recover unsaved work (${state.recoveryCopies.size})")
             }
             if (state.sheets.isNotEmpty()) {

@@ -125,6 +125,12 @@ To verify valid MusicXML (including a UTF-8 BOM) and external-declaration reject
 adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.score.ScoreImportAndroidTest com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
+The recovery store also has focused instrumentation using Android's actual `AtomicFile` implementation. It verifies that corrupt records do not hide healthy drafts or reveal another account's records, failed writes keep the committed copy, and deleting an older snapshot preserves a newer edit. It uses its own temporary app-private directory and requires no backend or MIDI:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.FileRecoveryStoreAndroidTest com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
 Bravura is unmodified and licensed under SIL Open Font License 1.1. The license is bundled in `app/src/main/assets/licenses/Bravura-OFL.txt`. Source: [Steinberg Bravura commit 37b1943](https://github.com/steinbergmedia/bravura/tree/37b194378b710cc40e406ab6c4b07608bb9548ae). `bravura.otf` SHA256: `cdf0f893ee1fdb64b7f6713d71ee0dcfc349c0ac01429a8e451b01a9e79f5f3b`.
 
 ## Native shell acceptance

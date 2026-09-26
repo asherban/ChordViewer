@@ -16,6 +16,7 @@ fun RecoveryDialog(state: LibraryState, model: LibraryViewModel, restore: (Recov
     AlertDialog(onDismissRequest = close, title = { Text("Recover unsaved work") }, text = {
         Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("These copies stay on this device. Restore keeps the original revision; Save remains explicit.")
+            state.recoveryWarning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             state.recoveryCopies.forEach { draft ->
                 HorizontalDivider()
                 Text(draft.title.ifBlank { "Untitled draft" }, style = MaterialTheme.typography.titleMedium)
@@ -25,7 +26,7 @@ fun RecoveryDialog(state: LibraryState, model: LibraryViewModel, restore: (Recov
                     TextButton(onClick = { deleting = draft }, enabled = !state.busy) { Text("Delete copy") }
                 }
             }
-            if (state.recoveryCopies.isEmpty()) Text("No local recovery copies.")
+            if (state.recoveryCopies.isEmpty()) Text(if (state.recoveryUnreadableCount > 0) "No readable recovery copies." else "No local recovery copies.")
         }
     }, confirmButton = { TextButton(onClick = close) { Text("Close") } })
     deleting?.let { draft -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete recovery copy?") },

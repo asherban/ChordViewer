@@ -10,8 +10,10 @@ import org.json.JSONObject
 data class RecoveryDraft(val id: String, val accountId: String, val updatedAt: Long, val base: SavedSheet,
     val score: LeadSheet, val title: String, val tutorial: String, val position: ScorePosition)
 
+data class RecoveryListing(val copies: List<RecoveryDraft>, val unreadableCount: Int = 0)
+
 interface RecoveryStore {
-    fun list(accountId: String): List<RecoveryDraft>
+    fun list(accountId: String): RecoveryListing
     fun put(draft: RecoveryDraft)
     fun remove(draft: RecoveryDraft)
 }
@@ -72,11 +74,17 @@ class FileRecoveryStore(private val directory: File) : RecoveryStore {
         }
         RecoveryJson.read(output.toString("UTF-8"), owner)
     }
-    override fun list(accountId: String): List<RecoveryDraft> = synchronized(lock) {
+    override fun list(accountId: String): RecoveryListing = synchronized(lock) {
         val all = if (!directory.exists()) emptyArray() else checkNotNull(directory.listFiles()) { "Cannot read local recovery storage." }
         val files = all.filter { it.name.startsWith(prefix(accountId)) && it.name.endsWith(".json") }
         require(files.size <= RecoveryJson.MAX_COPIES)
-        files.map { read(it, accountId) }.sortedByDescending { it.updatedAt }
+        var unreadable = 0
+        val copies = files.mapNotNull { file ->
+            try { read(file, accountId) }
+            catch (_: Exception) { unreadable++; null }
+        }
+        // Preserve unreadable records for recovery outside the app, without hiding healthy drafts.
+        RecoveryListing(copies.sortedByDescending { it.updatedAt }, unreadable)
     }
     override fun put(draft: RecoveryDraft) = synchronized(lock) {
         val text = RecoveryJson.write(draft)
