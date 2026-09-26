@@ -137,11 +137,13 @@ export function ScorePreview({ score, melody, editing, practice }: { score: Lead
   const [width, setWidth] = useState(800);
   const [layout, setLayout] = useState<NotationLayout | null>(null);
   const [error, setError] = useState("");
+  const practiceBar = practice?.bar;
+  const practiceChordId = practice?.chordId;
   useEffect(() => {
-    if (!practice || !viewport.current) return;
+    if (practiceBar === undefined || !viewport.current) return;
     (viewport.current.querySelector('[data-practice-chord-current="true"]') ??
       viewport.current.querySelector('[data-practice-current="true"]'))?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [practice, melody, layout]);
+  }, [practiceBar, practiceChordId, melody, layout]);
   const measures = useMemo(() => editing?.position.measureIndex === score.measures.length && score.measures.length < 256
     ? [...score.measures, { id: "next-bar-preview", chords: [], melody: [] }] : score.measures, [score, editing?.position.measureIndex]);
   useEffect(() => {
