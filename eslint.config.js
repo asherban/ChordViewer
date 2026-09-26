@@ -12,6 +12,7 @@ export default defineConfig([
     "**/.gradle/**",
     ".local/**",
     "playwright-report/**",
+    "coverage/**",
     "test-results/**",
   ]),
   {

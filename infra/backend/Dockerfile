@@ -7,13 +7,13 @@ COPY services/api/package.json ./services/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 
 FROM manifests AS build
-RUN npm ci
+RUN npm ci --no-audit
 COPY contracts/ ./contracts/
 COPY services/api/ ./services/api/
 RUN npm run build -w @chordviewer/contracts && npm run build -w @chordviewer/api
 
 FROM manifests AS runtime-dependencies
-RUN npm ci --omit=dev --workspace @chordviewer/contracts --workspace @chordviewer/api --include-workspace-root=false && npm cache clean --force
+RUN npm ci --no-audit --omit=dev --workspace @chordviewer/contracts --workspace @chordviewer/api --include-workspace-root=false && npm cache clean --force
 
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 ENV NODE_ENV=production
