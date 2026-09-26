@@ -1,4 +1,4 @@
-import { parseScore, type LeadSheet } from '@chordviewer/contracts';
+import { isStorageSafeText, parseScore, type LeadSheet, type SheetMetadataRequest } from '@chordviewer/contracts';
 
 export class InputError extends Error {}
 export function object(value: unknown, keys: string[]): Record<string, unknown> {
@@ -8,7 +8,7 @@ export function object(value: unknown, keys: string[]): Record<string, unknown> 
   return value as Record<string, unknown>;
 }
 export function title(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim() || [...value].length > 200 ||
+  if (typeof value !== 'string' || !value.trim() || [...value].length > 200 || !isStorageSafeText(value) ||
       [...value].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
     throw new InputError('Enter a title of 1–200 characters without control characters.');
   }
@@ -45,22 +45,23 @@ export function importInput(value: unknown): { score: LeadSheet; title: string; 
 }
 export function updateInput(value: unknown, id: string): { score: LeadSheet; tutorialUrl: string | null; expectedRevision: number } {
   const input = object(value, ['score', 'tutorialUrl', 'expectedRevision']);
-  if (!Number.isInteger(input.expectedRevision) || Number(input.expectedRevision) < 1 || Number(input.expectedRevision) >= 2_147_483_647) {
-    throw new InputError('A current sheet revision is required.');
-  }
+  const expectedRevision = revision(input.expectedRevision);
   if (!Object.hasOwn(input, 'tutorialUrl')) throw new InputError('Include tutorialUrl, or null to remove it.');
   const score = parseScore(input.score);
   if (score.id !== id) throw new InputError('The score ID must match the saved sheet.');
   title(score.title);
-  return { score, tutorialUrl: tutorialUrl(input.tutorialUrl), expectedRevision: Number(input.expectedRevision) };
+  return { score, tutorialUrl: tutorialUrl(input.tutorialUrl), expectedRevision };
+}
+function revision(value: unknown): number {
+  // Every mutating operation must leave room for the database's integer revision increment.
+  if (!Number.isInteger(value) || Number(value) < 1 || Number(value) >= 2_147_483_647)
+    throw new InputError('A current sheet revision is required.');
+  return Number(value);
 }
 export function revisionInput(value: unknown): number {
-  const input = object(value, ['expectedRevision']);
-  if (!Number.isInteger(input.expectedRevision) || Number(input.expectedRevision) < 1 || Number(input.expectedRevision) >= 2_147_483_647)
-    throw new InputError('A current sheet revision is required.');
-  return Number(input.expectedRevision);
+  return revision(object(value, ['expectedRevision']).expectedRevision);
 }
-export function metadataInput(value: unknown): { expectedRevision: number; title?: string; favorite?: boolean; draft?: boolean } {
+export function metadataInput(value: unknown): SheetMetadataRequest {
   const input = object(value, ['expectedRevision', 'title', 'favorite', 'draft']);
   const expectedRevision = revisionInput({ expectedRevision: input.expectedRevision });
   if (!['title', 'favorite', 'draft'].some(key => Object.hasOwn(input, key))) throw new InputError('Choose metadata to change.');

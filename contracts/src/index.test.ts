@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import example from '../fixtures/lead-sheet-v1.json' with { type: 'json' };
-import conformance from '../../tests/fixtures/music/score-validation-cases.json' with { type: 'json' };
 import { durationTicks, parseScore, ScoreValidationError, type LeadSheet } from './index.js';
 
-describe('shared score version 1 conformance', () => {
+// Parse at runtime: bundler JSON transforms can reject the malformed Unicode we need to validate.
+const conformance = JSON.parse(readFileSync(new URL('../../tests/fixtures/music/score-validation-cases.json', import.meta.url), 'utf8')) as {
+  cases: { name: string; score: unknown; valid: boolean; expectedCode?: string }[];
+};
+
+describe('shared score version 1 and 2 conformance', () => {
   for (const testCase of conformance.cases) {
     it(testCase.name, () => {
       const input = structuredClone(testCase.score);

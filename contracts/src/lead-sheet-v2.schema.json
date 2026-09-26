@@ -23,6 +23,7 @@
       "$ref": "#/definitions/id"
     },
     "title": {
+      "$ref": "#/definitions/text",
       "type": "string",
       "minLength": 1,
       "maxLength": 200
@@ -99,6 +100,10 @@
     }
   },
   "definitions": {
+    "text": {
+      "type": "string",
+      "pattern": "^(?:[^\\u0000\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*(?![\\s\\S])"
+    },
     "id": {
       "type": "string",
       "minLength": 1,
@@ -195,6 +200,7 @@
           "maximum": 11520
         },
         "symbol": {
+          "$ref": "#/definitions/text",
           "type": "string",
           "minLength": 1,
           "maxLength": 32

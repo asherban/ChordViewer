@@ -3519,6 +3519,424 @@
           }
         ]
       }
+    },
+    {
+      "name": "v1-nul-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "C\u0000",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-nul-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\u0000"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-unpaired-high-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "C\ud800",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-unpaired-high-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\ud800"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-unpaired-low-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "C\udfff",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-unpaired-low-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\udfff"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v1-paired-unicode-text",
+      "valid": true,
+      "score": {
+        "schemaVersion": 1,
+        "id": "text-sheet",
+        "title": "Music 𝄞 🎵",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C🎵"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-nul-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "C\u0000",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-nul-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\u0000"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-unpaired-high-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "C\ud800",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-unpaired-high-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\ud800"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-unpaired-low-title",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "C\udfff",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-unpaired-low-symbol",
+      "valid": false,
+      "expectedCode": "schema",
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "Text validation",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C\udfff"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2-paired-unicode-text",
+      "valid": true,
+      "score": {
+        "schemaVersion": 2,
+        "id": "text-sheet",
+        "title": "Music 𝄞 🎵",
+        "keySignature": "C",
+        "timeSignature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "ticksPerQuarter": 480,
+        "measures": [
+          {
+            "id": "text-bar",
+            "chords": [
+              {
+                "id": "text-chord",
+                "offsetTicks": 0,
+                "durationTicks": 480,
+                "symbol": "C🎵"
+              }
+            ],
+            "melody": []
+          }
+        ]
+      }
     }
   ]
 }

@@ -122,6 +122,7 @@ object LeadSheetReader {
     private fun JSONObject.string(name: String, maximum: Int): String {
         val value = get(name)
         require(value is String && value.codePointCount(0, value.length) in 1..maximum) { "Invalid score text" }
+        require(value.codePoints().noneMatch { it == 0 || it in 0xD800..0xDFFF }) { "Score text contains NUL or an unpaired surrogate" }
         return value
     }
 

@@ -138,6 +138,25 @@ test('schema, body limits and tutorial validation reject unsafe writes without c
   const current = await request(`/api/v1/sheets/${saved.id}`, { token: first.token });
   assert.equal((await current.json()).revision, 2);
 });
+test('storage-incompatible Unicode is rejected without changing saved music or creating a copy', async () => {
+  const path = `/api/v1/sheets/${saved.id}`;
+  const before = await (await request('/api/v1/sheets', { token: first.token })).json();
+  for (const title of ['bad\u0000title', 'bad\ud800title', 'bad\udc00title']) {
+    assert.equal((await request('/api/v1/sheets', { method: 'POST', token: first.token,
+      body: { title, template: 'blank' } })).status, 400);
+    assert.equal((await request(path + '/metadata', { method: 'PATCH', token: first.token,
+      body: { expectedRevision: saved.revision, title } })).status, 400);
+    const score = structuredClone(saved.score);
+    score.measures[0].chords[0].symbol = title;
+    assert.equal((await request('/api/v1/sheets/import', { method: 'POST', token: first.token,
+      body: { score, title: 'Invalid imported symbol' } })).status, 400);
+    assert.equal((await request(path, { method: 'PUT', token: first.token,
+      body: { score, tutorialUrl: saved.tutorialUrl, expectedRevision: saved.revision } })).status, 400);
+  }
+  assert.deepEqual(await (await request('/api/v1/sheets', { token: first.token })).json(), before);
+  assert.deepEqual(await (await request(path, { token: first.token })).json(), saved);
+});
+
 test('Library metadata and recency are owner-scoped, bounded and guarded', async () => {
   const path = '/api/v1/sheets/' + saved.id;
   const summary = (await (await request('/api/v1/sheets', { token: first.token })).json()).sheets.find(sheet => sheet.id === saved.id);

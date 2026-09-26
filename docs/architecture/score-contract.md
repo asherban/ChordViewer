@@ -19,7 +19,7 @@ The web, API and native Android client share an editable score contract. M2 esta
 | Document | `schemaVersion: 1`, `id`, `title`, `keySignature`, `timeSignature`, `ticksPerQuarter`, `measures`. No other fields. |
 | Notation proof | C key signature, 4/4, 480 ticks per quarter, one treble melody voice. Accidentals are supported despite the fixed key signature. |
 | Identity | Sheet, measures and events each have an ID. All IDs are unique throughout one sheet. IDs contain 1–64 ASCII letters, digits, underscores or hyphens. They can be created locally; this contract assumes neither server-generated IDs nor authorization from knowing an ID. |
-| Text | Title: 1–200 Unicode code points. Chord symbol: 1–32 Unicode code points. Strings are preserved as supplied, including spelling and case. |
+| Text | Title: 1–200 Unicode code points. Chord symbol: 1–32 Unicode code points. NUL and unpaired UTF-16 surrogates are rejected because they cannot be stored in PostgreSQL text/JSONB. Valid strings are preserved as supplied, including spelling and case. |
 | Structure | 1–256 measures. Each measure has `id`, `chords` and `melody`. Each lane contains at most 64 events. Chord-only measures, empty measures and partially entered melody are valid. |
 | Chord event | `id`, `offsetTicks`, `durationTicks`, `symbol`. Symbols are display text at this stage, not parsed chord identity. |
 | Melody event | `id`, `kind`, `offsetTicks`, `duration`, and a `pitch` for notes. `kind` is `note` or `rest`. |

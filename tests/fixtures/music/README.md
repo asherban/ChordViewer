@@ -1,6 +1,6 @@
 # Shared musical fixtures
 
-`score-validation-cases.json` is the language-neutral M2 score contract suite. Each case supplies a complete input object, its expected validity and, for invalid inputs, one required TypeScript issue code. Android checks the same validity without depending on TypeScript exception messages. The canonical visual proof is [lead-sheet-v1.json](../../../contracts/fixtures/lead-sheet-v1.json).
+`score-validation-cases.json` is the language-neutral score contract suite for versions 1 and 2. Each case supplies a complete input object, its expected validity and, for invalid inputs, one required TypeScript issue code. Android checks the same validity without depending on TypeScript exception messages. It includes NUL and unpaired-surrogate rejection plus valid supplementary Unicode; parse this fixture at runtime rather than through a bundler that may reject the malformed text before validation. The canonical visual proof is [lead-sheet-v1.json](../../../contracts/fixtures/lead-sheet-v1.json).
 
 `chord-recognition-cases.json` preserves the original recognition identities: pitch classes, lowest played MIDI note and musical quality, independent of a particular library. M4 checks these expectations against the shared vocabulary in both languages. Major and minor remain distinct; slash bass and enharmonic spellings have explicit rules.
 

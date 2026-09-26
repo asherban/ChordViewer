@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
 import { configuration } from './config.js';
-import { createInput, importInput, tutorialUrl, updateInput } from './input.js';
+import { createInput, importInput, metadataInput, revisionInput, tutorialUrl, updateInput } from './input.js';
 
 describe('storage request boundary', () => {
   it('normalizes supported tutorials without requesting any remote resource', () => {
@@ -29,6 +29,15 @@ describe('storage request boundary', () => {
     expect(() => updateInput({ ...input, expectedRevision: '1' }, example.id)).toThrow();
     expect(() => updateInput({ ...input, score: { ...example, schemaVersion: 99 } }, example.id)).toThrow();
   });
+  it.each(['bad\u0000title', 'bad\ud800title', 'bad\udc00title'])('rejects text PostgreSQL cannot preserve before attempting a write: %j', value => {
+    expect(() => createInput({ title: value, template: 'blank' })).toThrow();
+    expect(() => metadataInput({ expectedRevision: 1, title: value })).toThrow();
+    expect(() => importInput({ score: example, title: value })).toThrow();
+    expect(() => updateInput({ score: { ...example, title: value }, tutorialUrl: null, expectedRevision: 1 }, example.id)).toThrow();
+    const score = structuredClone(example);
+    score.measures[0]!.chords[0]!.symbol = value;
+    expect(() => importInput({ score, title: 'Imported' })).toThrow();
+  });
   it('validates blank-sheet keys and meters and preserves the example notation', () => {
     expect(createInput({ title: 'Study', template: 'blank', keySignature: 'F#m', timeSignature: { numerator: 6, denominator: 8 } })).toMatchObject({
       keySignature: 'F#m', timeSignature: { numerator: 6, denominator: 8 },
@@ -44,6 +53,22 @@ describe('storage request boundary', () => {
     expect(() => importInput({ score: { ...example, schemaVersion: 99 }, title: 'Copy' })).toThrow();
     expect(() => importInput({ score: example, title: ' ' })).toThrow();
     expect(() => importInput({ score: example, title: 'Copy', tutorialUrl: 'file:///secret' })).toThrow();
+  });
+  it('uses the same incrementable revision range for scores, metadata and lifecycle writes', () => {
+    for (const expectedRevision of [undefined, null, '1', 0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_647]) {
+      expect(() => updateInput({ score: example, tutorialUrl: null, expectedRevision }, example.id)).toThrow('revision');
+      expect(() => metadataInput({ favorite: true, expectedRevision })).toThrow('revision');
+      expect(() => revisionInput({ expectedRevision })).toThrow('revision');
+    }
+    expect(revisionInput({ expectedRevision: 2_147_483_646 })).toBe(2_147_483_646);
+  });
+  it('requires explicit, correctly typed metadata and rejects lifecycle overposting', () => {
+    expect(metadataInput({ expectedRevision: 1, favorite: false, draft: false, title: 'Renamed' }))
+      .toEqual({ expectedRevision: 1, favorite: false, draft: false, title: 'Renamed' });
+    for (const changes of [{}, { favorite: 'false' }, { draft: null }, { title: ' ' }, { ownerId: 'other' }, { transition: 'trash' }]) {
+      expect(() => metadataInput({ expectedRevision: 1, ...changes })).toThrow();
+    }
+    expect(() => revisionInput({ expectedRevision: 1, ownerId: 'other' })).toThrow();
   });
 });
 describe('explicit local deployment', () => {
