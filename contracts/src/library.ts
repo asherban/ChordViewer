@@ -1,4 +1,4 @@
-import type { LeadSheet } from './index.js';
+import type { LeadSheet } from './score.js';
 
 export interface AccountSummary { id: string; name: string; email: string }
 export interface SheetSummary {

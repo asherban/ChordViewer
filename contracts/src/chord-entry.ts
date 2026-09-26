@@ -1,5 +1,6 @@
 import vocabulary from '../fixtures/chord-vocabulary-v1.json' with { type: 'json' };
-import { parseScore, measureTicks, type ChordEvent, type LeadSheet } from './index.js';
+import { measureTicks, type ChordEvent, type LeadSheet } from './score.js';
+import { parseScore } from './validation.js';
 
 export const CHORD_DURATIONS = [240, 480, 720, 960, 1440, 1920] as const;
 export type ChordDuration = typeof CHORD_DURATIONS[number];

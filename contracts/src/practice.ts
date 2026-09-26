@@ -1,6 +1,9 @@
 import vocabulary from '../fixtures/chord-vocabulary-v1.json' with { type: 'json' };
-import { ChordCapture } from './chord-entry.js';
-import { midiToPitch, parseScore, SUPPORTED_KEYS, type ChordPosition, type LeadSheet, type Pitch } from './index.js';
+import { ChordCapture, type ChordPosition } from './chord-entry.js';
+import { midiToPitch } from './melody-entry.js';
+import { SUPPORTED_KEYS } from './music.js';
+import { parseScore } from './validation.js';
+import type { LeadSheet, Pitch } from './score.js';
 
 export interface PracticeEvent { id: string; symbol: string; position: ChordPosition }
 const NATURAL: Record<Pitch['step'], number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };

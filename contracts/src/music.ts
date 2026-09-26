@@ -1,4 +1,5 @@
-import { durationTicks, parseScore, type LeadSheet, type MelodyEvent, type Pitch } from './index.js';
+import { durationTicks, measureTicks, sameSpelledPitch, type LeadSheet, type MelodyEvent, type Pitch } from './score.js';
+import { parseScore } from './validation.js';
 
 export const KEY_SIGNATURES = {
   C: { fifths: 0, mode: 'major' }, G: { fifths: 1, mode: 'major' }, D: { fifths: 2, mode: 'major' },
@@ -16,9 +17,6 @@ export type KeySignature = keyof typeof KEY_SIGNATURES;
 export interface TimeSignature { numerator: number; denominator: 2 | 4 | 8 }
 export const SUPPORTED_KEYS: readonly KeySignature[] = Object.keys(KEY_SIGNATURES) as KeySignature[];
 
-export function measureTicks(score: Pick<LeadSheet, 'timeSignature'>): number {
-  return score.timeSignature.numerator * 1920 / score.timeSignature.denominator;
-}
 export function keyAccidentals(key: KeySignature): Record<Pitch['step'], Pitch['alter']> {
   const definition = KEY_SIGNATURES[key];
   if (!Object.hasOwn(KEY_SIGNATURES, key)) throw new RangeError('Choose a supported major or minor key.');
@@ -31,9 +29,6 @@ export function keyLabel(key: KeySignature): string {
   const definition = KEY_SIGNATURES[key];
   if (!Object.hasOwn(KEY_SIGNATURES, key)) throw new RangeError('Choose a supported major or minor key.');
   return `${key.replace(/m$/, '').replace('#', '♯').replace('b', '♭')} ${definition.mode}`;
-}
-export function sameSpelledPitch(left: Pitch, right: Pitch): boolean {
-  return left.step === right.step && left.alter === right.alter && left.octave === right.octave;
 }
 
 /** Repairs only existing ties made invalid by an edit; never creates ties or shifts events. */

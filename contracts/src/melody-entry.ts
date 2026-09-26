@@ -1,5 +1,6 @@
-import { durationTicks, parseScore, type LeadSheet, type MelodyEvent, type NoteDuration, type Pitch } from './index.js';
-import { KEY_SIGNATURES, keyAccidentals, measureTicks, removeInvalidMelodyTies, sameSpelledPitch, type KeySignature } from './music.js';
+import { durationTicks, measureTicks, sameSpelledPitch, type LeadSheet, type MelodyEvent, type NoteDuration, type Pitch } from './score.js';
+import { parseScore } from './validation.js';
+import { KEY_SIGNATURES, keyAccidentals, removeInvalidMelodyTies, type KeySignature } from './music.js';
 import type { ChordPosition } from './chord-entry.js';
 
 export const MELODY_DURATIONS: readonly NoteDuration[] = [
