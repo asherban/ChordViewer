@@ -1,12 +1,12 @@
 # Local accounts and sheet persistence
 
-M3 gives the web client and native Android app one account-scoped library on this workstation. The [OpenAPI document](../../contracts/openapi.yaml) and [score contract](score-contract.md) define the wire format; the [README](../../README.md) contains developer commands. Musical editing starts in M4, melody editing/import in M5, and complete Library/Practice behavior in M6.
+The web client and native Android app share an account-scoped library on this workstation. The [OpenAPI document](../../contracts/openapi.yaml) and [score contract](score-contract.md) define the wire format; the [README](../../README.md) contains developer commands. This document describes the current implementation through M7, including Library metadata, recoverable Trash and local draft recovery.
 
 ## Stored sheets
 
 A new account has no sheets. Creating a sheet explicitly selects either four empty measures or a copy of the original notation example. The backend assigns its UUID and authenticated owner. Clients cannot select an owner or overwrite the ID. Metadata lists omit the full score; opening a sheet returns its validated score, optional canonical tutorial URL, revision and timestamps.
 
-Saving sends the complete score, tutorial URL and `expectedRevision`. PostgreSQL compares that revision atomically, increments it on success and returns the authoritative record. A stale write returns `409 revision_conflict`; an unknown or other user's sheet returns the same `404`. Clients preserve an unsuccessful metadata draft and offer a reload instead of silently overwriting another device. Writes are explicit and are not automatically retried when the network outcome is unknown. Durable offline drafts and merge tools are future work.
+Saving sends the complete score, tutorial URL and `expectedRevision`. PostgreSQL compares that revision atomically, increments it on success and returns the authoritative record. A stale write returns `409 revision_conflict`; an unknown or other user's sheet returns the same `404`. Clients preserve unsuccessful edits and offer an explicit reload or Save as new for conflicts. Writes are explicit and are not automatically retried when the network outcome is unknown. M7 adds bounded account-scoped local recovery copies; these retain the original revision and do not automatically merge or overwrite server music. Cold-start authentication still needs the backend.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -16,13 +16,18 @@ Saving sends the complete score, tutorial URL and `expectedRevision`. PostgreSQL
 | `POST /api/auth/sign-in/email` | Starts a session for an existing account. |
 | `POST /api/auth/sign-out` | Revokes the current session. |
 | `GET /api/v1/me` | Returns the authenticated account's ID, name and email. |
-| `GET /api/v1/sheets` | Lists only the authenticated account's sheets. |
+| `GET /api/v1/sheets` | Lists at most 100 owned sheet summaries, including Trash, with metadata and at most four first-bar chord labels. |
 | `POST /api/v1/sheets` | Creates a blank sheet or explicit example copy. |
 | `POST /api/v1/sheets/import` | Validates score JSON and creates a new owned sheet with a fresh UUID; source identity never overwrites an existing sheet. |
-| `GET /api/v1/sheets/{id}` | Opens an owned sheet. |
+| `GET /api/v1/sheets/{id}` | Reads an active owned sheet without changing Recent order. |
 | `PUT /api/v1/sheets/{id}` | Validates and saves an owned sheet against its revision. |
+| `POST /api/v1/sheets/{id}/open` | Records an intentional open for Recent sorting without changing the score revision. |
+| `PATCH /api/v1/sheets/{id}/metadata` | Renames, favorites or designates a Draft using an atomic revision check. |
+| `POST /api/v1/sheets/{id}/duplicate` | Copies an active owned sheet using a fresh ID, current revision and the shared account quota. |
+| `POST /api/v1/sheets/{id}/trash` | Moves an owned sheet into recoverable Trash using its current revision. |
+| `POST /api/v1/sheets/{id}/restore` | Restores an owned sheet from Trash using its current revision. |
 
-There is no delete endpoint yet; recoverable Trash belongs to the full Library milestone. Unknown authentication endpoints are unavailable. Tutorial links are restricted to supported HTTPS YouTube watch/youtu.be forms with an eleven-character video ID. The backend normalizes the URL without fetching it. Embedded playback is future client work.
+There is no permanent-delete endpoint. Trash retains its quota slot and blocks score editing until restored. Unknown authentication endpoints are unavailable. Tutorial links are restricted to supported HTTPS YouTube watch/youtu.be forms with an eleven-character video ID. The backend normalizes the URL without fetching it. Clients load the embedded player only after a deliberate Play action.
 
 M5 blank creation optionally accepts a standard major/minor key and supported meter, defaulting to C/4/4 in score v2. Example copies retain the original v1 fixture. Import receives canonical v1/v2 score JSON after local preview, plus title and optional tutorial URL. The backend does not parse MusicXML or fetch source URLs. Creation and import share the same per-owner transaction lock and 100-sheet quota. No database migration is needed for v2 because scores are validated JSON documents in the existing storage column.
 
@@ -39,11 +44,19 @@ Both clients prevent late responses from an old account/session from restoring c
 ## Limits and isolation
 
 - Each SQL sheet query includes the authenticated owner, and query values are parameterized. Creation locks the owner's row while enforcing the 100-sheet limit so simultaneous requests cannot exceed it.
-- Titles are nonblank and limited to 200 Unicode code points; tutorial inputs to 500 characters; sheet requests to 1 MiB. Scores pass structural and musical validation before storage. Extra write fields are rejected.
+- Titles are nonblank and limited to 200 Unicode code points; tutorial inputs to 500 characters; sheet requests to 1 MiB. Scores pass structural and musical validation before storage. NUL and unpaired UTF-16 surrogates are rejected before persistence because PostgreSQL cannot preserve them in JSONB. Extra write fields are rejected.
 - Authentication throttling uses PostgreSQL: 20 sign-in or signup attempts per minute per endpoint/IP, with a general authentication limit of 100 per minute. Client forwarding headers cannot choose the rate-limit identity. Local test suites can share one source IP and must run sequentially, with throttling checks last.
 - The container API runs as an unprivileged user with a read-only root filesystem and dropped capabilities. PostgreSQL is unpublished on the host; its application role owns only its database and cannot create databases/roles or act as a superuser.
 - Development and test use separate Compose projects, volumes, networks and generated secrets. API ports bind only to host loopback. Test clients use port 3001; the development library uses port 3000.
-- Configuration requires an explicit local-development flag and loopback authentication origins. There is no public deployment configuration, email recovery, paid access or operational backup claim in M3.
+- Configuration requires an explicit local-development flag and loopback authentication origins. Public deployment, email recovery and paid access are not configured. Local backup and restoration are described below.
+
+Registration is intentionally open to local callers. Authentication throttling limits attempts, but the 100-sheet cap applies separately to each account: it is not a total storage or account-admission limit. A public deployment needs an explicit enrollment policy and aggregate resource limits, as well as HTTPS, reviewed proxy/client-IP handling and operational monitoring. Do not expose the current workstation configuration by changing its host port binding alone.
+
+## Verification boundaries
+
+The default unit suite includes in-process HTTP tests of origin/Fetch Metadata enforcement, cookie/native write rules, request limits, forwarding-header sanitization, the authentication endpoint allowlist, token redaction, cookie renewal forwarding and sanitized failures. These tests use the real Fastify hooks and replace the authentication provider. They do not establish password, signature or database correctness.
+
+The isolated API integration suite covers real authentication, owner isolation, concurrent revisions, shared create/import/duplicate quotas, metadata/Trash transitions and persistence-safe Unicode. Container lifecycle and session renewal/expiry are covered separately by `npm run test:persistence`. Run the integration authentication-throttling check after other clients finish, since local callers share one rate-limit identity.
 
 ## Migrations and lifecycle
 

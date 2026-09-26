@@ -196,8 +196,13 @@ Additional commands:
 ```powershell
 npm run lint
 npm run test:run
+npm run test:coverage
 npm run build
 ```
+
+`test:coverage` writes product unit/contract coverage to `coverage/index.html` and `coverage/coverage-summary.json`, including source files with no unit tests. It excludes development tools and does not measure browser acceptance, database integration or Android coverage. CI uploads the report as `product-unit-coverage`.
+
+See the [September project review](docs/development/project-review-2026-09.md) for corrected defects, security findings, validation results and the prioritized maintenance plan.
 
 The web output is `apps/web/dist`; API output is `services/api/dist`. The normal backend workflow uses Compose; direct `dev:api`/workspace `start` commands require all explicit backend environment settings and database connectivity. There is no public publish/deploy command in this milestone.
 
