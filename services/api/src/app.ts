@@ -78,7 +78,8 @@ export function buildApp(pool: Pool, config: Configuration) {
     if (cookies.length) reply.header('set-cookie', cookies);
     const nativeToken = response.headers.get('set-auth-token');
     if (!request.headers.origin && nativeToken) reply.header('set-auth-token', nativeToken);
-    const retry = response.headers.get('retry-after');
+    // Better Auth currently uses X-Retry-After; expose the standard header to our clients.
+    const retry = response.headers.get('retry-after') ?? response.headers.get('x-retry-after');
     if (retry) reply.header('retry-after', retry);
     const content = await response.json() as Record<string, unknown>;
     // Native uses the signed header; browser uses HttpOnly cookies. Neither needs a raw token in JSON.

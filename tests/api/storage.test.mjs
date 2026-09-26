@@ -283,7 +283,12 @@ test('authentication throttling survives spoofed forwarding headers', async () =
   for (let index = 0; index < 24; index++) {
     const response = await request('/api/auth/sign-in/email', { method: 'POST', body: { email: 'missing@example.test', password: 'incorrect-password' },
       headers: { 'x-chordviewer-client-ip': `198.51.100.${index + 1}`, 'x-forwarded-for': `198.51.100.${index + 1}` } });
-    if (response.status === 429) { limited = true; break; }
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      assert.ok(Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 60, 'Authentication throttling supplies its retry interval');
+      limited = true;
+      break;
+    }
     assert.equal(response.status, 401);
   }
   assert.ok(limited, 'Repeated authentication attempts must be throttled');

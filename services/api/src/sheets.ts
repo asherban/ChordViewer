@@ -58,7 +58,7 @@ async function insertSheet(pool: Pool, owner: string, score: LeadSheet, tutorial
   try {
     await connection.query('BEGIN');
     await connection.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE', [owner]);
-    const count = await connection.query<{ count: string }>('SELECT count(*) FROM lead_sheets WHERE owner_id=$1', [owner]);
+    const count = await connection.query<{ count: number }>('SELECT count(*) FROM lead_sheets WHERE owner_id=$1', [owner]);
     if (Number(count.rows[0]?.count) >= 100) { await connection.query('ROLLBACK'); return null; }
     const inserted = await connection.query<SheetRow>('INSERT INTO lead_sheets (id, owner_id, score, tutorial_url) VALUES ($1,$2,$3::jsonb,$4) RETURNING *', [score.id, owner, JSON.stringify(score), tutorialUrl]);
     await connection.query('COMMIT');
@@ -98,7 +98,7 @@ export async function duplicateSheet(pool: Pool, owner: string, id: string, expe
   try {
     await connection.query('BEGIN');
     await connection.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE', [owner]);
-    const count = await connection.query<{ count: string }>('SELECT count(*) FROM lead_sheets WHERE owner_id=$1', [owner]);
+    const count = await connection.query<{ count: number }>('SELECT count(*) FROM lead_sheets WHERE owner_id=$1', [owner]);
     if (Number(count.rows[0]?.count) >= 100) { await connection.query('ROLLBACK'); return { kind: 'limit' as const }; }
     const original = await connection.query<SheetRow>('SELECT * FROM lead_sheets WHERE owner_id=$1 AND id=$2 AND revision=$3 AND trashed_at IS NULL FOR UPDATE', [owner, id, expectedRevision]);
     if (!original.rows[0]) { await connection.query('ROLLBACK'); return status(pool, owner, id); }
