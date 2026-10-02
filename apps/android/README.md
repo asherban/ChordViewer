@@ -4,6 +4,8 @@ The native Kotlin / Jetpack Compose app signs in to the shared local backend and
 
 ## Local accounts and library
 
+On wide screens, Library uses a narrow navigation rail and a compact toolbar above two columns of song cards. Cards show title, key/meter, content and status, with Practice, Edit, Favorite and More actions; chord previews are omitted. **All sheets** selects All sheets, Favorites, Drafts or Trash. **Filters** combines content type with Has tutorial; the button shows the number of active filters. Search and sorting apply within that selection. Import, Refresh and Recover unsaved work are in the toolbar's **⋮** menu, with a badge when recovery copies need attention. Narrow windows and larger text use a second, horizontally scrollable toolbar row and fewer card columns.
+
 Start the backend using the [root README](../../README.md), install the debug APK, and forward its loopback API port:
 
 ```powershell
@@ -11,7 +13,7 @@ adb -s emulator-5554 reverse tcp:3000 tcp:3000
 adb -s emulator-5554 shell am start -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-Create an account in **Library** or sign in with the same account used on the web. A new account starts empty. **Copy example** makes a real, separately saved sheet only when selected explicitly. The tutorial field accepts an HTTPS YouTube watch or youtu.be link; the server normalizes it without loading the video. If another client saves first, go to **Library → Refresh**, confirm discarding the stale draft, then reopen the sheet before trying again.
+Create an account in **Library** or sign in with the same account used on the web. A new account starts empty. **Copy example** makes a real, separately saved sheet only when selected explicitly. The tutorial field accepts an HTTPS YouTube watch or youtu.be link; the server normalizes it without loading the video. If another client saves first, go to **Library → ⋮ → Refresh**, confirm discarding the stale draft, then reopen the sheet before trying again.
 
 Session tokens remain only in the activity's ViewModel. Rotation preserves the session; process death or force-stop requires sign-in again. Passwords and tokens are never written to saved instance state, preferences, files or logs. Sign-out clears local account data immediately and requests server revocation; a failed revocation is shown explicitly. The app does not automatically retry a failed write. Unsaved score, title and tutorial edits stay in the ViewModel when switching between Library, Create and Practice or rotating the device. Selecting a different sheet, refreshing the library or signing out asks before discarding them. Closing Sheet details keeps its draft; returning to that dialog restores it. Failed saves retain the draft and the last saved revision. An unavailable library is shown as not loaded, rather than empty.
 
@@ -23,7 +25,7 @@ Open a personal sheet in **Create**, use the position and duration controls to c
 
 **Undo/Redo** keeps the previous 100 score-and-position changes. **Save sheet** saves chords together with the title, tutorial and untouched melody lane; reopening restores the full score. Mode changes, dialogs, saving, disconnects and backgrounding pause entry. Library and Practice never write played notes to the score. Physical USB/Bluetooth input remains later work.
 
-**Local recovery** automatically retains confirmed unsaved changes in app-private no-backup storage. After a process restart, sign in and choose **Recover unsaved work → Restore draft** in Library. Save stays explicit. A conflicting or unavailable original offers **Save as new sheet** or a confirmed **Reload latest version**. Local storage has a 20-copy limit, reports failures and never silently evicts old copies. App-data clearing/uninstall can remove them. See [recovery behavior and limits](../../docs/architecture/draft-recovery.md) and the [root README](../../README.md#recover-unsaved-work) for the two-phase emulator acceptance commands.
+**Local recovery** automatically retains confirmed unsaved changes in app-private no-backup storage. After a process restart, sign in and choose **Library → ⋮ → Recover unsaved work → Restore draft**. Save stays explicit. A conflicting or unavailable original offers **Save as new sheet** or a confirmed **Reload latest version**. Local storage has a 20-copy limit, reports failures and never silently evicts old copies. App-data clearing/uninstall can remove them. See [recovery behavior and limits](../../docs/architecture/draft-recovery.md) and the [root README](../../README.md#recover-unsaved-work) for the two-phase emulator acceptance commands.
 
 ### Melody, keys and meter
 
@@ -35,7 +37,7 @@ New blank sheets and **Sheet details** support 30 major/minor key signatures and
 
 ### Import and export
 
-Choose **Library → Import** and select an uncompressed `.json`, `.xml` or `.musicxml` file no larger than 1 MiB using Android's document picker. The app reads only the selected document and does not retain its permission. A local preview lists any conversion warnings and allows editing the title. **Save as new sheet** creates a fresh server identity; imported IDs never replace an existing account sheet. Existing unsaved work requires an explicit discard before opening the new imported sheet. Unsupported MusicXML features are rejected with a reason rather than silently flattened; compressed MXL, multiple voices/staves and unsupported notations are outside this version.
+Choose **Library → ⋮ → Import** and select an uncompressed `.json`, `.xml` or `.musicxml` file no larger than 1 MiB using Android's document picker. The app reads only the selected document and does not retain its permission. A local preview lists any conversion warnings and allows editing the title. **Save as new sheet** creates a fresh server identity; imported IDs never replace an existing account sheet. Existing unsaved work requires an explicit discard before opening the new imported sheet. Unsupported MusicXML features are rejected with a reason rather than silently flattened; compressed MXL, multiple voices/staves and unsupported notations are outside this version.
 
 Use **Sheet details → Export ChordViewer JSON** to save the current draft through Android's create-document picker. JSON preserves the exact score, including key, meter, timing and ties. Exporting does not save the draft to your library and does not include account credentials or the separately stored tutorial URL. Files use UTF-8; import rejects malformed JSON/XML, DTDs/entities, excessive nesting and unsupported score data.
 
@@ -112,6 +114,14 @@ The app decodes shared score fixtures directly through Gradle asset and test-res
 Compose Canvas draws staff lines, stems, ledger lines and ties. The bundled **Bravura** font supplies SMuFL noteheads, accidentals, rests, flags, clef and time signature. A chord-only switch changes the view without changing the score. Chord-only rows use prominent serif symbols centered within their duration spans, small bar numbers and vertical dividers. Melody rows align chord labels with their onset, use continuous staff lines, a clef/key on each row and the time signature on the first row. Accidentals start from the key signature, persist within each bar and support natural cancellation. Rows hold four bars when readable, fall back to two or one for narrow windows or dense notation, and scroll individually when needed. Measured symbol widths and note spacing prevent neighboring events from colliding; high and low notes expand vertical spacing. The canvas exposes a textual score description for accessibility. Melody can be selected by tapping its notehead/rest, with a labeled picker as an accessible fallback. Chords use labeled controls for the current bar. Advanced engraving, beaming, multiple voices and lyrics remain later work.
 
 ### Score layout visual acceptance
+
+For Library layout and filter acceptance, install the debug app and test APKs on an isolated landscape tablet emulator, then run:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.NativeLibraryLayoutTest -e libraryLayout true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This uses unsaved synthetic sheets without a backend. It checks combined filters, search, sorting, Trash and menu access, and captures landscape, narrow-window and larger-text views under the app-private `files/ui-evidence/` directory. It restarts the app, so use an emulator without an active editing session.
 
 For isolated layout screenshots, install the debug and test APKs on the 1280×800 emulator, then run the following. This opt-in test renders synthetic sheets in the native shell and writes `score-native-*.png`, `m5-native-sharps.png` and `m5-native-flats.png` under the app-private `files/ui-evidence/` directory. It requires no backend, credentials or MIDI and should run only after saving and closing any current native editing session.
 

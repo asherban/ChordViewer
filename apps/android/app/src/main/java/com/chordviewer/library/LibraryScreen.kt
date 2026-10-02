@@ -2,6 +2,11 @@ package com.chordviewer.library
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,6 +36,11 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     var showMelody by remember(state.selected?.id) { mutableStateOf(true) }
     var previousUserId by remember { mutableStateOf(state.user?.id) }
     var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val browsing = state.mode == LibraryMode.LIBRARY && state.user != null
+    LaunchedEffect(state.message, browsing) {
+        if (browsing) state.message?.let { snackbar.showSnackbar(it, withDismissAction = true, duration = SnackbarDuration.Long) }
+    }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     DisposableEffect(lifecycle, model) {
@@ -63,44 +73,52 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     BackHandler(enabled = state.mode != LibraryMode.LIBRARY && !state.busy && !showDetails && !showMidi) {
         model.changeMode(LibraryMode.LIBRARY)
     }
-    Scaffold(containerColor = CanvasColor) { insets ->
-        Column(Modifier.fillMaxSize().padding(insets)) {
-            AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
-            HorizontalDivider(color = BorderColor)
-            if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            state.message?.let { message ->
-                Surface(color = SageColor, modifier = Modifier.fillMaxWidth()) {
-                    Text(message, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            state.recoveryStatus?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
-            state.recoveryWarning?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
-            if (state.conflict && state.selected != null && state.mode != LibraryMode.LIBRARY) {
-                Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                    Text("The saved sheet changed or is unavailable. Keep both versions by saving a new sheet, or reload the server version.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(model::saveAsNew, enabled = !state.busy && state.sheets.size < 100 && state.draftTitle.isNotBlank()) { Text("Save as new sheet") }
-                        OutlinedButton(onClick = { leave { model.open(state.selected.id) } }, enabled = !state.busy) { Text("Reload latest version") }
+    Scaffold(containerColor = CanvasColor, snackbarHost = { SnackbarHost(snackbar) }) { insets ->
+        BoxWithConstraints(Modifier.fillMaxSize().padding(insets)) {
+            val rail = browsing && maxWidth >= 840.dp
+            Row(Modifier.fillMaxSize()) {
+                if (rail) LibraryNavigationRail(state.busy, midi.connected, model::changeMode, ::midiSetup, ::account)
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    if (!rail) {
+                        AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
+                        HorizontalDivider(color = BorderColor)
                     }
-                }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (state.mode == LibraryMode.LIBRARY) {
-                    if (state.user == null) AccountLanding(state, model::authenticate, {
-                        if (sample != null) { showSample = true; model.previewPractice(sample) }
-                    })
-                    else LibraryCards(state, model, model::refresh, ::newSheet, documents.importSheet, ::open,
-                        { id -> leave { model.open(id, LibraryMode.CREATE) } },
-                        { id -> if (state.selected?.id == id) leave { model.transition(id, false) } else model.transition(id, false) },
-                        { id, title -> if (state.selected?.id == id) leave { model.updateMetadata(id, title = title) } else model.updateMetadata(id, title = title) },
-                        { draft -> leave { model.restoreRecovery(draft) } })
-                } else {
-                    val score = (if (state.mode == LibraryMode.PRACTICE) state.practiceScore else null)?.copy(title = state.draftTitle)
-                        ?: state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
-                    if (score == null) WorkspacePicker(state, ::newSheet,
-                        { model.changeMode(LibraryMode.LIBRARY) }, { if (sample != null) { showSample = true; model.previewPractice(sample) } })
-                    else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
-                        ::midiSetup, ::details, model::editFromPractice, model)
+                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    state.message?.takeUnless { browsing }?.let { message ->
+                        Surface(color = SageColor, modifier = Modifier.fillMaxWidth()) {
+                            Text(message, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    state.recoveryStatus?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                    state.recoveryWarning?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                    if (state.conflict && state.selected != null && state.mode != LibraryMode.LIBRARY) {
+                        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            Text("The saved sheet changed or is unavailable. Keep both versions by saving a new sheet, or reload the server version.")
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(model::saveAsNew, enabled = !state.busy && state.sheets.size < 100 && state.draftTitle.isNotBlank()) { Text("Save as new sheet") }
+                                OutlinedButton(onClick = { leave { model.open(state.selected.id) } }, enabled = !state.busy) { Text("Reload latest version") }
+                            }
+                        }
+                    }
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        if (state.mode == LibraryMode.LIBRARY) {
+                            if (state.user == null) AccountLanding(state, model::authenticate, {
+                                if (sample != null) { showSample = true; model.previewPractice(sample) }
+                            })
+                            else LibraryCards(state, model, model::refresh, ::newSheet, documents.importSheet, ::open,
+                                { id -> leave { model.open(id, LibraryMode.CREATE) } },
+                                { id -> if (state.selected?.id == id) leave { model.transition(id, false) } else model.transition(id, false) },
+                                { id, title -> if (state.selected?.id == id) leave { model.updateMetadata(id, title = title) } else model.updateMetadata(id, title = title) },
+                                { draft -> leave { model.restoreRecovery(draft) } })
+                        } else {
+                            val score = (if (state.mode == LibraryMode.PRACTICE) state.practiceScore else null)?.copy(title = state.draftTitle)
+                                ?: state.editor?.score?.copy(title = state.draftTitle) ?: state.selected?.score ?: if (showSample) sample else null
+                            if (score == null) WorkspacePicker(state, ::newSheet,
+                                { model.changeMode(LibraryMode.LIBRARY) }, { if (sample != null) { showSample = true; model.previewPractice(sample) } })
+                            else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
+                                ::midiSetup, ::details, model::editFromPractice, model)
+                        }
+                    }
                 }
             }
         }
@@ -126,6 +144,29 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         confirmButton = { TextButton(onClick = { val next = pendingLeave; pendingLeave = null; next?.invoke() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Continue") } },
         dismissButton = { TextButton(onClick = { pendingLeave = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep editing") } },
     )
+}
+
+@Composable
+private fun LibraryNavigationRail(busy: Boolean, connected: Boolean, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
+    NavigationRail(Modifier.fillMaxHeight().width(80.dp), containerColor = SageColor, windowInsets = WindowInsets(0)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("♪", Modifier.padding(vertical = 16.dp), fontSize = 32.sp, color = AccentColor)
+            LibraryMode.entries.forEach { mode ->
+                NavigationRailItem(selected = mode == LibraryMode.LIBRARY, onClick = { navigate(mode) }, enabled = !busy,
+                    icon = { Icon(when (mode) {
+                        LibraryMode.LIBRARY -> Icons.AutoMirrored.Filled.List
+                        LibraryMode.CREATE -> Icons.Default.Add
+                        LibraryMode.PRACTICE -> Icons.Default.PlayArrow
+                    }, contentDescription = null) }, label = { Text(mode.label) })
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        NavigationRailItem(selected = false, onClick = openMidi,
+            icon = { Icon(Icons.Default.Settings, contentDescription = if (connected) "MIDI connected" else "MIDI disconnected",
+                tint = if (connected) AccentColor else MutedColor) }, label = { Text("MIDI") })
+        NavigationRailItem(selected = false, onClick = account,
+            icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) }, label = { Text("Account") })
+    }
 }
 
 @Composable

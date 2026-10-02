@@ -53,7 +53,7 @@ class NativeRecoveryFlowTest {
         val original = api.create(account.token, "M7 recovery ${UUID.randomUUID().toString().take(8)}", false)
         val activity = start(fixture)
         try {
-            setField("Search sheets", original.score.title); hideKeyboard(activity); click("Edit")
+            setField("Search sheets", original.score.title); hideKeyboard(activity); clickDescription("Edit ${original.score.title}")
             waitFor("open sheet") { model(activity).state.value.selected?.id == original.id }
             click("Add chord"); setField("Chord symbol", "C"); click("Insert chord")
             clickDescription("Melody entry lane"); click("Add note / rest"); click("D"); click("Insert note")
@@ -93,7 +93,7 @@ class NativeRecoveryFlowTest {
         val activity = start(fixture)
         try {
             waitFor("local chooser") { model(activity).state.value.recoveryCopies.size == 1 }
-            click("Recover unsaved work (1)"); capture("m7-native-recovery.png"); click("Restore draft")
+            clickDescription("Library actions"); click("Recover unsaved work (1)"); capture("m7-native-recovery.png"); click("Restore draft")
             waitFor("recovered conflict") { model(activity).state.value.conflict }
             val value = model(activity).state.value
             assertEquals(draft.score, value.editor?.score); assertEquals(draft.title, value.draftTitle)
@@ -138,7 +138,7 @@ class NativeRecoveryFlowTest {
     }
     private fun setField(label: String, value: String) {
         waitFor("input $label") {
-            nodes().firstOrNull { it.isEditable && descendants(it).any { child -> child.text?.toString() == label } }
+            nodes().firstOrNull { it.isEditable && (it.contentDescription?.toString() == label || descendants(it).any { child -> child.text?.toString() == label }) }
                 ?.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,
                     Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value) }) == true
         }

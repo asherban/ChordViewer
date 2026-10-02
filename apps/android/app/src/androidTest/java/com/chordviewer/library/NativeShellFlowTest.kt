@@ -5,9 +5,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Bundle
+import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -208,7 +208,7 @@ class NativeShellFlowTest {
             clickCardAction(copyTitle, "More actions")
             click("Move to Trash")
             waitFor("copy moved to Trash") { !model.state.value.busy && model.state.value.sheets.firstOrNull { it.title == copyTitle }?.trashedAt != null }
-            click("Trash")
+            click("All sheets"); click("Trash")
             waitFor("recoverable Trash card") { nodes().any { it.text?.toString() == copyTitle } }
             clickCardAction(copyTitle, "Restore")
             waitFor("copy restored") { !model.state.value.busy && model.state.value.sheets.firstOrNull { it.title == copyTitle }?.let { it.trashedAt == null } == true }
@@ -230,7 +230,10 @@ class NativeShellFlowTest {
         } ?: return false
         return scrollable.performAction(if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
     }
-    private fun nodes(): List<AccessibilityNodeInfo> = automation.rootInActiveWindow?.let(::descendants) ?: emptyList()
+    private fun nodes(): List<AccessibilityNodeInfo> {
+        if (Build.VERSION.SDK_INT >= 34) automation.clearCache()
+        return automation.rootInActiveWindow?.let(::descendants).orEmpty()
+    }
     private fun descendantsViews(view: View): List<View> = buildList {
         add(view)
         if (view is ViewGroup) repeat(view.childCount) { index -> addAll(descendantsViews(view.getChildAt(index))) }
@@ -267,7 +270,7 @@ class NativeShellFlowTest {
     private fun field(label: String): AccessibilityNodeInfo {
         var found: AccessibilityNodeInfo? = null
         waitFor("input field") {
-            found = nodes().firstOrNull { it.isEditable && descendants(it).any { child -> child.text?.toString() == label } }
+            found = nodes().firstOrNull { it.isEditable && (it.contentDescription?.toString() == label || descendants(it).any { child -> child.text?.toString() == label }) }
             found != null
         }
         return requireNotNull(found)
@@ -294,84 +297,20 @@ class NativeShellFlowTest {
         instrumentation.waitForIdleSync()
     }
     private fun openCard(title: String) = clickCardAction(title, "Edit")
-    private fun tapFavorite(title: String) {
-        val visible = nodes()
-        val heading = visible.filter { it.text?.toString() == title && !it.isEditable }
-            .maxByOrNull { node -> Rect().also(node::getBoundsInScreen).top }
-            ?: throw AssertionError("Filtered card heading is not visible")
-        val headingBounds = Rect().also(heading::getBoundsInScreen)
-        val cardBounds = Rect().also(requireNotNull(heading.parent)::getBoundsInScreen)
-        check(cardBounds.width() in 400..800 && cardBounds.height() in 200..550 && cardBounds.contains(headingBounds)) {
-            "Favorite card geometry changed: heading=$headingBounds card=$cardBounds"
-        }
-        val x = (cardBounds.right - 50).toFloat()
-        val y = (headingBounds.centerY() + 12).toFloat()
-        check(cardBounds.contains(x.toInt(), y.toInt()))
-        tapAt(x, y)
-        instrumentation.waitForIdleSync()
-    }
-    private fun tapAt(x: Float, y: Float) {
-        val time = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, x, y, 0)
-        val up = MotionEvent.obtain(time, time + 90, MotionEvent.ACTION_UP, x, y, 0)
-        try {
-            assertTrue("UI touch down failed", automation.injectInputEvent(down, true))
-            assertTrue("UI touch up failed", automation.injectInputEvent(up, true))
-        } finally { down.recycle(); up.recycle() }
-    }
+    private fun tapFavorite(title: String) = clickDescription("Favorite $title")
     private fun clickCardAction(title: String, action: String) {
-        try {
-            var sawCard = false
-            waitFor("selected library card") {
-                val visible = nodes()
-                if (visible.any { it.text?.toString() == title }) sawCard = true
-                var node: AccessibilityNodeInfo? = visible.firstOrNull { it.text?.toString() == title }
-                var grid: AccessibilityNodeInfo? = null
-                while (node != null) {
-                    val button = descendants(node).firstOrNull { it.text?.toString() == action }
-                    if (button != null && performClick(button)) return@waitFor true
-                    if (node.isScrollable && grid == null) grid = node
-                    node = node.parent
-                }
-                val buttons = visible.filter { it.text?.toString() == action }
-                if (sawCard && buttons.size == 1 && performClick(buttons.single())) return@waitFor true
-                if (action == "More actions" && sawCard) {
-                    val heading = visible.filter { it.text?.toString() == title && !it.isEditable }
-                        .maxByOrNull { candidate -> Rect().also(candidate::getBoundsInScreen).top }
-                    val card = heading?.parent?.let { Rect().also(it::getBoundsInScreen) }
-                    if (card != null && card.width() in 400..800 && card.bottom in 630..708) {
-                        tapAt((card.left + 90).toFloat(), (card.bottom - 42).toFloat())
-                        return@waitFor true
-                    }
-                    val gridNode = grid ?: visible.firstOrNull { candidate ->
-                        val bounds = Rect().also(candidate::getBoundsInScreen)
-                        candidate.isScrollable && bounds.left < 100 && bounds.right > 600 && bounds.bottom in 700..740
-                    }
-                    if (card != null && card.width() in 400..800 && gridNode != null &&
-                        gridNode.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                        SystemClock.sleep(350) // The accessibility cache can retain pre-scroll bounds.
-                        val viewport = Rect().also(gridNode::getBoundsInScreen)
-                        check(viewport.bottom in 700..740 && card.left in 0..100)
-                        tapAt((card.left + 90).toFloat(), (viewport.bottom - 60).toFloat())
-                        return@waitFor true
-                    }
-                }
-                val bounds = Rect()
-                (grid ?: visible.firstOrNull { it.isScrollable && it.getBoundsInScreen(bounds).let { bounds.centerX() >= 400 } })
-                    ?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-                false
+        waitFor("library card $action") {
+            val visible = nodes()
+            visible.firstOrNull { it.contentDescription?.toString() == "$action $title" }
+                ?.let { if (performClick(it)) return@waitFor true }
+            var node = visible.firstOrNull { it.text?.toString() == title && !it.isEditable }
+            while (node != null && !node.isScrollable) {
+                descendants(node).firstOrNull { it.text?.toString() == action }
+                    ?.let { if (performClick(it)) return@waitFor true }
+                node = node.parent
             }
-        } catch (error: AssertionError) {
-            capture("m6-native-library-action-diagnostic.png")
-            val details = nodes().filter { node ->
-                val bounds = Rect().also(node::getBoundsInScreen)
-                !node.isPassword && bounds.left < 700 && bounds.top in 400..740 &&
-                    (node.text != null || node.contentDescription != null)
-            }.take(20).map { node ->
-                val bounds = Rect().also(node::getBoundsInScreen)
-                "${node.text?.toString()?.take(40) ?: node.contentDescription?.toString()?.take(40)}@$bounds clickable=${node.isClickable}"
-            }
-            throw AssertionError("${error.message}; visible card nodes=$details", error)
+            node?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+            false
         }
         instrumentation.waitForIdleSync()
     }

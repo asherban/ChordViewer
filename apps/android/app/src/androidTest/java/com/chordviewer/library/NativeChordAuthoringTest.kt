@@ -106,7 +106,7 @@ class NativeChordAuthoringTest {
             setField("YouTube tutorial URL (optional)", "https://youtu.be/dQw4w9WgXcQ")
             click("Save changes")
             waitFor("full save") { api.get(account.token, sheet.id).revision == 3 }
-            click("Done"); click("Library"); click("Refresh")
+            click("Done"); click("Library"); clickDescription("Library actions"); click("Refresh")
             waitFor("refreshed library") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id && it.libraryLoaded } == true }
             openCard(savedTitle, reload = true)
             waitFor("reopened authored score") { chordSymbols(1) == listOf("G") }
@@ -154,7 +154,7 @@ class NativeChordAuthoringTest {
             assertTrue(saved.score.measures.first().melody[1].tieToNext)
             assertEquals("D", saved.score.keySignature); assertEquals(ScoreTimeSignature(3, 4), saved.score.timeSignature)
             capture("m5-native-melody.png")
-            click("Library"); click("Refresh")
+            click("Library"); clickDescription("Library actions"); click("Refresh")
             waitFor("melody library refresh") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id } == true }
             openCard(melodyTitle, reload = true)
             waitFor("reopened saved melody") { model?.state?.value?.editor?.score == saved.score }
@@ -162,7 +162,7 @@ class NativeChordAuthoringTest {
             click("Sheet details"); click("Export ChordViewer JSON")
             waitFor("system save document") { nodes().firstOrNull { it.text?.toString()?.equals("Save", ignoreCase = true) == true }?.let(::performClick) == true }
             waitFor("JSON export completion") { model?.state?.value?.message?.startsWith("JSON exported") == true }
-            click("Done"); click("Library"); click("Import")
+            click("Done"); click("Library"); clickDescription("Library actions"); click("Import")
             waitFor("exported JSON in document picker", 20_000) { nodes().firstOrNull { it.text?.toString() == "$melodyTitle.json" }?.let(::performClick) == true }
             waitFor("local import preview") { model?.state?.value?.importPreview != null }
             assertEquals(saved.score, model?.state?.value?.importPreview?.score)
@@ -209,7 +209,7 @@ class NativeChordAuthoringTest {
     private fun descendants(node: AccessibilityNodeInfo): List<AccessibilityNodeInfo> = buildList { add(node); repeat(node.childCount) { node.getChild(it)?.let { child -> addAll(descendants(child)) } } }
     private fun setField(label: String, value: String) {
         waitFor("input $label") {
-            val node = nodes().firstOrNull { it.isEditable && descendants(it).any { child -> child.text?.toString() == label } }
+            val node = nodes().firstOrNull { it.isEditable && (it.contentDescription?.toString() == label || descendants(it).any { child -> child.text?.toString() == label }) }
             node?.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value) }) == true
         }
         instrumentation.waitForIdleSync()
@@ -238,7 +238,7 @@ class NativeChordAuthoringTest {
             var node: AccessibilityNodeInfo? = nodes().firstOrNull { it.text?.toString() == title }
             var grid: AccessibilityNodeInfo? = null
             while (node != null) {
-                val button = descendants(node).firstOrNull { it.text?.toString() == if (reload) "More actions" else "Edit" }
+                val button = descendants(node).firstOrNull { it.contentDescription?.toString() == "${if (reload) "More actions" else "Edit"} $title" }
                 if (button != null && button.isVisibleToUser && performClick(button)) return@waitFor true
                 if (node.isScrollable && grid == null) grid = node
                 node = node.parent
