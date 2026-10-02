@@ -63,7 +63,7 @@ class NativeShellFlowTest {
             waitFor("loaded library") { nodes().any { it.text?.toString() == original.score.title } }
             capture("ui-native-library.png")
             openCard(original.score.title)
-            waitFor("selected sheet") { nodes().any { it.text?.toString() == "Sheet details" } }
+            waitFor("selected sheet") { nodes().any { it.contentDescription?.toString() == "Sheet actions" } }
             capture("ui-native-create.png")
             val expectMidi = fixture.optBoolean("expectMidi", false)
             if (expectMidi) {
@@ -92,45 +92,31 @@ class NativeShellFlowTest {
             if (expectMidi) assertTrue("Navigation or metadata save disconnected MIDI",
                 ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.midiConnected)
             capture("ui-native-practice.png")
-            waitFor("manual Practice default") { nodes().any { it.text?.toString() == "Manual" } }
+            assertTrue("Practice defaults to chord matching", ViewModelProvider(activity)[LibraryViewModel::class.java].state.value.practice.advanceOnMatch)
+            assertFalse(nodes().any { it.text?.toString() in listOf("Manual", "Next bar", "Previous bar", "Restart") })
             if (expectMidi) {
                 waitFor("held C4 after navigation and save") {
                     if (heldNotePresent()) true else { scrollSidebar(true); false }
                 }
                 repeat(5) { scrollSidebar(false) }
             }
-            click("Restart")
-            waitFor("Practice restart") { ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.practice.bar == 0 }
-            click("Next bar")
-            try { waitFor("Practice bar navigation") { ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.practice.bar == 1 } }
-            catch (error: AssertionError) {
-                capture("m6-native-navigation-diagnostic.png")
-                val modelBar = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.practice.bar
-                throw AssertionError("Practice navigation showed ${nodes().mapNotNull { it.text?.toString() }.filter { it.startsWith("Bar ") }}, model bar=$modelBar", error)
-            }
-            click("On match")
             if (expectMidi) {
+                // Position the fixture at G7; the product has no manual bar navigation.
+                instrumentation.runOnMainSync { ViewModelProvider(activity)[LibraryViewModel::class.java].practiceBar(1) }
                 instrumentation.sendStatus(0, Bundle().apply { putString("stream", "M6_NATIVE_MATCH_READY\n") })
                 waitFor("fresh G7 Practice match", 30_000) {
                     ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.practice.bar == 2
                 }
             }
-            click("Play tutorial")
             waitFor("native tutorial document ready", 30_000) { mountedPlayerHtml(playerHtml(activity), activity) }
             val html = playerHtml(activity)
             instrumentation.sendStatus(0, Bundle().apply { putString("stream", "M6_PLAYER_HTML $html\n") })
             assertTrue("Native player must render its own HTML and iframe: $html", mountedPlayerHtml(html, activity))
             capture("m6-native-practice-player.png")
-            click("Stop video")
-            waitFor("player released after Stop") { currentPlayer(activity) == null }
-            click("Play tutorial")
-            waitFor("player reloaded after Stop", 10_000) { mountedPlayerHtml(playerHtml(activity), activity) }
-            click("Hide tutorial")
-            waitFor("tutorial hidden") { nodes().any { it.text?.toString() == "Show tutorial" } }
-            waitFor("player released after Hide") { currentPlayer(activity) == null }
+            val retainedPlayer = currentPlayer(activity)
+            click("Create"); click("Practice")
+            assertSame("Player survives mode changes", retainedPlayer, currentPlayer(activity))
             capture("m6-native-practice.png")
-            click("Show tutorial")
-            click("Play tutorial")
             waitFor("player loaded before leaving Practice", 10_000) { mountedPlayerHtml(playerHtml(activity), activity) }
             click("Library")
             waitFor("player released after leaving Practice") { currentPlayer(activity) == null }
@@ -150,7 +136,6 @@ class NativeShellFlowTest {
                 throw error
             }
             capture("ui-native-chords.png")
-            click("Play tutorial")
             waitFor("player loaded before app background", 10_000) { mountedPlayerHtml(playerHtml(activity), activity) }
             var backgrounded = false
             instrumentation.runOnMainSync { backgrounded = activity.moveTaskToBack(true) }
@@ -161,7 +146,7 @@ class NativeShellFlowTest {
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
             }
             waitFor("Practice restored after app background") { nodes().any { it.text?.toString() == "Practice" } }
-            assertNull("Backgrounded player must stay stopped", currentPlayer(activity))
+            waitFor("standard embed restored without autoplay") { mountedPlayerHtml(playerHtml(activity), activity) }
             click("Account")
             click("Sign out")
             waitFor("signed-out library") { nodes().any { it.text?.toString() == "Sign in to your library" } }
@@ -297,6 +282,7 @@ class NativeShellFlowTest {
         instrumentation.waitForIdleSync()
     }
     private fun click(text: String, last: Boolean = false) {
+        if (text == "Sheet details") clickDescription("Sheet actions")
         waitFor("control $text") {
             val matches = nodes().filter { it.text?.toString() == text }
             val target = if (last) matches.lastOrNull() else matches.firstOrNull()

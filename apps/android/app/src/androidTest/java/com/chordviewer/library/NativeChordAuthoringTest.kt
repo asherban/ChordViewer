@@ -218,6 +218,7 @@ class NativeChordAuthoringTest {
         instrumentation.waitForIdleSync()
     }
     private fun click(text: String, last: Boolean = false) {
+        if (text == "Sheet details") clickDescription("Sheet actions")
         waitFor("control $text") {
             val matches = nodes().filter { it.text?.toString() == text }
             (if (last) matches.lastOrNull() else matches.firstOrNull())?.let(::performClick) == true

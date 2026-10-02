@@ -39,7 +39,6 @@ data class LibraryState(
     val practiceScore: LeadSheet? = null,
     val practiceShift: Int = 0,
     val practiceSize: Int = 100,
-    val tutorialVisible: Boolean = true,
     val importPreview: ImportedScore? = null,
     val importTitle: String = "",
     val busy: Boolean = false,
@@ -436,10 +435,13 @@ class LibraryViewModel(
     }
     private fun clearEditor() { capture.pause(); practiceCapture.pause(); editor = null; practiceSession = null; practiceBaseScore = null }
     fun previewPractice(score: LeadSheet) {
+        pauseEntry(); practiceCapture.pause()
         practiceBaseScore = score
         practiceSession = practiceRules?.let { PracticeSession(it, score) }
         mutableState.value = mutableState.value.copy(mode = LibraryMode.PRACTICE, practiceScore = score,
             practice = practiceSession?.position ?: PracticePosition(), practiceShift = 0)
+        if (midiConnected && !practiceBlocked) practiceCapture.arm()
+        publishEditor()
     }
 
     private fun practiceGesture(notes: List<Int>) {
@@ -500,7 +502,6 @@ class LibraryViewModel(
         }
     }
     fun practiceSize(value: Int) { mutableState.value = mutableState.value.copy(practiceSize = value.coerceIn(70, 150)) }
-    fun tutorialVisible(value: Boolean) { mutableState.value = mutableState.value.copy(tutorialVisible = value) }
 
     fun authenticate(email: String, password: String, name: String?) {
         if (mutableState.value.busy || api == null) return
@@ -551,12 +552,16 @@ class LibraryViewModel(
                 if (source != null) {
                     practiceBaseScore = source
                     if (practiceSession == null) practiceSession = practiceRules?.let { PracticeSession(it, source) }
-                    else practiceSession?.setScore(source)
-                    practiceSession?.advance(false)
+                    else {
+                        if (practiceSession?.position?.complete == true) practiceSession?.advance(true)
+                        practiceSession?.setScore(source)
+                    }
+                    practiceSession?.advance(true)
                     mutableState.value = mutableState.value.copy(practiceScore = source, practiceShift = 0)
                 }
             }
             mutableState.value = mutableState.value.copy(mode = mode)
+            if (mode == LibraryMode.PRACTICE && midiConnected && !practiceBlocked) practiceCapture.arm()
             publishEditor()
         }
     }
@@ -579,7 +584,7 @@ class LibraryViewModel(
             session?.user?.id?.let { owner -> recoveryAction(owner) { store -> old?.let(store::remove); source?.let(store::remove) } }
         }
         opened(sheet)
-        if (mode == LibraryMode.PRACTICE) practiceSession?.advance(false)
+        if (mode == LibraryMode.PRACTICE) practiceSession?.advance(true)
         mutableState.value.copy(sheets = mutableState.value.sheets.map { if (it.id == id) sheet.summary() else it },
             selected = sheet, editor = editor?.state, mode = mode, draftTitle = sheet.score.title, draftTutorial = sheet.tutorialUrl.orEmpty(),
             practiceScore = if (mode == LibraryMode.PRACTICE) sheet.score else null, practiceShift = 0, busy = false, message = null, conflict = false)

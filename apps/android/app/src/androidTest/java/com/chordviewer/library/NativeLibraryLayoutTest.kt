@@ -71,7 +71,7 @@ class NativeLibraryLayoutTest {
             } }
             instrumentation.waitForIdleSync()
             waitFor { if (mode == LibraryMode.LIBRARY) nodes().any { it.contentDescription?.toString() == "Edit Autumn changes" }
-                else has(if (mode == LibraryMode.CREATE) "Sheet details" else "Edit sheet") }
+                else nodes().any { it.contentDescription?.toString() == "Sheet actions" } }
         }
         try {
             render()

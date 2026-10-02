@@ -525,7 +525,7 @@ class LibraryViewModelTest {
         val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
         model.open(gateway.sheet.id, LibraryMode.PRACTICE); advanceUntilIdle()
-        model.practiceAdvance(true)
+        assertTrue("Opening Practice should arm matching automatically", model.state.value.practice.advanceOnMatch)
         model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 127))) // sustain cannot delay the gesture boundary
         play(model, 60, 64, 67)
         assertEquals(1, model.state.value.practice.eventIndex)
@@ -545,6 +545,32 @@ class LibraryViewModelTest {
         model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0)))
         advanceUntilIdle()
         assertEquals(0, model.state.value.practice.eventIndex)
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
+    }
+
+    @Test fun switchingIntoPracticeAutomaticallyArmsOnlyFreshGesturesAndNeverEditsTheScore() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        val original = model.state.value.editor!!.score
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 60, 90, 144, 64, 90, 144, 67, 90)))
+        model.changeMode(LibraryMode.PRACTICE)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0, 128, 64, 0, 128, 67, 0)))
+        assertEquals(0, model.state.value.practice.eventIndex)
+        play(model, 60, 64, 67)
+        assertEquals(1, model.state.value.practice.eventIndex)
+        model.changeMode(LibraryMode.CREATE); play(model, 55, 59, 62, 65)
+        assertEquals(1, model.state.value.practice.eventIndex)
+        assertEquals(original, model.state.value.editor!!.score)
+        model.changeMode(LibraryMode.PRACTICE); play(model, 55, 59, 62, 65)
+        assertEquals(2, model.state.value.practice.eventIndex)
+        assertEquals(original, model.state.value.editor!!.score)
+    }
+
+    @Test fun examplePracticeAutomaticallyArmsMatching() = runTest(dispatcher) {
+        val model = LibraryViewModel(null, dispatcher); configure(model)
+        model.previewPractice(FakeGateway().sheet.score)
         play(model, 60, 64, 67)
         assertEquals(1, model.state.value.practice.eventIndex)
     }

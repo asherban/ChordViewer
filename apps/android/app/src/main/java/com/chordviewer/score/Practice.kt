@@ -3,7 +3,7 @@ package com.chordviewer.score
 import org.json.JSONObject
 
 data class PracticeEvent(val id: String, val symbol: String, val bar: Int, val offsetTicks: Int)
-data class PracticePosition(val bar: Int = 0, val eventIndex: Int = -1, val advanceOnMatch: Boolean = false,
+data class PracticePosition(val bar: Int = 0, val eventIndex: Int = -1, val advanceOnMatch: Boolean = true,
     val complete: Boolean = false, val feedback: String? = null)
 
 /** Music rules shared in behavior and vocabulary with contracts/src/practice.ts. */
@@ -71,7 +71,7 @@ class PracticeRules(vocabularyJson: String) {
 
 class PracticeSession(private val rules: PracticeRules, score: LeadSheet) {
     var score: LeadSheet = score; private set
-    var position = PracticePosition(eventIndex = rules.firstInBar(score, 0)); private set
+    var position = rules.events(score).firstOrNull()?.let { PracticePosition(bar = it.bar, eventIndex = 0) } ?: PracticePosition(); private set
     fun setScore(next: LeadSheet) {
         val id = rules.events(score).getOrNull(position.eventIndex)?.id
         score = next
@@ -81,7 +81,13 @@ class PracticeSession(private val rules: PracticeRules, score: LeadSheet) {
         position = position.copy(bar = retained?.let { events[it].bar } ?: bar,
             eventIndex = retained ?: rules.firstInBar(next, bar), complete = false, feedback = null)
     }
-    fun advance(onMatch: Boolean) { position = position.copy(advanceOnMatch = onMatch, complete = false, feedback = null) }
+    fun advance(onMatch: Boolean) {
+        val events = rules.events(score)
+        val next = if (position.complete) events.indices.firstOrNull()
+            else if (position.eventIndex < 0) events.indexOfFirst { it.bar >= position.bar }.takeIf { it >= 0 } else position.eventIndex
+        position = position.copy(advanceOnMatch = onMatch, complete = false, feedback = null,
+            eventIndex = next ?: -1, bar = next?.let { events[it].bar } ?: position.bar)
+    }
     fun selectBar(value: Int) {
         val bar = value.coerceIn(0, score.measures.lastIndex)
         position = position.copy(bar = bar, eventIndex = rules.firstInBar(score, bar), complete = false, feedback = null)
@@ -95,10 +101,10 @@ class PracticeSession(private val rules: PracticeRules, score: LeadSheet) {
         if (!position.advanceOnMatch || position.complete) return
         val events = rules.events(score)
         val target = events.getOrNull(position.eventIndex) ?: return
-        if (!rules.supported(target.symbol)) { position = position.copy(feedback = "This symbol needs manual advance."); return }
+        if (!rules.supported(target.symbol)) { position = position.copy(feedback = "Chord matching is unavailable for this symbol. Edit it in Create."); return }
         if (!rules.matches(target.symbol, notes)) { position = position.copy(feedback = "Last gesture did not match."); return }
         val next = events.getOrNull(position.eventIndex + 1)
-        position = if (next == null) position.copy(complete = true, feedback = "Complete. Choose Restart or another bar.")
+        position = if (next == null) position.copy(complete = true, feedback = "Complete. Reopen this sheet to practice again.")
             else position.copy(bar = next.bar, eventIndex = position.eventIndex + 1, feedback = "Last gesture matched. Next target is shown.")
     }
 }

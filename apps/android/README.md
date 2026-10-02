@@ -1,6 +1,6 @@
 # Native Android development
 
-The native Kotlin / Jetpack Compose app signs in to the shared local backend and manages each account's persistent library. Create supports separate MIDI chord and melody passes, manual chord/note/rest input, duration and position selection, correction, ties, deletion, shared undo/redo and full-score saves with revision conflict detection. JSON and supported MusicXML files can be previewed locally and saved as new sheets. Practice supports manual movement, optional matching-chord advancement, temporary transposition and independent tutorial playback. A compact Library / Create / Practice shell follows the agreed warm-white and sage mockups. Library uses two columns on wide tablets. Create and Practice keep the score beside tutorial and live MIDI cards; narrower windows stack these surfaces. Sheet metadata and connection settings are available in dialogs. Held/sounding notes, recognized chords, sustain and channel identity remain visible in the live MIDI card.
+The native Kotlin / Jetpack Compose app signs in to the shared local backend and manages each account's persistent library. Create supports separate MIDI chord and melody passes, manual chord/note/rest input, duration and position selection, correction, ties, deletion, shared undo/redo and full-score saves with revision conflict detection. JSON and supported MusicXML files can be previewed locally and saved as new sheets. Practice advances on completed matching chords by default, with temporary transposition and independent tutorial playback. Manual bar navigation is removed; metronome playback is reserved for later. A compact Library / Create / Practice shell follows the agreed warm-white and sage mockups. Library uses two columns on wide tablets. Create and Practice use one compact sheet toolbar above a full-height score. The tutorial stays pinned at the top left in both views, while entry, live MIDI and practice controls scroll independently below it. Narrower windows stack these surfaces with the tutorial first. Sheet details are in the toolbar overflow; tutorial link and external playback actions are in the tutorial overflow. Linked videos immediately show the standard YouTube embed with its thumbnail and controls; playback starts only when tapped. Sheet metadata and connection settings are available in dialogs. Held/sounding notes, recognized chords, sustain and channel identity remain visible in the live MIDI card.
 
 ## Local accounts and library
 
@@ -125,6 +125,14 @@ adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.
 ```
 
 This uses a synthetic session without a backend, checks that plaintext credentials are absent from the file and the key is not exportable, and rejects changed API origins or tampered ciphertext. It clears its session after the restore phase. Run it only on an isolated emulator: the write phase replaces that app's saved sign-in. ViewModel unit tests separately cover startup restoration, offline retention, expiry, sign-out and late-result races.
+
+For Create/Practice workspace acceptance, install the debug and test APKs on a landscape tablet, then run with its serial:
+
+```powershell
+adb -s <serial> shell am instrument -w -r -e class com.chordviewer.library.NativeWorkspaceLayoutTest -e workspaceLayout true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This uses an unsaved synthetic score and checks immediate embedding without autoplay, pinned video bounds, player retention across modes, foreground restoration, independent scrolling, the absence of manual Practice navigation, larger text and narrow windows. Screenshots are written to the app-private `files/ui-evidence/workspace-*.png` files. It restarts the activity without saving or modifying library sheets; finish any active editing session first.
 
 For Library layout and filter acceptance, install the debug app and test APKs on an isolated landscape tablet emulator, then run:
 

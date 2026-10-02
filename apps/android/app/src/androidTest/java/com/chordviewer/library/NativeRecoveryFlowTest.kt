@@ -63,7 +63,7 @@ class NativeRecoveryFlowTest {
             waitFor("authored notation") {
                 model(activity).state.value.editor?.score?.measures?.first()?.let { it.chords.size == 1 && it.melody.size == 1 } == true
             }
-            click("Practice"); click("Next bar"); click("Create"); click("Sheet details")
+            click("Practice"); click("Create"); click("Sheet details")
             setField("Sheet title", "M7 native saved study")
             setField("YouTube tutorial URL (optional)", "https://youtu.be/M7lc1UVf-VE"); click("Done")
             waitFor("confirmed recovery") { model(activity).state.value.recoveryStatus?.startsWith("Local recovery copy updated") == true }
@@ -108,7 +108,7 @@ class NativeRecoveryFlowTest {
             assertEquals(draft.title, copied.score.title); assertEquals(draft.score.measures, copied.score.measures)
             assertEquals(draft.tutorial, copied.tutorialUrl); assertEquals(remote, api.get(account.token, remote.id))
             waitFor("consumed files removed") { store().list(account.user.id).copies.isEmpty() }
-            click("Practice"); click("Next bar"); capture("m7-native-recovered-practice.png")
+            click("Practice"); capture("m7-native-recovered-practice.png")
         } finally { api.signOut(account.token); instrumentation.runOnMainSync { activity.finish() } }
     }
     private fun appReachable(): Boolean = runCatching {
@@ -124,6 +124,7 @@ class NativeRecoveryFlowTest {
         return automation.rootInActiveWindow?.let(::descendants).orEmpty()
     }
     private fun click(text: String, last: Boolean = false) {
+        if (text == "Sheet details") clickDescription("Sheet actions")
         waitFor("control $text") {
             val matches = nodes().filter { it.text?.toString() == text }
             (if (last) matches.lastOrNull() else matches.firstOrNull())?.let(::performClick) == true

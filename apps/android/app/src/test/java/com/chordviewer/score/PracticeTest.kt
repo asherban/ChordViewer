@@ -11,6 +11,29 @@ class PracticeTest {
         ScoreMeasure("bar_$index", if (symbol.isEmpty()) emptyList() else listOf(ChordEvent("chord_$index", 0, 1920, symbol)), emptyList())
     })
 
+    @Test fun matchingStartsAtFirstChordSkipsEmptyBarsAndCanRepeatAfterCompletion() {
+        val session = PracticeSession(rules, score("", "C", "", "G7"))
+        assertTrue(session.position.advanceOnMatch)
+        assertEquals(1, session.position.bar)
+        session.receive(listOf(60, 64, 67))
+        assertEquals(3, session.position.bar)
+        session.receive(listOf(55, 59, 62, 65))
+        assertTrue(session.position.complete)
+        session.advance(true)
+        assertEquals(1, session.position.bar)
+        assertFalse(session.position.complete)
+        val empty = PracticeSession(rules, score("", ""))
+        empty.advance(true); empty.receive(listOf(60, 64, 67))
+        assertEquals(-1, empty.position.eventIndex)
+    }
+
+    @Test fun unsupportedChordsExplainHowToCorrectTheScore() {
+        val session = PracticeSession(rules, score("verse"))
+        session.receive(listOf(60, 64, 67))
+        assertEquals(0, session.position.eventIndex)
+        assertEquals("Chord matching is unavailable for this symbol. Edit it in Create.", session.position.feedback)
+    }
+
     @Test fun sharedExactMatchingAndEnharmonicSlashBass() {
         val cases = JSONObject(resource("practice-cases.json")).getJSONArray("matches")
         for (index in 0 until cases.length()) {
