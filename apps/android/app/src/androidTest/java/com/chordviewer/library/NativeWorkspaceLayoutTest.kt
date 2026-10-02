@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.webkit.WebView
+import android.webkit.WebChromeClient
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.setContent
@@ -69,10 +70,12 @@ class NativeWorkspaceLayoutTest {
             waitFor { has("Evening Changes") && has("ENTRY") }
             val screenshot = requireNotNull(automation.takeScreenshot())
             val height = screenshot.height
+            val screenWidth = screenshot.width
             assertTrue("Landscape tablet required", screenshot.width > height)
             screenshot.recycle()
             waitFor { player(activity.window.decorView) != null && iframeSource(activity).contains("/embed/M7lc1UVf-VE?") }
             assertTrue("Use YouTube's standard controls", iframeSource(activity).contains("controls=1"))
+            assertTrue("Expose YouTube's fullscreen control", iframeSource(activity).contains("fs=1"))
             assertTrue("Opening the workspace must not autoplay", iframeSource(activity).contains("autoplay=0"))
             assertFalse(has("Play tutorial"))
             assertFalse(has("Video moves independently"))
@@ -99,6 +102,27 @@ class NativeWorkspaceLayoutTest {
             assertFalse("The score must not expose a manual navigation click", scoreNode().isClickable)
             capture("workspace-practice.png")
 
+            // Exercise the WebView fullscreen host without depending on a YouTube network response.
+            val fullscreen = View(activity).apply { contentDescription = "Fullscreen video test" }
+            var fullscreenExits = 0
+            val callback = WebChromeClient.CustomViewCallback { fullscreenExits++ }
+            lateinit var chrome: WebChromeClient
+            instrumentation.runOnMainSync { chrome = requireNotNull(createPlayer?.webChromeClient); chrome.onShowCustomView(fullscreen, callback) }
+            waitFor { nodes().any { it.contentDescription?.toString() == "Fullscreen video test" } }
+            val fullscreenBounds = bounds(nodes().first { it.contentDescription?.toString() == "Fullscreen video test" })
+            assertTrue("Video should fill the screen width", fullscreenBounds.width() >= screenWidth * .95)
+            assertTrue("Video should fill the screen height", fullscreenBounds.height() >= height * .95)
+            back()
+            waitFor { fullscreen.parent == null && nodes().none { it.contentDescription?.toString() == "Fullscreen video test" } }
+            assertEquals("Back must notify the player to leave fullscreen", 1, fullscreenExits)
+            assertSame("Fullscreen must retain the inline player", createPlayer, player(activity.window.decorView))
+            assertEquals(video, playerBounds(activity))
+            instrumentation.runOnMainSync { chrome.onShowCustomView(fullscreen, callback) }
+            waitFor { fullscreen.parent != null }
+            instrumentation.runOnMainSync { chrome.onHideCustomView() }
+            waitFor { fullscreen.parent == null && nodes().none { it.contentDescription?.toString() == "Fullscreen video test" } }
+            assertEquals("Player-initiated exit must not call back recursively", 1, fullscreenExits)
+
             // Enlarged text retains the pinned player. Narrow windows stack content and can scroll back to it.
             instrumentation.runOnMainSync { fontScale = 1.5f }
             waitFor { has("Edit sheet") }
@@ -115,8 +139,11 @@ class NativeWorkspaceLayoutTest {
             }
             capture("workspace-narrow.png")
 
+            instrumentation.runOnMainSync { requireNotNull(player(activity.window.decorView)?.webChromeClient).onShowCustomView(fullscreen, callback) }
+            waitFor { fullscreen.parent != null }
             instrumentation.runOnMainSync { assertTrue(activity.moveTaskToBack(true)) }
-            waitFor { player(activity.window.decorView) == null }
+            waitFor { player(activity.window.decorView) == null && fullscreen.parent == null }
+            assertEquals("Backgrounding must close fullscreen", 2, fullscreenExits)
             instrumentation.runOnMainSync {
                 activity.startActivity(Intent(activity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
             }
@@ -141,7 +168,8 @@ class NativeWorkspaceLayoutTest {
             val view = player(activity.window.decorView)
             if (view == null) latch.countDown() else view.evaluateJavascript("""(() => {
                 const frame = document.querySelector('iframe');
-                return frame && frame.getBoundingClientRect().height >= 200 ? frame.src : '';
+                const bounds = frame?.getBoundingClientRect();
+                return bounds && bounds.width >= 320 && bounds.height >= 200 ? frame.src : '';
             })()""") {
                 source = it; latch.countDown()
             }

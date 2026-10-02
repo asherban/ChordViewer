@@ -50,7 +50,8 @@ fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi:
             WorkspaceToolbar(state, score, sample, melody, changeMelody, details, createMode, model, wide)
             if (wide) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.width(if (LocalDensity.current.fontScale > 1.3f) 300.dp else 248.dp).fillMaxHeight(),
+                    // Leave 320 dp inside the tutorial padding so YouTube exposes its full control set.
+                    Column(Modifier.width(336.dp).fillMaxHeight(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Keep the player in the same composition slot and outside the controls' scroll area.
                         TutorialPanel(state.selected?.tutorialUrl, !sample && state.mode == LibraryMode.CREATE, details, state.selected?.id, state.user?.id)
