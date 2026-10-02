@@ -37,7 +37,7 @@ fun AccountDialog(state: LibraryState, authenticate: (String, String, String?) -
             if (state.user == null && state.configured) AccountFields(state.busy, authenticate)
             else if (state.user != null) {
                 Text(state.user.email)
-                Text("Your sheets are saved to your account. This app keeps your session only while its process stays open.", color = MutedColor)
+                Text("Your sheets are saved to your account. You stay signed in on this device until you sign out or your session expires.", color = MutedColor)
             } else Text("Public hosting is not configured for this release.")
             state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         } },

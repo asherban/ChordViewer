@@ -9,6 +9,9 @@ import com.chordviewer.score.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,7 +57,7 @@ data class LibraryState(
     } ?: false
 }
 
-/** Tokens exist only in this activity's ViewModel; process death requires another sign-in. */
+/** Restores the account session from device storage; passwords are never retained. */
 class LibraryViewModel(
     private val api: LibraryGateway? = ApiConfiguration.baseUrl?.let { LibraryApi(it, ApiConfiguration.allowLoopbackHttp) },
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -62,6 +65,8 @@ class LibraryViewModel(
     private val mutableState = MutableStateFlow(LibraryState(configured = api != null))
     val state = mutableState.asStateFlow()
     private var session: AccountSession? = null
+    private var sessionStore: SessionStore? = null
+    private var sessionWrite: Deferred<Unit>? = null
     private var generation = 0L
     private var documentSequence = 0L
     private var documentGeneration = 0L
@@ -81,6 +86,42 @@ class LibraryViewModel(
     private var recoveryContent: List<Any?>? = null
     private var recoverySequence = 0L
     fun configureRecovery(store: RecoveryStore) { if (recoveryStore == null) recoveryStore = store }
+    fun configureSession(store: SessionStore) {
+        if (sessionStore != null || api == null) return
+        sessionStore = store
+        val request = generation
+        mutableState.value = mutableState.value.copy(busy = true)
+        active = viewModelScope.launch {
+            val restored = try { withContext(io) { store.load() } }
+            catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (request != generation) return@launch
+                val cleared = runCatching { storeSession(null)?.await() }.isSuccess
+                if (request == generation) mutableState.value = LibraryState(message = if (cleared)
+                    "Your saved sign-in could not be restored. Please sign in again."
+                    else "Saved sign-in is unavailable. Check device storage and try again.")
+                return@launch
+            }
+            if (request != generation) return@launch
+            if (restored == null) { mutableState.value = mutableState.value.copy(busy = false); return@launch }
+            session = restored
+            mutableState.value = LibraryState(user = restored.user, busy = true)
+            recoveryAction(restored.user.id) { }
+            try {
+                val sheets = withContext(io) { api.list(restored.token) }
+                if (request == generation) mutableState.value = mutableState.value.copy(sheets = sheets, libraryLoaded = true, busy = false)
+            } catch (error: Exception) { fail(error, request) }
+        }
+    }
+    private fun storeSession(value: AccountSession?): Deferred<Unit>? {
+        val store = sessionStore ?: return null
+        val previous = sessionWrite
+        // Finish accepted disk writes in order, even when the screen closes or sign-out cancels a request.
+        return viewModelScope.async(io + NonCancellable) {
+            previous?.join()
+            if (value == null) store.clear() else store.save(value)
+        }.also { sessionWrite = it }
+    }
     private fun recoveryAction(owner: String, savedStatus: String? = null, action: (RecoveryStore) -> Unit) {
         val store = recoveryStore ?: return
         val previous = recoveryJob
@@ -475,10 +516,19 @@ class LibraryViewModel(
         val request = generation
         active = viewModelScope.launch {
             try {
+                storeSession(null)?.await()
+                ensureCurrent(request)
                 val accountSession = withContext(io) { api.signIn(email, password, name) }
                 if (request != generation) return@launch
                 session = accountSession
                 mutableState.value = LibraryState(user = accountSession.user, busy = true)
+                try { storeSession(accountSession)?.await() }
+                catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    ensureCurrent(request)
+                    mutableState.value = mutableState.value.copy(message = "Signed in, but this device could not remember your session. You may need to sign in after restarting.")
+                }
+                ensureCurrent(request)
                 recoveryAction(accountSession.user.id) { }
                 val sheets = withContext(io) { api.list(accountSession.token) }
                 if (request == generation) { mutableState.value = mutableState.value.copy(sheets = sheets, libraryLoaded = true, busy = false); publishEditor() }
@@ -697,16 +747,19 @@ class LibraryViewModel(
         clearEditor()
         session = null
         editPositions.clear(); practicePositions.clear()
-        mutableState.value = LibraryState(configured = api != null, message = "Signed out on this device.")
+        mutableState.value = LibraryState(configured = api != null, busy = true, message = "Signing out…")
         val request = generation
-        if (previous != null && api != null) viewModelScope.launch {
-            try { withContext(io) { api.signOut(previous.token) } }
+        val deletion = storeSession(null)
+        active = viewModelScope.launch {
+            val cleared = try { deletion?.await(); true }
+            catch (error: Exception) { if (error is CancellationException) throw error; false }
+            var message = if (cleared) "Signed out on this device." else "Could not remove the saved sign-in. Check device storage and sign out again."
+            try { if (previous != null && api != null) withContext(io) { api.signOut(previous.token) } }
             catch (error: Exception) {
                 if (error is CancellationException) throw error
-                if (request == generation) mutableState.value = mutableState.value.copy(
-                    message = "Signed out on this device. The server could not confirm session revocation; the old session will expire automatically.",
-                )
+                if (cleared) message = "Signed out on this device. The server could not confirm session revocation; the old session will expire automatically."
             }
+            if (request == generation) mutableState.value = mutableState.value.copy(busy = false, message = message)
         }
     }
 
@@ -734,7 +787,7 @@ class LibraryViewModel(
         }
     }
 
-    private fun fail(error: Exception, request: Long, sheetId: String? = null) {
+    private suspend fun fail(error: Exception, request: Long, sheetId: String? = null) {
         if (error is CancellationException) throw error
         if (request != generation) return
         practiceApiBusy = false
@@ -745,8 +798,11 @@ class LibraryViewModel(
         if (error is ApiFailure && error.status == 401) {
             session = null
             clearEditor()
-            generation++
-            mutableState.value = LibraryState(message = message)
+            val ended = ++generation
+            mutableState.value = LibraryState(busy = true, message = message)
+            val cleared = runCatching { storeSession(null)?.await() }.isSuccess
+            if (ended == generation) mutableState.value = mutableState.value.copy(busy = false,
+                message = if (cleared) message else "$message The saved sign-in could not be removed from this device.")
         } else mutableState.value = mutableState.value.copy(busy = false, message = message,
             conflict = mutableState.value.conflict || sheetId != null && sheetId == mutableState.value.selected?.id &&
                 error is ApiFailure && (error.status == 404 || error.status == 409 && error.code != "sheet_limit"))

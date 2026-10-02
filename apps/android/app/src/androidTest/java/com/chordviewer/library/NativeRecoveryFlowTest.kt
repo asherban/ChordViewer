@@ -39,8 +39,11 @@ class NativeRecoveryFlowTest {
     private fun start(fixture: JSONObject): MainActivity {
         val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)) as MainActivity
-        setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
-        click("Sign in", last = true)
+        waitFor("session restoration") { !model(activity).state.value.busy }
+        if (model(activity).state.value.user == null) {
+            setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
+            click("Sign in", last = true)
+        } else assertEquals(fixture.getString("email"), model(activity).state.value.user?.email)
         waitFor("authenticated Library") { model(activity).state.value.libraryLoaded }
         return activity
     }

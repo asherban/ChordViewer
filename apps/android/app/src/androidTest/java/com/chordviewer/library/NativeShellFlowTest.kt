@@ -50,9 +50,13 @@ class NativeShellFlowTest {
         if (midiToken.matches(Regex("[a-f0-9]{64}"))) intent.putExtra("chordviewer.midi.token", midiToken)
         val activity = instrumentation.startActivitySync(intent)
         try {
-            setField("Email", fixture.getString("email"))
-            setField("Password (12–128 characters)", fixture.getString("password"))
-            click("Sign in", last = true)
+            val startupModel = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java]
+            waitFor("session restoration") { !startupModel.state.value.busy }
+            if (startupModel.state.value.user == null) {
+                setField("Email", fixture.getString("email"))
+                setField("Password (12–128 characters)", fixture.getString("password"))
+                click("Sign in", last = true)
+            } else assertEquals(fixture.getString("email"), startupModel.state.value.user?.email)
             waitFor("Library search") { nodes().any { it.text?.toString() == "Search sheets" } }
             setField("Search sheets", original.score.title)
             hideKeyboard(activity)
@@ -184,9 +188,13 @@ class NativeShellFlowTest {
         val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         try {
-            setField("Email", fixture.getString("email"))
-            setField("Password (12–128 characters)", fixture.getString("password"))
-            click("Sign in", last = true)
+            val startupModel = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java]
+            waitFor("session restoration") { !startupModel.state.value.busy }
+            if (startupModel.state.value.user == null) {
+                setField("Email", fixture.getString("email"))
+                setField("Password (12–128 characters)", fixture.getString("password"))
+                click("Sign in", last = true)
+            } else assertEquals(fixture.getString("email"), startupModel.state.value.user?.email)
             waitFor("Library search") { nodes().any { it.text?.toString() == "Search sheets" } }
             setField("Search sheets", title)
             hideKeyboard(activity)

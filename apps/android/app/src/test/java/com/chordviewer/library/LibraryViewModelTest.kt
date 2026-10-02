@@ -21,6 +21,94 @@ class LibraryViewModelTest {
     @Before fun setup() { Dispatchers.setMain(dispatcher) }
     @After fun teardown() { Dispatchers.resetMain() }
 
+    @Test fun savedSessionRestoresWithoutAnotherPasswordAndRotationDoesNotReloadIt() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore()
+        val first = LibraryViewModel(gateway, dispatcher)
+        first.configureSession(store); advanceUntilIdle()
+        first.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        assertNotNull(store.saved)
+        gateway.signInFailure = IllegalStateException("A restored session must not sign in again")
+        val restarted = LibraryViewModel(gateway, dispatcher)
+        restarted.configureSession(store); advanceUntilIdle()
+        assertEquals(first.state.value.user, restarted.state.value.user)
+        assertTrue(restarted.state.value.libraryLoaded)
+        assertEquals(1, restarted.state.value.sheets.size)
+        store.onLoad = { error("Rotation must reuse the current session") }
+        restarted.configureSession(store); advanceUntilIdle()
+        assertFalse(restarted.state.value.busy)
+    }
+
+    @Test fun networkFailureKeepsSavedSessionWhileUnauthorizedResponseRemovesIt() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore()
+        val account = AccountSession(Account("account-a", "Name", "one@example.test"), "session-token")
+        store.saved = account
+        gateway.listFailure = java.io.IOException("Offline")
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        assertEquals(account.user, model.state.value.user)
+        assertSame(account, store.saved)
+        assertFalse(model.state.value.libraryLoaded)
+        gateway.listFailure = null; model.refresh(); advanceUntilIdle()
+        assertTrue(model.state.value.libraryLoaded)
+        gateway.listFailure = ApiFailure(401, "Session expired")
+        model.refresh(); advanceUntilIdle()
+        assertNull(model.state.value.user); assertNull(store.saved)
+        val restarted = LibraryViewModel(gateway, dispatcher)
+        restarted.configureSession(store); advanceUntilIdle()
+        assertNull(restarted.state.value.user); assertFalse(restarted.state.value.busy)
+    }
+
+    @Test fun signOutRemovesSavedSessionEvenWhenServerCannotBeReached() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore(); val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        gateway.revokeFailure = java.io.IOException("Offline")
+        model.signOut()
+        assertNull(model.state.value.user)
+        advanceUntilIdle()
+        assertNull(store.saved)
+        assertTrue(model.state.value.message!!.contains("could not confirm"))
+        val restarted = LibraryViewModel(gateway, dispatcher)
+        restarted.configureSession(store); advanceUntilIdle()
+        assertNull(restarted.state.value.user)
+    }
+
+    @Test fun signOutDuringSessionWriteAndRestoreCannotResurrectAccount() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore(); val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        store.onSave = { model.signOut() }
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        assertNull(model.state.value.user); assertNull(store.saved)
+        store.saved = AccountSession(Account("account-a", "Name", "one@example.test"), "session-token")
+        val restarted = LibraryViewModel(gateway, dispatcher)
+        store.onLoad = { restarted.signOut() }
+        restarted.configureSession(store); advanceUntilIdle()
+        assertNull(restarted.state.value.user); assertNull(store.saved)
+    }
+
+    @Test fun unreadableSessionReturnsToSignInAndFailedSaveIsReported() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore()
+        store.onLoad = { throw java.security.GeneralSecurityException("Unavailable key") }
+        val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        assertNull(model.state.value.user)
+        assertFalse(model.state.value.busy)
+        assertTrue(model.state.value.message!!.contains("could not be restored"))
+        store.onSave = { throw java.io.IOException("Full storage") }
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        assertTrue(model.state.value.libraryLoaded)
+        assertTrue(model.state.value.message!!.contains("could not remember"))
+    }
+
+    private class MemorySessionStore : SessionStore {
+        var saved: AccountSession? = null
+        var onSave: () -> Unit = {}
+        var onLoad: () -> Unit = {}
+        override fun load(): AccountSession? { val value = saved; onLoad(); return value }
+        override fun save(session: AccountSession) { onSave(); saved = session }
+        override fun clear() { saved = null }
+    }
+
     private fun configure(model: LibraryViewModel) {
         model.configureChordVocabulary(javaClass.classLoader!!.getResource("chord-vocabulary-v1.json")!!.readText())
         model.onMidiEvent(MidiInputEvent.Reset(true))

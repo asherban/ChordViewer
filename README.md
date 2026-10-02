@@ -58,7 +58,7 @@ The launcher selects the pinned Node and Android tools, builds the contracts and
 
 Wait for the **ready** message, then:
 
-1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android sign-in is required again after each app-process restart.
+1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android restores the saved sign-in after app restarts and updates; an expired or explicitly signed-out session requires sign-in again.
 2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
 3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the chord/smoke fixture. Enter **M** for a six-note melody sequence. Both go to every connected client without producing audio. To write music, open a saved sheet in **Create**, choose the matching chord or melody pass, select a free position/duration and press **Start MIDI entry** on each client. For **M**, G major, 3/4 and quarter-note duration fill two bars. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
 4. Save your edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback. Confirmed local recovery copies survive ordinary shutdown; pending writes and unfinished MIDI gestures may not.
@@ -151,7 +151,7 @@ Ports 3000 and 5173 must be free. Private settings live in ignored `.local/backe
 
 ## Recover unsaved work
 
-Both apps keep a local recovery copy automatically while **Save remains explicit**. Wait for **Local recovery copy updated** before closing. After restarting, sign into the same account and use **Recover unsaved work → Restore draft** in Library. The recovered sheet starts with MIDI entry paused and fresh undo history.
+Both apps keep a local recovery copy automatically while **Save remains explicit**. Wait for **Local recovery copy updated** before closing. After restarting, use the restored Android session (or sign into the same account if needed) and choose **Recover unsaved work → Restore draft** in Library; on Android this is in the **⋮** menu. The recovered sheet starts with MIDI entry paused and fresh undo history.
 
 If another client saved meanwhile, use **Save as new sheet** to keep both versions, or confirm **Reload latest version** to replace your draft. A failed save during an outage leaves the draft available; retry after reconnecting. Signing out hides local copies without deleting them.
 
@@ -257,7 +257,7 @@ adb -s emulator-5554 reverse tcp:3000 tcp:3000
 adb -s emulator-5554 shell am start -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-Sign in with the same account as the browser to open and save the same sheets. The app renders notation natively. Use **Library**, **Create** and **Practice** in the header; **Sheet details** opens the native editing dialog. **MIDI** in the header opens connection controls; live notes stay beside the score. Android session credentials stay in memory; restarting the app process requires signing in again. Only debug builds permit loopback HTTP; the release API remains unconfigured pending a later HTTPS deployment.
+Sign in with the same account as the browser to open and save the same sheets. The app renders notation natively. Use the shared left sidebar for **Library**, **Create** and **Practice** on wide screens (the header on narrow screens); **Sheet details** opens the native editing dialog. **MIDI** opens connection controls; live notes stay beside the score. Android encrypts the account session using Android Keystore and restores it after process restarts or app updates. Sign-out and server session expiry require sign-in again; passwords are never saved. Only debug builds permit loopback HTTP; the release API remains unconfigured pending a later HTTPS deployment.
 
 To run native backend acceptance against the isolated test environment:
 

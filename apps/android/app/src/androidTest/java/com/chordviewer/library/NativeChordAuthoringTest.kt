@@ -45,8 +45,11 @@ class NativeChordAuthoringTest {
         val activity = instrumentation.startActivitySync(intent)
         instrumentation.runOnMainSync { model = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java] }
         try {
-            setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
-            click("Sign in", last = true)
+            waitFor("session restoration") { model?.state?.value?.busy == false }
+            if (model?.state?.value?.user == null) {
+                setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
+                click("Sign in", last = true)
+            } else assertEquals(fixture.getString("email"), model?.state?.value?.user?.email)
             waitFor("loaded library") { nodes().any { it.text?.toString() == sheet.score.title } }
             openCard(sheet.score.title)
             clickDescription("Duration ¼")

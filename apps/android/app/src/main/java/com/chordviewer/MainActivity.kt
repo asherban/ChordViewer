@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import com.chordviewer.library.LibraryScreen
 import com.chordviewer.library.LibraryViewModel
 import com.chordviewer.library.FileRecoveryStore
+import com.chordviewer.library.KeystoreSessionStore
 import java.io.File
 import com.chordviewer.ui.ChordViewerTheme
 
@@ -19,6 +20,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val library = ViewModelProvider(this)[LibraryViewModel::class.java]
         library.configureRecovery(FileRecoveryStore(File(noBackupFilesDir, "drafts")))
+        ApiConfiguration.baseUrl?.let { library.configureSession(KeystoreSessionStore(applicationContext, it)) }
         assets.open("chord-vocabulary-v1.json").bufferedReader().use { library.configureChordVocabulary(it.readText()) }
         setContent {
             ChordViewerTheme {
