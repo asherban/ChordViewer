@@ -4,7 +4,7 @@ The native Kotlin / Jetpack Compose app signs in to the shared local backend and
 
 ## Local accounts and library
 
-On wide screens, Library uses a narrow navigation rail and a compact toolbar above two columns of song cards. Cards show title, key/meter, content and status, with Practice, Edit, Favorite and More actions; chord previews are omitted. **All sheets** selects All sheets, Favorites, Drafts or Trash. **Filters** combines content type with Has tutorial; the button shows the number of active filters. Search and sorting apply within that selection. Import, Refresh and Recover unsaved work are in the toolbar's **⋮** menu, with a badge when recovery copies need attention. Narrow windows and larger text use a second, horizontally scrollable toolbar row and fewer card columns.
+On wide screens, Library, Create and Practice share a narrow navigation rail that highlights the active screen. Library uses a compact toolbar above two columns of song cards. Cards show title, key/meter, content and status, with Practice, Edit, Favorite and More actions; chord previews are omitted. **All sheets** selects All sheets, Favorites, Drafts or Trash. **Filters** combines content type with Has tutorial; the button shows the number of active filters. Search and sorting apply within that selection. Import, Refresh and Recover unsaved work are in the toolbar's **⋮** menu, with a badge when recovery copies need attention. Narrow windows and larger text use a second, horizontally scrollable toolbar row and fewer card columns.
 
 Start the backend using the [root README](../../README.md), install the debug APK, and forward its loopback API port:
 
@@ -121,7 +121,7 @@ For Library layout and filter acceptance, install the debug app and test APKs on
 adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.NativeLibraryLayoutTest -e libraryLayout true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-This uses unsaved synthetic sheets without a backend. It checks combined filters, search, sorting, Trash and menu access, and captures landscape, narrow-window and larger-text views under the app-private `files/ui-evidence/` directory. It restarts the app, so use an emulator without an active editing session.
+This uses unsaved synthetic sheets without a backend. It checks combined filters, search, sorting, Trash and menu access, verifies the shared sidebar and active selection in Create and Practice, and captures landscape, narrow-window and larger-text views under the app-private `files/ui-evidence/` directory. It restarts the app, so use an emulator without an active editing session.
 
 For isolated layout screenshots, install the debug and test APKs on the 1280×800 emulator, then run the following. This opt-in test renders synthetic sheets in the native shell and writes `score-native-*.png`, `m5-native-sharps.png` and `m5-native-flats.png` under the app-private `files/ui-evidence/` directory. It requires no backend, credentials or MIDI and should run only after saving and closing any current native editing session.
 

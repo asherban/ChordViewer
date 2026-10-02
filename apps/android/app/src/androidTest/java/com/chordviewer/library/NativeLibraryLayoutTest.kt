@@ -22,6 +22,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.chordviewer.MainActivity
 import com.chordviewer.MidiInputState
 import com.chordviewer.midi.MidiSnapshot
+import com.chordviewer.score.LeadSheetReader
+import com.chordviewer.score.ScoreEditorState
 import com.chordviewer.ui.ChordViewerTheme
 import java.io.File
 import org.junit.Assert.*
@@ -53,17 +55,23 @@ class NativeLibraryLayoutTest {
         ) + List(12) { base.copy(id = "song-$it", title = "Study ${it + 1}", favorite = false) }
         val state = LibraryState(user = Account("visual", "Library review", "visual@example.test"), sheets = sheets, libraryLoaded = true)
         val model = LibraryViewModel(null)
-        fun render(width: Int = 1280, fontScale: Float = 1f) {
+        val scoreJson = context.assets.open("lead-sheet-v1.json").bufferedReader().use { it.readText() }
+        val score = LeadSheetReader.read(scoreJson)
+        val saved = SavedSheet(score.id, score, scoreJson, null, 1, base.createdAt, base.updatedAt)
+        fun render(width: Int = 1280, fontScale: Float = 1f, mode: LibraryMode = LibraryMode.LIBRARY) {
+            val screen = if (mode == LibraryMode.LIBRARY) state else state.copy(mode = mode, selected = saved,
+                editor = ScoreEditorState(score), draftTitle = score.title, practiceScore = score)
             instrumentation.runOnMainSync { activity.setContent {
                 val density = LocalDensity.current.density
                 CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
                     Box(Modifier.width(width.dp).fillMaxHeight()) {
-                        ChordViewerTheme { LibraryScreen(state, model, MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {})) }
+                        ChordViewerTheme { LibraryScreen(screen, model, MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {})) }
                     }
                 }
             } }
             instrumentation.waitForIdleSync()
-            waitFor { nodes().any { it.contentDescription?.toString() == "Edit Autumn changes" } }
+            waitFor { if (mode == LibraryMode.LIBRARY) nodes().any { it.contentDescription?.toString() == "Edit Autumn changes" }
+                else has(if (mode == LibraryMode.CREATE) "Sheet details" else "Edit sheet") }
         }
         try {
             render()
@@ -77,6 +85,14 @@ class NativeLibraryLayoutTest {
             } >= 6)
             assertFalse("Chord previews should be removed", nodes().any { it.text?.contains("Cmaj13") == true })
             capture("library-rail-landscape.png")
+            for (mode in listOf(LibraryMode.CREATE, LibraryMode.PRACTICE)) {
+                render(mode = mode)
+                val railItems = nodes().filter { node -> node.isSelected && Rect().also(node::getBoundsInScreen).right <= 80 }
+                assertEquals("Only the current sidebar screen should be selected", 1, railItems.size)
+                assertTrue("Sidebar should highlight ${mode.label}", descendants(railItems.single()).any { it.text?.toString() == mode.label })
+                assertFalse("Wide screens should not retain the old header", has("ChordViewer"))
+                capture("${mode.label.lowercase()}-rail-landscape.png")
+            }
             render(420)
             capture("library-rail-narrow.png")
             assertTrue(has("New sheet"))

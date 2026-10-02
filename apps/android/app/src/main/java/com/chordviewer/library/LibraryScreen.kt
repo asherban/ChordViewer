@@ -75,9 +75,9 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     }
     Scaffold(containerColor = CanvasColor, snackbarHost = { SnackbarHost(snackbar) }) { insets ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(insets)) {
-            val rail = browsing && maxWidth >= 840.dp
+            val rail = maxWidth >= 840.dp
             Row(Modifier.fillMaxSize()) {
-                if (rail) LibraryNavigationRail(state.busy, midi.connected, model::changeMode, ::midiSetup, ::account)
+                if (rail) AppNavigationRail(state, midi.connected, model::changeMode, ::midiSetup, ::account)
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     if (!rail) {
                         AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
@@ -147,12 +147,12 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
 }
 
 @Composable
-private fun LibraryNavigationRail(busy: Boolean, connected: Boolean, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
+private fun AppNavigationRail(state: LibraryState, connected: Boolean, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
     NavigationRail(Modifier.fillMaxHeight().width(80.dp), containerColor = SageColor, windowInsets = WindowInsets(0)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("♪", Modifier.padding(vertical = 16.dp), fontSize = 32.sp, color = AccentColor)
             LibraryMode.entries.forEach { mode ->
-                NavigationRailItem(selected = mode == LibraryMode.LIBRARY, onClick = { navigate(mode) }, enabled = !busy,
+                NavigationRailItem(selected = mode == state.mode, onClick = { navigate(mode) }, enabled = !state.busy,
                     icon = { Icon(when (mode) {
                         LibraryMode.LIBRARY -> Icons.AutoMirrored.Filled.List
                         LibraryMode.CREATE -> Icons.Default.Add
@@ -165,7 +165,7 @@ private fun LibraryNavigationRail(busy: Boolean, connected: Boolean, navigate: (
             icon = { Icon(Icons.Default.Settings, contentDescription = if (connected) "MIDI connected" else "MIDI disconnected",
                 tint = if (connected) AccentColor else MutedColor) }, label = { Text("MIDI") })
         NavigationRailItem(selected = false, onClick = account,
-            icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) }, label = { Text("Account") })
+            icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) }, label = { Text(if (state.user == null) "Sign in" else "Account") })
     }
 }
 

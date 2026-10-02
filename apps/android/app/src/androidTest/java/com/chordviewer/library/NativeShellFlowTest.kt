@@ -226,7 +226,7 @@ class NativeShellFlowTest {
         val bounds = Rect()
         val scrollable = nodes().firstOrNull { node ->
             node.getBoundsInScreen(bounds)
-            node.isScrollable && bounds.centerX() < 400
+            node.isScrollable && bounds.width() > 100 && bounds.centerX() < 400
         } ?: return false
         return scrollable.performAction(if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
     }
