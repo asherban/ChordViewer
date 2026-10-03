@@ -94,7 +94,7 @@ try {
             if ($text -ne $lastStatus) {
                 Write-Host $text
                 $lastStatus = $text
-                if ($status.phase -eq 'ready') { Write-Host '[P] Play chords   [M] Play melody   [Q] Quit (MIDI broadcasts to web + Android)' }
+                if ($status.phase -eq 'ready') { Write-Host '[P] Play chords   [M] Play melody   [Q] Quit (MIDI feeds the web client)' }
             }
             $lastPhase = $status.phase
             if ($lastPhase -eq 'ready' -and $status.command -ge $pendingCommand) { $pendingCommand = 0 }

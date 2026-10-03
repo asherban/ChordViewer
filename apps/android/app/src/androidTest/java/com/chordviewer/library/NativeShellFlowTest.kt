@@ -3,7 +3,6 @@ package com.chordviewer.library
 import android.content.Intent
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Rect
 import android.os.Bundle
 import android.os.Build
 import android.os.SystemClock
@@ -46,11 +45,10 @@ class NativeShellFlowTest {
         val original = api.get(account.token, (summaries.firstOrNull { it.title.startsWith("Evening study") } ?: summaries.first()).id)
         val title = "Evening study M6 ${UUID.randomUUID().toString().take(8)}"
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        val midiToken = fixture.optString("midiToken")
-        if (midiToken.matches(Regex("[a-f0-9]{64}"))) intent.putExtra("chordviewer.midi.token", midiToken)
         val activity = instrumentation.startActivitySync(intent)
         try {
             val startupModel = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java]
+            val midi = MidiProductFixture(startupModel)
             waitFor("session restoration") { !startupModel.state.value.busy }
             if (startupModel.state.value.user == null) {
                 setField("Email", fixture.getString("email"))
@@ -65,14 +63,10 @@ class NativeShellFlowTest {
             openCard(original.score.title)
             waitFor("selected sheet") { nodes().any { it.contentDescription?.toString() == "Sheet actions" } }
             capture("ui-native-create.png")
-            val expectMidi = fixture.optBoolean("expectMidi", false)
+            val expectMidi = fixture.optBoolean("injectMidi", false)
             if (expectMidi) {
-                waitFor("native MIDI connection") { ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.midiConnected }
-                instrumentation.sendStatus(0, Bundle().apply { putString("stream", "NATIVE_UI_MIDI_READY\n") })
-                waitFor("held MIDI note", 30_000) {
-                    if (heldNotePresent()) true else { scrollSidebar(true); false }
-                }
-                repeat(5) { scrollSidebar(false) }
+                midi.connect(); midi.hold(60, 64, 67)
+                waitFor("held product chord") { startupModel.state.value.liveChord == "C" }
             }
             click("Sheet details")
             setField("Sheet title", title)
@@ -89,21 +83,19 @@ class NativeShellFlowTest {
             click("Practice")
             waitFor("saved practice title") { nodes().any { it.text?.toString() == title } }
             assertTrue("Native save did not reach the shared API", api.get(account.token, original.id).score.title == title)
-            if (expectMidi) assertTrue("Navigation or metadata save disconnected MIDI",
+            if (expectMidi) assertTrue("Navigation or metadata save reset the product MIDI connection",
                 ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.midiConnected)
             capture("ui-native-practice.png")
             assertTrue("Practice defaults to chord matching", ViewModelProvider(activity)[LibraryViewModel::class.java].state.value.practice.advanceOnMatch)
             assertFalse(nodes().any { it.text?.toString() in listOf("Manual", "Next bar", "Previous bar", "Restart") })
             if (expectMidi) {
-                waitFor("held C4 after navigation and save") {
-                    if (heldNotePresent()) true else { scrollSidebar(true); false }
-                }
-                repeat(5) { scrollSidebar(false) }
+                assertEquals("Held product chord survives navigation and save", "C", startupModel.state.value.liveChord)
             }
             if (expectMidi) {
                 // Position the fixture at G7; the product has no manual bar navigation.
                 instrumentation.runOnMainSync { ViewModelProvider(activity)[LibraryViewModel::class.java].practiceBar(1) }
-                instrumentation.sendStatus(0, Bundle().apply { putString("stream", "M6_NATIVE_MATCH_READY\n") })
+                midi.release(60, 64, 67)
+                midi.chord(55, 59, 62, 65)
                 waitFor("fresh G7 Practice match", 30_000) {
                     ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java].state.value.practice.bar == 2
                 }
@@ -147,10 +139,16 @@ class NativeShellFlowTest {
             }
             waitFor("Practice restored after app background") { nodes().any { it.text?.toString() == "Practice" } }
             waitFor("standard embed restored without autoplay") { mountedPlayerHtml(playerHtml(activity), activity) }
+            if (expectMidi) {
+                // Backgrounding reset the native owner. Establish live product state before testing sign-out.
+                midi.connect(); midi.hold(60, 64, 67)
+                assertTrue(startupModel.state.value.midiConnected)
+                assertEquals("C", startupModel.state.value.liveChord)
+            }
             click("Account")
             click("Sign out")
             waitFor("signed-out library") { nodes().any { it.text?.toString() == "Sign in to your library" } }
-            assertFalse("Sign-out must disconnect MIDI", nodes().any { it.text?.toString()?.contains("MIDI connected") == true })
+            waitFor("sign-out resets product MIDI state") { !startupModel.state.value.midiConnected && startupModel.state.value.liveChord == null }
         } catch (error: Throwable) {
             if (nodes().none { it.isPassword }) runCatching { capture("m6-native-failure-diagnostic.png") }
             throw error
@@ -214,15 +212,6 @@ class NativeShellFlowTest {
         }
     }
 
-    private fun heldNotePresent() = nodes().any { it.contentDescription?.toString()?.startsWith("Held notes: C4 (ch 1)") == true }
-    private fun scrollSidebar(forward: Boolean): Boolean {
-        val bounds = Rect()
-        val scrollable = nodes().firstOrNull { node ->
-            node.getBoundsInScreen(bounds)
-            node.isScrollable && bounds.width() > 100 && bounds.centerX() < 400
-        } ?: return false
-        return scrollable.performAction(if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
-    }
     private fun nodes(): List<AccessibilityNodeInfo> {
         if (Build.VERSION.SDK_INT >= 34) automation.clearCache()
         return automation.rootInActiveWindow?.let(::descendants).orEmpty()

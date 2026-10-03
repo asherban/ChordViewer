@@ -1,6 +1,5 @@
 package com.chordviewer
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,48 +23,22 @@ import com.chordviewer.midi.NativeMidiInput
 import com.chordviewer.midi.NativeMidiUpdate
 
 @Composable
-fun rememberMidiInput(initialIntent: Intent, onEvent: (MidiInputEvent) -> Unit = {}): MidiInputState {
-    var emulator by remember { mutableStateOf(emulatorMidiRequested(initialIntent)) }
-    val owner = rememberUpdatedState(emulator)
-    val events = rememberUpdatedState(onEvent)
-    val native = rememberNativeMidiInput(!emulator) { if (!owner.value) events.value(it) }
-    val debug = rememberEmulatorMidiInput(initialIntent, emulator) { if (owner.value) events.value(it) }
-    val current = if (emulator) debug ?: native else native
-    return MidiInputState(current.snapshot, current.status, current.connected, current.disconnect) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (debug != null) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = {
-                    current.disconnect()
-                    events.value(MidiInputEvent.Reset(false, "MIDI source changed. Entry paused."))
-                    emulator = false
-                }, enabled = emulator) { Text("USB MIDI") }
-                OutlinedButton(onClick = {
-                    current.disconnect()
-                    events.value(MidiInputEvent.Reset(false, "MIDI source changed. Entry paused."))
-                    emulator = true
-                }, enabled = !emulator) { Text("Emulator bridge") }
-            }
-            current.controls()
-        }
-    }
-}
-
-@Composable
-private fun rememberNativeMidiInput(enabled: Boolean, onEvent: (MidiInputEvent) -> Unit): MidiInputState {
+fun rememberMidiInput(onEvent: (MidiInputEvent) -> Unit = {}): MidiInputState {
     val context = LocalContext.current.applicationContext
     var update by remember { mutableStateOf(NativeMidiUpdate()) }
-    val input = remember(context) { NativeMidiInput(context, onEvent) { update = it } }
+    val events = rememberUpdatedState(onEvent)
+    val input = remember(context) { NativeMidiInput(context, { events.value(it) }) { update = it } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(input, lifecycle, enabled) {
+    DisposableEffect(input, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> input.foreground(enabled)
+                Lifecycle.Event.ON_START -> input.foreground(true)
                 Lifecycle.Event.ON_STOP -> input.foreground(false)
                 else -> Unit
             }
         }
         lifecycle.addObserver(observer)
-        input.foreground(enabled && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+        input.foreground(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
         onDispose { lifecycle.removeObserver(observer); input.foreground(false) }
     }
     DisposableEffect(input) { onDispose { input.close() } }

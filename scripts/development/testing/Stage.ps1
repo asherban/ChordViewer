@@ -23,5 +23,26 @@ switch ($Stage) {
         & npm.cmd run dev
         if ($LASTEXITCODE -ne 0) { throw 'Web development server stopped.' }
     }
-    'android' { & (Join-Path $repository 'scripts/development/Connect-AndroidMidi.ps1') -Serial $Serial }
+    'android' {
+        # A cold owned emulator can time out once boot_completed is already 1.
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            $previousPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                $output = @(& adb -s $Serial shell am start -S -W -n 'com.chordviewer.debug/com.chordviewer.MainActivity' 2>&1)
+                $exitCode = $LASTEXITCODE
+            } finally { $ErrorActionPreference = $previousPreference }
+            $text = ($output | ForEach-Object { $_.ToString() }) -join "`n"
+            $failed = $text -match '(?i)Error:|Exception'
+            if ($exitCode -eq 0 -and -not $failed -and $text -match '(?im)^\s*Status:\s*ok\s*$') {
+                Write-Host 'Native app opened for UI and backend testing.'
+                return
+            }
+            if (-not $failed -and $text -match '(?im)^\s*Status:\s*timeout\s*$' -and $attempt -lt 3) {
+                Start-Sleep -Seconds 2
+                continue
+            }
+            throw "Android launch failed (ADB exit $exitCode): $text"
+        }
+    }
 }

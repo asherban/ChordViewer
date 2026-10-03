@@ -21,15 +21,8 @@ if (-not ($fixture.email -is [string]) -or -not ($fixture.password -is [string])
 $apiPort = if ($fixture.apiPort) { [int]$fixture.apiPort } else { 3001 }
 if ($apiPort -lt 1024 -or $apiPort -gt 65535) { throw 'Fixture API port is invalid.' }
 $secrets = @($fixture.email, $fixture.password)
-if ($WithMidi) {
-    try { $bridge = Get-Content -LiteralPath (Join-Path $repositoryRoot '.local/midi/bridge.json') -Raw | ConvertFrom-Json }
-    catch { throw 'Could not read the local MIDI bridge session.' }
-    if ($bridge.host -ne '127.0.0.1' -or $bridge.port -ne 39173 -or $bridge.token -cnotmatch '\A[a-f0-9]{64}\z') { throw 'Start a valid local MIDI bridge before this test.' }
-    $fixture | Add-Member -NotePropertyName midiToken -NotePropertyValue $bridge.token -Force
-    $fixture | Add-Member -NotePropertyName expectMidi -NotePropertyValue $true -Force
-    $secrets += $bridge.token
-    Add-Type -Path (Join-Path $repositoryRoot 'scripts/midi/WinMmMidi.cs')
-}
+# Musical events are injected by the test APK through LibraryViewModel, without a host MIDI transport.
+$fixture | Add-Member -NotePropertyName injectMidi -NotePropertyValue ([bool]$WithMidi) -Force
 function Start-Adb([string[]]$Arguments, [switch]$InputPipe) {
     $process = New-Object Diagnostics.Process
     $process.StartInfo.FileName = $adb
@@ -71,13 +64,7 @@ function Ensure-Reverse([string]$remote, [string]$local) {
     }
 }
 $runner = $null
-$sender = $null
 $transcript = New-Object 'Collections.Generic.List[string]'
-function Send-Chord([int[]]$Notes, [int]$HoldMilliseconds = 20) {
-    foreach ($pitch in $Notes) { $sender.Send([int[]]@(144, $pitch, 96)) }
-    if ($HoldMilliseconds -gt 0) { Start-Sleep -Milliseconds $HoldMilliseconds }
-    foreach ($pitch in $Notes) { $sender.Send([int[]]@(128, $pitch, 0)) }
-}
 try {
     $null = Invoke-Adb @('install', '-r', '-t', (Join-Path $repositoryRoot 'apps/android/app/build/outputs/apk/debug/app-debug.apk'))
     $null = Invoke-Adb @('install', '-r', '-t', (Join-Path $repositoryRoot 'apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk'))
@@ -85,7 +72,6 @@ try {
     Ensure-Reverse 'tcp:3000' "tcp:$apiPort"
     Ensure-Reverse "tcp:$apiPort" "tcp:$apiPort"
     if ($RecoveryPhase -eq 1 -and -not $createdMappings.Contains('tcp:3000')) { throw 'Recovery outage acceptance requires its own app reverse mapping; use an isolated emulator.' }
-    if ($WithMidi) { Ensure-Reverse 'tcp:39173' 'tcp:39173' }
     $null = Invoke-Adb @('shell', 'run-as', 'com.chordviewer.debug', 'mkdir', '-p', 'files')
     # Tee is executed as the debug app. Credential data uses stdin, never process arguments or console output.
     $writer = Start-Adb @('exec-in', 'run-as', 'com.chordviewer.debug', 'tee', 'files/ui-fixture.json') -InputPipe
@@ -134,66 +120,7 @@ try {
                 $null = Invoke-Adb @('reverse', '--no-rebind', 'tcp:3000', "tcp:$apiPort")
                 Write-Host 'Restored the app route for an explicit save retry.'
             }
-            if ($line -match 'NATIVE_UI_MIDI_READY') {
-                if (-not $WithMidi -or $sender) { throw 'Unexpected MIDI readiness signal.' }
-                $sender = New-Object ChordViewer.LocalMidi.Sender
-                $sender.Send([int[]]@(144, 60, 96))
-                Write-Host 'Holding C4 through native mode changes and metadata save.'
-            }
             if ($line -match 'M6_PLAYER_HTML') { Write-Host $line }
-            if ($line -match 'M6_NATIVE_MATCH_READY') {
-                if (-not $WithMidi -or -not $sender) { throw 'Unexpected Practice match signal.' }
-                $sender.Send([int[]]@(128, 60, 0))
-                Start-Sleep -Milliseconds 250
-                Send-Chord @(55, 59, 62, 65) 250
-                Write-Host 'Released held C4, then broadcast a fresh G7 Practice gesture.'
-            }
-            if ($line -match 'M4_NATIVE_ENTRY_READY') {
-                if (-not $Authoring -or $sender) { throw 'Unexpected authoring readiness signal.' }
-                $sender = New-Object ChordViewer.LocalMidi.Sender
-                $sender.Send([int[]]@(176, 64, 127))
-                Send-Chord @(60, 64, 67) 0
-                Send-Chord @(62, 65, 69) 0
-                $sender.Send([int[]]@(176, 64, 0))
-                Write-Host 'Broadcast two immediate chords with sustain held through both gestures.'
-            }
-            if ($line -match 'M4_NATIVE_REPLACE_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected replacement signal.' }
-                Send-Chord @(65, 69, 72) 0
-                Send-Chord @(64, 68, 71) 0
-                Write-Host 'Broadcast F then E to verify replacement writes once.'
-            }
-            if ($line -match 'M4_NATIVE_PRACTICE_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected practice signal.' }
-                Send-Chord @(60, 64, 67) 1600
-                Write-Host 'Broadcast held C major in read-only Practice.'
-            }
-            if ($line -match 'M4_NATIVE_PENDING_REPLACE_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected pending replacement signal.' }
-                Send-Chord @(67, 71, 74) 0
-                Write-Host 'Broadcast G to verify a rejected replacement remains correctable without replay.'
-            }
-            if ($line -match 'M4_NATIVE_RECONNECT_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected reconnect signal.' }
-                Send-Chord @(67, 71, 74) 0
-                Write-Host 'Broadcast a fresh G major gesture after reconnect.'
-            }
-            if ($line -match 'M5_NATIVE_MELODY_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody readiness signal.' }
-                Send-Chord @(60) 20
-                Send-Chord @(62) 20
-                Write-Host 'Broadcast two separate notes for the native melody pass.'
-            }
-            if ($line -match 'M5_NATIVE_POLYPHONY_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody polyphony signal.' }
-                Send-Chord @(64, 67) 20
-                Write-Host 'Broadcast overlapping notes to verify single-voice rejection.'
-            }
-            if ($line -match 'M5_NATIVE_REPLACE_READY') {
-                if (-not $Authoring -or -not $sender) { throw 'Unexpected melody replacement signal.' }
-                Send-Chord @(65) 20
-                Write-Host 'Broadcast F4 to replace the selected melody note.'
-            }
             if ($stream -eq 'out') { $outLine = $runner.StandardOutput.ReadLineAsync() } else { $errLine = $runner.StandardError.ReadLineAsync() }
         }
         Start-Sleep -Milliseconds 10
@@ -227,14 +154,13 @@ try {
         Write-Host 'PASS: native Library favorite, Draft, duplicate, Trash and restore through the UI (1 test).'
     } else {
         Write-Host 'PASS: native account UI, Library/Create/Practice, retained draft, shared save, melody preference and sign-out (1 test).'
-        if ($WithMidi) { Write-Host 'PASS: real held C4 survived navigation and save; fresh G7 advanced Practice once; sign-out disconnected MIDI.' }
+        if ($WithMidi) { Write-Host 'PASS: injected held chord survived navigation and save; fresh G7 advanced Practice once; sign-out reset product MIDI state.' }
     }
     Write-Host "Screenshots saved under $destination"
 } catch {
     if ($transcript.Count) { Write-Host ($transcript -join "`n") }
     throw
 } finally {
-    if ($sender) { $sender.Dispose() }
     Stop-Owned $runner
     $null = Invoke-Adb @('shell', 'run-as', 'com.chordviewer.debug', 'rm', '-f', 'files/ui-fixture.json')
     foreach ($remote in $createdMappings) { $null = Invoke-Adb @('reverse', '--remove', $remote) }

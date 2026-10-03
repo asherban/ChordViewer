@@ -137,7 +137,7 @@ namespace ChordViewer.LocalMidi
             {
                 if (!accepting || stopping || handle != input) return;
                 if (message == 0x3c5 || message == 0x3c6 || message == 0x3cc) { inputFailed = true; queue.Clear(); return; }
-                if (message != 0x3c3 || Protocol.MessageLength(unchecked((uint)data.ToUInt64())) == 0) return;
+                if (message != 0x3c3 || ShortMidiMessage.MessageLength(unchecked((uint)data.ToUInt64())) == 0) return;
                 if (queue.Count >= Capacity) { overflow = true; queue.Clear(); return; }
                 if (!overflow && !inputFailed) queue.Enqueue(unchecked((uint)data.ToUInt64()));
             }

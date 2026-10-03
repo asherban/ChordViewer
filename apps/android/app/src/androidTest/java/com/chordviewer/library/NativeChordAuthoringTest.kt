@@ -21,14 +21,14 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Opt-in native UI + real host MIDI + API persistence acceptance. Credentials arrive by private stdin fixture. */
+/** Opt-in native UI, injected musical product events and real API persistence. Credentials use private stdin. */
 @RunWith(AndroidJUnit4::class)
 class NativeChordAuthoringTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
     private var model: LibraryViewModel? = null
 
-    @Test fun nativeAuthoringCapturesBroadcastMidiAndKeepsPracticeReadOnly() {
+    @Test fun nativeAuthoringCapturesMidiEventsAndKeepsPracticeReadOnly() {
         assumeTrue("Explicit native authoring fixture required", InstrumentationRegistry.getArguments().getString("authoringUi") == "true")
         val context = instrumentation.targetContext
         val file = File(context.filesDir, "ui-fixture.json")
@@ -40,10 +40,9 @@ class NativeChordAuthoringTest {
         val sheet = api.create(account.token, "M4 native study ${System.currentTimeMillis()}", false)
         val savedTitle = "Native MIDI saved study ${sheet.id.take(8)}"
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        val token = fixture.getString("midiToken").also { require(it.matches(Regex("[a-f0-9]{64}"))) }
-        intent.putExtra("chordviewer.midi.token", token)
         val activity = instrumentation.startActivitySync(intent)
         instrumentation.runOnMainSync { model = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java] }
+        val midi = MidiProductFixture(requireNotNull(model))
         try {
             waitFor("session restoration") { model?.state?.value?.busy == false }
             if (model?.state?.value?.user == null) {
@@ -52,10 +51,14 @@ class NativeChordAuthoringTest {
             } else assertEquals(fixture.getString("email"), model?.state?.value?.user?.email)
             waitFor("loaded library") { nodes().any { it.text?.toString() == sheet.score.title } }
             openCard(sheet.score.title)
+            midi.connect()
             clickDescription("Duration ¼")
             click("Start MIDI entry")
             capture("m4-native-entry-before.png")
-            signal("M4_NATIVE_ENTRY_READY")
+            midi.bytes(0xB0, 64, 127)
+            midi.chord(60, 64, 67)
+            midi.chord(62, 65, 69)
+            midi.bytes(0xB0, 64, 0)
             waitFor("two automatically inserted chords", 30_000) { chordSymbols() == listOf("C", "Dm") }
             capture("m4-native-entry.png")
             click("Undo")
@@ -72,12 +75,13 @@ class NativeChordAuthoringTest {
             click("Undo")
             clickDescription("Select chord Dm at tick 480")
             click("Replace from MIDI")
-            signal("M4_NATIVE_REPLACE_READY")
+            midi.chord(65, 69, 72)
+            midi.chord(64, 68, 71)
             waitFor("one-shot MIDI replacement", 30_000) { chordSymbols() == listOf("Cmaj7", "F") }
             clickDescription("Select chord F at tick 480")
             clickDescription("Duration Whole bar")
             click("Replace from MIDI")
-            signal("M4_NATIVE_PENDING_REPLACE_READY")
+            midi.chord(67, 71, 74)
             waitFor("replacement extends across the barline", 30_000) { chordSymbols() == listOf("Cmaj7", "G") && chordSymbols(1) == listOf("G") }
             assertEquals(480, model?.state?.value?.editor?.score?.measures?.get(1)?.chords?.single()?.durationTicks)
             click("Undo")
@@ -93,21 +97,21 @@ class NativeChordAuthoringTest {
             assertEquals(listOf("Cmaj7", "G"), saved.score.measures.first().chords.map { it.symbol })
             assertEquals(listOf(480, 480), saved.score.measures.first().chords.map { it.durationTicks })
             click("Practice")
-            signal("M4_NATIVE_PRACTICE_READY")
+            midi.hold(60, 64, 67)
             // The sidebar monitor can be below the viewport; assert the real live MIDI model without scrolling away from the score.
             waitFor("practice receives live MIDI", 30_000) { model?.state?.value?.liveChord == "C" }
             SystemClock.sleep(700)
             assertEquals(saved.score, api.get(account.token, sheet.id).score)
             assertEquals(listOf("Cmaj7", "G"), chordSymbols())
             capture("m4-native-practice.png")
+            midi.release(60, 64, 67)
             click("Create")
             // A disconnect resets entry; reconnect does not arm automatically.
-            clickMidi()
-            click("Disconnect / clear"); click("Connect"); click("Done")
-            waitFor("reconnected") { nodes().any { it.text?.toString()?.contains("MIDI connected") == true } }
+            midi.disconnect(); midi.connect()
+            assertTrue(model?.state?.value?.midiConnected == true)
             assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
             clickDescription("Choose insertion position"); click("Next bar"); click("Done"); click("Start MIDI entry")
-            signal("M4_NATIVE_RECONNECT_READY")
+            midi.chord(67, 71, 74)
             waitFor("fresh chord after reconnect", 30_000) { chordSymbols(1) == listOf("G") }
             click("Sheet details"); setField("Sheet title", savedTitle)
             setField("YouTube tutorial URL (optional)", "https://youtu.be/dQw4w9WgXcQ")
@@ -127,17 +131,17 @@ class NativeChordAuthoringTest {
             // M5: a separate melody pass starts at the beginning of the existing harmony.
             clickDescription("Melody entry lane")
             assertEquals(ScorePosition(), model?.state?.value?.editor?.position)
-            click("Start MIDI entry"); signal("M5_NATIVE_MELODY_READY")
-            waitFor("two physical-release melody notes", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("D", 0, 4)) }
+            click("Start MIDI entry"); midi.chord(60); midi.chord(62)
+            waitFor("two released melody notes", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("D", 0, 4)) }
             assertEquals(listOf("Cmaj7", "G"), chordSymbols())
             tapFirstMelodyNote()
             waitFor("native Canvas note selection") { model?.state?.value?.editor?.selectedMelodyId == model?.state?.value?.editor?.score?.measures?.first()?.melody?.first()?.id }
             instrumentation.runOnMainSync { model!!.resumeMelodyEntry() }; click("Start MIDI entry")
-            signal("M5_NATIVE_POLYPHONY_READY")
+            midi.chord(64, 67)
             waitFor("overlapping pitches rejected", 30_000) { model?.state?.value?.editor?.message?.contains("one pitch") == true }
             assertEquals(2, melodyPitches().size)
             instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[1].id) }
-            click("Replace from MIDI"); signal("M5_NATIVE_REPLACE_READY")
+            click("Replace from MIDI"); midi.chord(65)
             waitFor("one-shot melody replacement", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("F", 0, 4)) }
             assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
             click("+ Rest")
@@ -185,13 +189,13 @@ class NativeChordAuthoringTest {
             assertNotEquals(sheet.id, imported.id)
             click("Practice"); capture("m5-native-imported.png")
         } finally {
+            midi.disconnect()
             try { api.signOut(account.token) } finally { instrumentation.runOnMainSync { activity.finish() } }
         }
     }
 
-    private fun signal(name: String) = instrumentation.sendStatus(0, Bundle().apply { putString("stream", "$name\n") })
     // Assert the real activity model; clipping can remove Canvas semantics from UiAutomation.
-    // Screenshots separately verify the visible native staff and symbols. No MIDI is injected here.
+    // Screenshots verify the native staff; androidTest injects events through the real product model.
     private fun chordSymbols(measure: Int = 0) = model?.state?.value?.editor?.score?.measures?.getOrNull(measure)?.chords?.map { it.symbol }.orEmpty()
     private fun melodyPitches() = model?.state?.value?.editor?.score?.measures?.first()?.melody?.map { it.pitch }.orEmpty()
     private fun tapFirstMelodyNote() {
@@ -237,10 +241,6 @@ class NativeChordAuthoringTest {
         if (description.startsWith("Select chord ")) clickDescription("Choose chord to change")
         if (description.startsWith("Select melody ")) clickDescription("Choose melody to change")
         waitFor(description) { nodes().firstOrNull { it.contentDescription?.toString() == description }?.let(::performClick) == true }
-        instrumentation.waitForIdleSync()
-    }
-    private fun clickMidi() {
-        waitFor("MIDI control") { nodes().firstOrNull { it.text?.toString()?.contains("MIDI connected") == true }?.let(::performClick) == true }
         instrumentation.waitForIdleSync()
     }
     private fun openCard(title: String, reload: Boolean = false) {

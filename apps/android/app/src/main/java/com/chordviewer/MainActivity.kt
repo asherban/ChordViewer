@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ChordViewerTheme {
                 // The shell owns MIDI. Navigation, metadata and dialogs never own its lifetime.
-                val midi = rememberMidiInput(intent, library::onMidiEvent)
+                val midi = rememberMidiInput(library::onMidiEvent)
                 val state by library.state.collectAsStateWithLifecycle()
                 LibraryScreen(state, library, midi)
             }

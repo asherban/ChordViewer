@@ -13,8 +13,8 @@ trap {
 $config = Get-Content -LiteralPath (Join-Path $SessionDirectory 'config.json') -Raw | ConvertFrom-Json
 if ($config.id -ne [IO.Path]::GetFileName($SessionDirectory) -or $config.environment -notin @('development', 'test') -or
     $config.speed -lt 0.1 -or $config.speed -gt 10) { throw 'Invalid testing configuration.' }
-$lock = $null; $parent = $null; $bridge = $null; $sender = $null; $browser = $null; $emulator = $null; $web = $null
-$backendIntent = $false; $jobAttached = $false; $bridgeOwned = $false; $failure = $null
+$lock = $null; $parent = $null; $sender = $null; $browser = $null; $emulator = $null; $web = $null
+$backendIntent = $false; $jobAttached = $false; $failure = $null
 $children = New-Object 'Collections.Generic.List[object]'
 $mappings = New-Object 'Collections.Generic.List[string]'
 $serial = 'emulator-5560'
@@ -70,7 +70,7 @@ function Run-Child([string]$Name, [string]$Executable, [string[]]$Arguments, [in
             $detail = ''
             if ($Name -eq 'android-launch') {
                 $diagnostic = $output | Where-Object { $_.StartsWith('Android launch failed (ADB exit ') } | Select-Object -Last 1
-                if ($diagnostic) { $detail = ' ' + ($diagnostic -replace '(?i)\b[a-f0-9]{64}\b', '[redacted]') }
+                if ($diagnostic) { $detail = ' ' + $diagnostic }
             }
             throw "$Name failed with exit code $($child.ExitCode).$detail See its session log."
         }
@@ -143,7 +143,7 @@ try {
     $jobAttached = $true
     Publish 'starting' 'Checking local prerequisites and ownership.'
     Check-Stop
-    foreach ($port in @($settings.Port, 5173, 39173, 5560, 5561)) { Assert-FreePort $port }
+    foreach ($port in @($settings.Port, 5173, 5560, 5561)) { Assert-FreePort $port }
     $engine = Run-Child 'docker-engine' 'docker.exe' @('info', '--format', '{{.OSType}}') 20
     if ($engine.Trim() -ne 'linux') { throw 'Start Docker Desktop with Linux containers before launching.' }
     Assert-BackendAvailable
@@ -172,22 +172,6 @@ try {
     $web = Start-Child 'web' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'web', '-Environment', $config.environment)
     Wait-Health 'http://127.0.0.1:5173/health' 60
     Add-Type -Path (Join-Path $repository 'scripts/midi/WinMmMidi.cs')
-    $random = [Security.Cryptography.RandomNumberGenerator]::Create()
-    $bytes = New-Object byte[] 32
-    try { $random.GetBytes($bytes) } finally { $random.Dispose() }
-    $token = ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
-    $bridge = [ChordViewer.LocalMidi.Bridge]::new($token)
-    $bridge.Start()
-    $bridgeOwned = $true
-    $midiDirectory = Join-Path $repository '.local/midi'
-    $bridgeFile = Join-Path $midiDirectory 'bridge.json'
-    foreach ($path in @($midiDirectory, $bridgeFile)) {
-        if ((Test-Path -LiteralPath $path) -and ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'MIDI session paths cannot be links.' }
-    }
-    $null = New-Item -ItemType Directory -Path $midiDirectory -Force
-    Set-LocalBackendPrivateAcl -Path $midiDirectory -Directory
-    @{ host = '127.0.0.1'; port = 39173; token = $token; pid = $PID; startedAt = [DateTime]::UtcNow.ToString('o') } |
-        ConvertTo-Json | Set-Content -LiteralPath $bridgeFile -Encoding UTF8
     Publish 'emulator' 'Booting the tablet emulator; this can take a few minutes.'
     Assert-FreePort 5560
     Assert-FreePort 5561
@@ -203,12 +187,10 @@ try {
         if ($boot.Elapsed.TotalSeconds -gt 300) { throw 'Emulator did not finish booting within five minutes.' }
         Start-Sleep -Milliseconds 500
     }
-    Publish 'android' 'Installing and opening the native app with MIDI connected.'
+    Publish 'android' 'Installing and opening the native app for UI and backend testing.'
     $null = Run-Child 'android-install' 'adb.exe' @('-s', $serial, 'install', '-r', '-t', $apk) 90
-    foreach ($mapping in @(@('tcp:3000', "tcp:$($settings.Port)"), @('tcp:39173', 'tcp:39173'))) {
-        $null = Run-Child ('reverse-' + $mapping[0].Replace(':','-')) 'adb.exe' @('-s', $serial, 'reverse', '--no-rebind', $mapping[0], $mapping[1])
-        $mappings.Add($mapping[0])
-    }
+    $null = Run-Child 'reverse-tcp-3000' 'adb.exe' @('-s', $serial, 'reverse', '--no-rebind', 'tcp:3000', "tcp:$($settings.Port)")
+    $mappings.Add('tcp:3000')
     $null = Run-Child 'android-launch' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'android', '-Serial', $serial) 60
     Publish 'browser' 'Opening the dedicated Chrome window and enabling real MIDI input.'
     $browserArgs = @((Join-Path $PSScriptRoot 'browser.mjs'), '--profile', (Join-Path $testing 'browser'))
@@ -225,11 +207,10 @@ try {
         if ($browser.HasExited -or $browserTimer.Elapsed.TotalSeconds -gt 60) { throw 'Testing browser did not start; see browser.log.' }
         Start-Sleep -Milliseconds 100
     }
-    Publish 'ready' 'Web + Android are running. In Android, open a sheet or choose Explore the example sheet to see notes.'
+    Publish 'ready' 'Web + Android are running. MIDI playback feeds the browser; emulator MIDI uses product test fixtures.'
     while ($true) {
         Check-Stop
         if ($web.HasExited -or $emulator.HasExited -or $browser.HasExited) { throw 'A testing application closed. Stopping the remaining services.' }
-        if ($bridge.Failure) { throw 'The local MIDI bridge stopped. See session logs.' }
         $requestFile = Join-Path $SessionDirectory 'request.json'
         if (Test-Path -LiteralPath $requestFile) {
             if ((Get-Item -LiteralPath $requestFile).Length -gt 1024) { throw 'Invalid launcher command size.' }
@@ -240,9 +221,9 @@ try {
             if ($fixtureName -cnotin @('smoke', 'melody')) { throw 'Unknown MIDI sequence.' }
             $events = (Get-Content -LiteralPath (Join-Path $repository "scripts/midi/fixtures/$fixtureName.json") -Raw | ConvertFrom-Json).events
             $handledCommand = [int]$request.id
-            Publish 'playing' 'Preparing the web input, then broadcasting the MIDI sequence to both clients.'
+            Publish 'playing' 'Preparing the web input, then sending the MIDI sequence through LoopBe.'
             $reply = Browser-Request 'prepare'
-            if (-not $reply.ok) { Publish 'playing' 'Web input is unavailable. Broadcasting to connected clients; open a web sheet and enable MIDI for the next playback.' }
+            if (-not $reply.ok) { Publish 'playing' 'Web input is unavailable. Open a web sheet and enable MIDI for the next playback.' }
             try {
                 $sender = [ChordViewer.LocalMidi.Sender]::new()
                 $timer = [Diagnostics.Stopwatch]::StartNew()
@@ -272,15 +253,6 @@ try {
         foreach ($mapping in $mappings) { try { $null = Run-Child ('cleanup-' + $mapping.Replace(':','-')) 'adb.exe' @('-s', $serial, 'reverse', '--remove', $mapping) 10 -Cleanup } catch { } }
         try { $null = Run-Child 'cleanup-emulator' 'adb.exe' @('-s', $serial, 'emu', 'kill') 10 -Cleanup } catch { }
     }
-    if ($bridgeOwned) {
-        try {
-            if (Test-Path -LiteralPath $bridgeFile) {
-                $stored = Get-Content -LiteralPath $bridgeFile -Raw | ConvertFrom-Json
-                if ($stored.token -ceq $token) { Remove-Item -LiteralPath $bridgeFile -Force }
-            }
-        } catch { $cleanupErrors.Add('MIDI credential cleanup failed.') }
-    }
-    if ($bridge) { try { $bridge.Dispose() } catch { $cleanupErrors.Add('MIDI bridge cleanup failed.') } }
     # Kill all remaining owned workers, including build descendants, before Docker cleanup.
     if ($jobAttached) { try { [ChordViewer.Testing.WorkloadJob]::StopChildren() } catch { $cleanupErrors.Add('Child process cleanup failed.') } }
     if ($backendIntent) { try { Remove-OwnedBackend } catch { $cleanupErrors.Add('Owned Docker resource cleanup failed; inspect cleanup logs.') } }
