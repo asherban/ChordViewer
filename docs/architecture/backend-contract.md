@@ -29,7 +29,7 @@ Saving sends the complete score, tutorial URL and `expectedRevision`. PostgreSQL
 
 There is no permanent-delete endpoint. Trash retains its quota slot and blocks score editing until restored. Unknown authentication endpoints are unavailable. Tutorial links are restricted to supported HTTPS YouTube watch/youtu.be forms with an eleven-character video ID. The backend normalizes the URL without fetching it. Clients load the embedded player only after a deliberate Play action.
 
-M5 blank creation optionally accepts a standard major/minor key and supported meter, defaulting to C/4/4 in score v2. Example copies retain the original v1 fixture. Import receives canonical v1/v2 score JSON after local preview, plus title and optional tutorial URL. The backend does not parse MusicXML or fetch source URLs. Creation and import share the same per-owner transaction lock and 100-sheet quota. No database migration is needed for v2 because scores are validated JSON documents in the existing storage column.
+M5 blank creation optionally accepts a standard major/minor key and supported meter, defaulting to C/4/4 in score v2. Example copies retain the original v1 fixture. Import receives canonical v1/v2/v3 score JSON after local preview, plus title and optional tutorial URL. The backend does not parse MusicXML or fetch source URLs. Creation and import share the same per-owner transaction lock and 100-sheet quota. No SQL schema migration is needed for v2/v3 because scores are validated JSON documents in the existing storage column. All score versions require legal supported textual chords or matching v3 definitions. Save/import rejects malformed text rather than replacing it silently. The normal demo audit found 7/7 stored chord events legal across three sheets; no row or revision needed repair.
 
 ## Authentication and client lifetime
 
@@ -74,3 +74,5 @@ Compose keeps PostgreSQL data in a named volume. Starting, stopping, rebuilding 
 - [Fastify integration](https://www.better-auth.com/docs/integrations/fastify)
 
 These choices describe the pinned local implementation. Recheck authentication, hosting and library documentation before changing deployment boundaries or upgrading dependencies.
+
+V3 validates structured harmony and contiguous logical fragments at the existing save/import boundary. The shared compact score limit is 1,040,000 UTF-8 bytes, beneath the unchanged 1 MiB complete-request limit and the clients’ 2,200,000-byte base-plus-draft recovery limit. Failed validation never replaces saved music. PostgreSQL JSONB object-key ordering does not change semantic dirty-state detection.

@@ -2,9 +2,9 @@
 
 The [entry plan](../../create-entry-plan.md) describes the current controls and acceptance criteria. These screenshots show the implemented interface with disposable test music.
 
-## Chord keyboard
+## Complete chord dialog
 
-The keyboard provides recent chord shortcuts and visible duration controls. Inserting a chord advances the cursor while the keyboard stays open.
+The selected design is [complete-chord-dialog.png](complete-chord-dialog.png). The implemented native popup opens directly at a tapped chord or append marker with an Add chord/Edit chord heading. Root/type/bass, duration, extensions, alterations and advanced construction actions share one popup. Rare choices expand inside it; constrained sizes and larger text scroll with persistent actions. [Verification and real screenshots](../../chord-dialog-verification.md) distinguish application evidence from the earlier visual reference.
 
 ## Direct stave entry
 

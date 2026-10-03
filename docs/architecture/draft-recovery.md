@@ -24,6 +24,8 @@ Both stores validate their input against the score and saved-sheet contracts and
 
 Saved baseline revisions remain unchanged by recovery. The server's owner checks and expected-revision condition are still authoritative, including when the cached Library summary is stale. There is no background server save, automatic conflict overwrite, three-way merge or cross-device draft synchronization.
 
+The complete chord dialog persists v3 definitions and cross-bar logical identity in both the baseline and draft. Compact score JSON is bounded at 1,040,000 UTF-8 bytes so two scores plus recovery metadata fit the record limit. Recovery normalization preserves authored melody rests; only completely unused trailing bars are trimmed. Canonical semantic comparison ignores JSON object-key and modifier-set ordering while preserving stack order and pitch spelling. See the [score contract](score-contract.md) and [dialog verification](chord-dialog-verification.md).
+
 ## Boundaries
 
 These copies contain private music and titles but no passwords, cookies or bearer credentials. They are protected by the browser profile or Android app sandbox, not by application-level encryption. A person with access to that OS profile/device can inspect them. Account isolation prevents accidental exposure through the application UI; it cannot defend against a compromised same-origin script or a rooted device.

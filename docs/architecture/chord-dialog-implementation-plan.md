@@ -51,7 +51,7 @@ Use a composable definition, independent of the recognition vocabulary, for spel
 | Alterations and omissions | Allow simultaneous changes, including C7(b9,#11), C7(#5,#9), C13(b9), and C7(no3). Custom degree controls must not block an unusual valid combination because it lacks a preset. |
 | Slash and spelling | Test Am/C, C6/9/E, F#m(maj7)/A#, a non-chord-tone bass, and double-accidental root/bass spelling. The slash in 6/9 is distinct from a bass slash. |
 | Custom and stacked chords | A note/interval grid constructs arbitrary combinations in the existing 12-note system without typing. Give unnamed combinations a deterministic tone-based representation rather than inventing a standard name. Polychords retain independently editable components and a display distinguishable from one bass note. |
-| No chord and legacy | Provide N.C. Preserve imported symbols that cannot be parsed. Permit their duration/deletion and explicit replacement; never substitute another chord on opening. |
+| No chord and legal stored data | Provide N.C. Stored textual symbols must resolve to a supported legal construction, or carry a matching v3 definition. Preserve recognized alias spelling during timing edits. Every chord opens the complete builder directly; malformed demo data is corrected explicitly rather than exposed through a replacement gate. |
 
 Microtonal tuning is outside the current pitch system. Support ordinary Western symbols and any explicit tone set within that system. Ambiguous shorthand such as alt must not silently acquire one falsely definitive voicing.
 
@@ -79,7 +79,7 @@ Sol performs all implementation, test authoring/execution, documentation after t
 
 | Area | Required evidence |
 | --- | --- |
-| Chord semantics | Shared fixtures cover every supported family, all root pitch classes, independent basses, multiple alterations, omissions, spelling, 6/9 with bass, custom tones, polychords, long labels, and legacy preservation. Check semantic round trips, transposition, and practice. |
+| Chord semantics | Shared fixtures cover every supported family, all root pitch classes, independent basses, multiple alterations, omissions, spelling, 6/9 with bass, custom tones, polychords, long labels, and legal alias preservation. Cover all emitted MIDI spellings and MusicXML kinds, malformed-text rejection, semantic round trips, transposition, and practice. |
 | Timeline | Verify append, all 1–4-beat patterns in 4/4, longer/shorter middle chords, shifts over several bars, cross-bar identity, adjacent identical chords, preserved gaps, explicit-rest protection, trailing cleanup, limits, and atomic failure. Assert melody is unchanged. |
 | History/storage | Exercise undo/redo, save/reopen, recovery, both clients, and supported import/export. A cross-bar chord must still be one chord after round trips. |
 | Native interaction | Exercise actual controls for open/edit/add, root/type grids, bass, alterations, custom tones, polychords, Apply, slider release/cancellation, Delete, repeated addition, Close, and MIDI pause. View-model-only calls do not establish UI acceptance. |
@@ -91,3 +91,7 @@ Use disposable accounts/sheets and the isolated backend. The physical SM-X610 wa
 Save real application screenshots under docs/architecture/evidence/chord-dialog/ and the verification record at docs/architecture/chord-dialog-verification.md. Include exact commands, pass/fail/skipped counts, device/build identity, captions, and a requirement-to-evidence checklist. Capture the full dialog with roots/types and advanced controls, a slash/altered chord, append creating a bar, a duration/deletion result, and a constrained layout. Generated images are not completion evidence.
 
 Update this plan's status, chord-authoring.md, affected score/persistence contracts, the architecture index, and current mockup guide. Keep only the complete dialog as the current design while preserving historical verification records. Report genuinely unfinished acceptance items rather than declaring full completion.
+
+## Implementation status
+
+4 October 2026: implementation and verification are complete and approved by parent review, including the legal-chord boundary and direct editing of supported aliases. The normal 3000 API supports v3 and legal chord input; the current web production build supports the same contract. The database contains seven legal chord events across three sheets and needed no repairs. Exactly three `Gbm13!` fields in one normal tablet recovery record were corrected to `Gbm13`; its original private backup, all other score fields and the normal session were preserved. No unresolved acceptance items remain. The [verification record](chord-dialog-verification.md) contains the exact current checks, approved screenshots and preservation results, with the original implementation results retained as dated history.

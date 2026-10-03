@@ -1,16 +1,17 @@
 # Score and API contract
 
-The web, API and native Android client share an editable score contract. M2 established version 1; M3 added authenticated persistence; M5 adds version 2 for expanded keys and meters while retaining strict v1 reading. The [original four-bar fixture](../../contracts/fixtures/lead-sheet-v1.json) remains a valid v1 document.
+The web, API and native Android client share an editable score contract. M2 established version 1; M3 added authenticated persistence; M5 adds version 2 for expanded keys and meters while retaining strict v1 reading. Version 3 adds complete structured harmony and logical chords across barlines. The [original four-bar fixture](../../contracts/fixtures/lead-sheet-v1.json) remains a valid v1 document.
 
 ## Canonical definitions
 
 - [Lead sheet JSON Schema v1](../../contracts/src/lead-sheet-v1.schema.json) defines fields, exact types and size limits. It uses JSON Schema draft 7; its `$id` is a stable schema identifier, not a requirement to fetch a remote resource.
 - [Lead sheet JSON Schema v2](../../contracts/src/lead-sheet-v2.schema.json) extends only the key/meter and corresponding timing bounds. New blank sheets use v2; changing settings on a v1 sheet upgrades that draft explicitly.
+- [Lead sheet JSON Schema v3](../../contracts/src/lead-sheet-v3.schema.json) adds optional chord `definition` and `logicalId`, with labels up to 512 codepoints. Flat stack components are restricted to tonal/custom definitions.
 - [TypeScript types and validator](../../contracts/src/index.ts) export `LeadSheet`, `Measure`, `ChordEvent`, `MelodyEvent`, `NoteEvent`, `RestEvent`, `Pitch`, `NoteDuration`, `scoreSchema`, `durationTicks` and `parseScore` from `@chordviewer/contracts`.
 - [OpenAPI contract](../../contracts/openapi.yaml) describes authentication, personal libraries, import and revision-checked writes.
 - [Shared conformance cases](../../tests/fixtures/music/score-validation-cases.json) give both clients identical valid and invalid inputs. `expectedCode` identifies one TypeScript diagnostic; native readers must agree on validity rather than exception wording.
 
-`parseScore(value)` returns the validated object or throws `ScoreValidationError` with `{ code, path, message }` issues. It never coerces numbers, reorders events, changes pitch spelling, fills gaps or strips unknown fields. JSON Schema covers structural checks; the validator additionally checks musical timing, identity and ties. Native validation implements the same rules.
+`parseScore(value)` returns the validated object or throws `ScoreValidationError` with `{ code, path, message }` issues. It never coerces numbers, reorders events, changes pitch spelling, fills gaps or strips unknown fields. JSON Schema covers structural checks; the validator additionally checks legal chord meaning, musical timing, identity and ties. Native validation implements the same rules.
 
 ## Version 1 scope
 
@@ -21,13 +22,23 @@ The web, API and native Android client share an editable score contract. M2 esta
 | Identity | Sheet, measures and events each have an ID. All IDs are unique throughout one sheet. IDs contain 1–64 ASCII letters, digits, underscores or hyphens. They can be created locally; this contract assumes neither server-generated IDs nor authorization from knowing an ID. |
 | Text | Title: 1–200 Unicode code points. Chord symbol: 1–32 Unicode code points. NUL and unpaired UTF-16 surrogates are rejected because they cannot be stored in PostgreSQL text/JSONB. Valid strings are preserved as supplied, including spelling and case. |
 | Structure | 1–256 measures. Each measure has `id`, `chords` and `melody`. Each lane contains at most 64 events. Chord-only measures, empty measures and partially entered melody are valid. |
-| Chord event | `id`, `offsetTicks`, `durationTicks`, `symbol`. Symbols are display text at this stage, not parsed chord identity. |
+| Chord event | `id`, `offsetTicks`, `durationTicks`, `symbol`. Textual symbols must resolve to supported legal chord constructions. Recognized aliases keep their stored spelling; unknown or malformed text is rejected. |
 | Melody event | `id`, `kind`, `offsetTicks`, `duration`, and a `pitch` for notes. `kind` is `note` or `rest`. |
 | Duration | `denominator` is 1, 2, 4, 8 or 16; `dots` is 0 or 1. Written duration is independent of how long a MIDI key was physically held. |
 | Pitch | `step` is C–B, `alter` is −1, 0 or 1, and `octave` is 3–6. Spelling is explicit: C-sharp and D-flat are distinct spellings. |
 | Tie | Notes may contain `tieToNext: true` or `false`. Rests must contain neither a pitch nor a tie field, even a false one. |
 
 Version 1 keeps these limits permanently. Version 2 retains the same fields and notation events but accepts all standard major/minor key signatures (−7 through +7 fifths) and a global time signature with numerator 1–12 and denominator 2, 4 or 8. It retains 480 ticks per quarter. There is no mid-score key/meter change, transposition or automatic re-barring. Existing saved v1 scores are not bulk rewritten; both clients and the API accept either validated version. See [M5 authoring and import](melody-authoring.md).
+
+## Version 3 harmony and persistence limits
+
+Chord `definition` preserves tonal family, explicit seventh/extension, additions/alterations/omissions, custom intervals, spelled root/bass and ordered stack components. A generated symbol must match its definition. A `logicalId` references the first actual chord fragment ID. Every group is ordered, contiguous and identical in symbol and semantic definition; independent adjacent equal symbols remain separate. Rendering splits a logical chord at barlines, while authoring and practice address its complete duration. A chord without a definition must resolve through the supported textual parser, covering every existing MIDI vocabulary suffix and MusicXML kind, their canonical forms, and independent slash bass. Recognized aliases without a definition remain exact during timing edits. Complete constructions beyond that textual subset require a matching v3 definition; validation never guesses a replacement for unsupported text.
+
+All supported versions retain 256 bars and at most 64 events per lane per bar. Compact serialized score JSON must be at most 1,040,000 UTF-8 bytes. API envelopes remain at most 1,048,576 bytes, and recovery records containing saved base plus draft remain at most 2,200,000 bytes. The smaller shared score bound ensures a valid authored score fits both paths, including metadata. Edits are rejected before committing when the fully serialized result exceeds the bound; captured corrections remain pending. Native readers additionally bound raw input to 8 MiB before parsing, while the document bound still applies after decoding.
+
+Library summary chord previews contain at most 64 Unicode codepoints, including a visible ellipsis for longer labels. This abbreviation is display-only; full scores and dialog previews retain complete symbols/definitions. API summaries and locally derived native/web cards use the same rule.
+
+Normalization trims only trailing bars with no chord and no authored melody events. An explicit rest is authored content and survives open/save/recovery. Whole-bar insertion within a sustained logical chord inserts a matching fragment and extends that chord. Settings and transposition preserve v3 definition/group metadata. See [harmony behavior](chord-authoring.md).
 
 ## Timing and ties
 

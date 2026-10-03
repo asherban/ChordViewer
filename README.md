@@ -115,13 +115,13 @@ Create an account using a password of 12–128 characters. Email verification an
 
 ### Create a chord sheet
 
-1. Create/open a saved sheet and connect MIDI. Choose the chord entry pass, a free bar/beat and a duration (default: one current bar). New blank sheets offer key and meter controls.
-2. Press **Start MIDI entry**. Play a chord and release every physical key: it inserts once and advances by the chosen duration. Sustain does not delay insertion. Rolled/overlapping keys form one chord until all are released.
-3. Select an inserted chord to change its name/duration, choose an alternative name, **Replace from MIDI** once, or **Delete chord**. Replacement and deletion leave neighbouring chords and melody intact. **Undo/Redo** restores music and cursor position; web also supports Ctrl/Cmd+Z, Shift+Z, Ctrl/Cmd+Y and Delete.
-4. Unknown voicings stay available for manual naming. A chord that overlaps another or crosses a barline remains pending: shorten its duration or choose another free slot, then apply it.
-5. Press **Save sheet**. Failed saves retain the draft; revision conflicts offer an explicit reload after confirmation. Save details also saves the full score. Leaving Create, editing details, disconnecting, or backgrounding pauses entry; press **Start MIDI entry** again when ready.
+1. Open a saved sheet in Create and choose the chord lane. New chord duration initially uses the whole current bar. MIDI entry appends at the last chord's end; melody and selection have independent timing.
+2. Press **Start MIDI entry**, play a chord, and release every physical key. Rolled/overlapping keys form one gesture; sustain does not delay insertion. Unknown voicings stay pending for correction.
+3. On Android, tap a chord or the **+** marker to open the complete **Edit chord** or **Add chord** popup. Choose root/type buttons, an independent bass, extensions/alterations or custom tones/polychords. The preview becomes music only with **Apply**/**Add**. Add stays open for repeated entry. **Assign captured chord** opens an unknown voicing in this builder. The popup pauses capture and uses no text field or keyboard. Web retains its manual form and supports the same structured score data.
+4. Release the selected chord's duration slider to shift later chords by the exact change, preserving gaps and melody. **Delete** closes that chord's span. Cross-bar fragments remain one editable chord; explicit melody rests protect trailing bars. Close discards only unapplied symbol choices. **Undo/Redo** restores each completed edit and its relevant cursor/selection.
+5. Press **Save sheet**. Failed saves retain the draft, and revision conflicts retain the explicit reload/save-as-new choices. Leaving Create, editing details, disconnecting or backgrounding pauses entry; press **Start MIDI entry** again when ready.
 
-Without MIDI, choose **Add chord by hand** on web or **Add chord** on Android. Music undo/redo retains up to 100 changes across both lanes and key/meter edits; it does not undo title/tutorial fields. See the [shared chord-entry behavior](docs/architecture/chord-authoring.md).
+Music undo/redo retains up to 100 changes across both lanes and key/meter edits; it does not undo title/tutorial fields. The [chord contract](docs/architecture/chord-authoring.md) and [complete dialog verification](docs/architecture/chord-dialog-verification.md) describe structured v3 harmony, legacy compatibility and tablet evidence. Compact score JSON is limited to 1,040,000 UTF-8 bytes, fitting the API write and two-score recovery envelopes. Deploy the v3-capable API and web before distributing the new Android app; the isolated acceptance backend is updated separately from the user's normal backend.
 
 ### Add melody, change the key and import a score
 
