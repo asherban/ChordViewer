@@ -316,7 +316,12 @@ class LibraryViewModel(
 
     fun openChordDialog() = edit {
         pauseEntry()
-        it.update { value -> value.copy(lane = EntryLane.CHORDS, selectedId = null, chordAnchorId = null, selectedMelodyId = null, chordDialogOpen = true, chordDialogError = null, position = ChordTimeline.next(value.score), message = null) }
+        it.update { value -> value.copy(lane = EntryLane.CHORDS, selectedId = null, chordAnchorId = null, selectedMelodyId = null,
+            chordDialogOpen = true, chordDialogError = null,
+            chordDialogSession = value.chordDialogSession + if (value.pending == null) 1 else 0,
+            chordEntryDefinition = if (value.pending == null) ChordDefinition() else value.chordEntryDefinition,
+            duration = if (value.pending == null) value.score.measureTicks else value.duration,
+            position = ChordTimeline.next(value.score), message = null) }
     }
     fun closeChordDialog() = edit { it.update { value -> value.copy(chordDialogOpen = false, chordAnchorId = null, selectedId = null, position = ChordTimeline.next(value.score)) } }
     fun applyChordDefinition(definition: ChordDefinition) = edit {
@@ -325,7 +330,12 @@ class LibraryViewModel(
         val result = if (selected != null) ChordTimeline.change(value.score, selected, definition.symbol, value.pending?.duration ?: ChordTimeline.find(value.score, selected)!!.ticks, definition)
             else ChordTimeline.append(value.score, definition.symbol, value.pending?.duration ?: value.duration, definition)
         it.commit(result)
-        it.update { next -> next.copy(chordEntryDefinition = if (selected == null) definition else next.chordEntryDefinition, chordAnchorId = if (selected == null) null else next.chordAnchorId, chordDialogOpen = true, selectedId = if (selected != null) result.eventId else null, position = if (selected != null) result.position else ChordTimeline.next(next.score), message = null) }
+        it.update { next -> next.copy(chordEntryDefinition = if (selected == null) ChordDefinition() else next.chordEntryDefinition,
+            chordDialogSession = next.chordDialogSession + if (selected == null) 1 else 0,
+            duration = if (selected == null) next.score.measureTicks else next.duration,
+            chordAnchorId = if (selected == null) null else next.chordAnchorId, chordDialogOpen = true,
+            selectedId = if (selected != null) result.eventId else null,
+            position = if (selected != null) result.position else ChordTimeline.next(next.score), message = null) }
     }
     fun setChordDialogDuration(ticks: Int, targetId: String? = state.value.editor?.selectedId) = edit {
         pauseEntry(); val value = it.state

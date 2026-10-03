@@ -38,7 +38,10 @@ fun ChordDialog(state: LibraryState, model: LibraryViewModel) {
     val initial = selected?.event?.let { it.definition ?: requireNotNull(ChordDefinition.parse(it.symbol)) { "The selected chord must have legal harmony." } }
         ?: editor.pending?.notes?.takeIf { it.isNotEmpty() }?.let { notes -> ChordDefinition(kind = "custom", root = ChordSpelling(), family = null, tones = notes.map { it % 12 }.distinct().sorted()) }
         ?: editor.chordEntryDefinition
-    var draft by remember(editor.selectedId, editor.pending?.notes) { mutableStateOf(initial) }
+    // A successful Add starts a new popup session even when two chords are equal.
+    // Keep Apply/failure within the current session so corrective input survives.
+    key(editor.chordDialogSession, editor.selectedId, editor.pending?.notes) {
+    var draft by remember { mutableStateOf(initial) }
     val preview = draft.symbol
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -110,6 +113,7 @@ fun ChordDialog(state: LibraryState, model: LibraryViewModel) {
             }
         }
         }
+    }
     }
 }
 
@@ -293,7 +297,7 @@ private fun BassChoice(bass: ChordSpelling?, label: String = "Bass", choose: (Ch
             OutlinedButton({ expanded = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "$label ${bass?.label ?: "Root"}" }) { Text("${bass?.label ?: "Root"} ▾") }
             DropdownMenu(expanded, { expanded = false }) {
                 DropdownMenuItem(text = { Text("Root") }, onClick = { choose(null); expanded = false })
-                Choices("Bass note", "CDEFGAB".map { it.toString() }, { it == step }) { step = it }
+                Choices("Bass note", "CDEFGAB".map { it.toString() }, { it == step }) { step = it; choose(ChordSpelling(it)); expanded = false }
                 listOf(-2,-1,0,1,2).forEach { alter -> val note = ChordSpelling(step, alter)
                     DropdownMenuItem(text = { Text(note.label) }, onClick = { choose(note); expanded = false })
                 }

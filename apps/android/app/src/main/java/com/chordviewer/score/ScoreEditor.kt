@@ -13,6 +13,7 @@ data class ScoreEditorState(
     val lane: EntryLane = EntryLane.CHORDS,
     val melodyDuration: ScoreDuration = ScoreDuration(4, 0),
     val chordDialogOpen: Boolean = false,
+    val chordDialogSession: Long = 0,
     val chordDialogError: String? = null,
     val chordAnchorId: String? = null,
     val chordEntryDefinition: ChordDefinition = ChordDefinition(),

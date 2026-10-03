@@ -36,6 +36,103 @@ class ChordDialogUiTest {
     private val automation get() = instrumentation.uiAutomation
     private fun main(action: () -> Unit) { instrumentation.runOnMainSync(action); instrumentation.waitForIdleSync() }
 
+    @Test fun addResetsBuilderAndBassLetterCommitsImmediately() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("chordDialogUi") == "true")
+        val accessibility=automation.serviceInfo
+        accessibility.flags=accessibility.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+        automation.serviceInfo=accessibility
+        val context=instrumentation.targetContext; val model=LibraryViewModel(LibraryApi("http://127.0.0.1:3001",true)); val nonce=UUID.randomUUID().toString()
+        main { model.authenticate("reset-$nonce@example.test","Reset-$nonce","Chord reset acceptance") }
+        await("isolated account") { model.state.value.user!=null && !model.state.value.busy }
+        main { model.create("Fresh chord entry",false); model.configureChordVocabulary(context.assets.open("chord-vocabulary-v1.json").bufferedReader().use { it.readText() }) }
+        await("isolated sheet") { model.state.value.editor!=null && !model.state.value.busy }
+        val activity=instrumentation.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        main { activity.setContent { val state by model.state.collectAsState(); ChordViewerTheme { LibraryScreen(state,model,MidiInputState(MidiSnapshot(),"Disconnected",false,{},{})) } } }
+        val midi=MidiProductFixture(model)
+        fun editor()=model.state.value.editor!!
+        fun fresh() {
+            await("fresh C major whole-bar dialog with closed controls") {
+                val tree=nodes()
+                tree.any { it.contentDescription?.toString()=="Chord preview C" } &&
+                    tree.any { it.contentDescription?.toString()=="Root C" && it.isVisibleToUser && nativeSelected(it) } &&
+                    tree.any { it.contentDescription?.toString()=="Type Major" && nativeSelected(it) } &&
+                    tree.any { it.contentDescription?.toString()=="Accidental ♮" && nativeSelected(it) } &&
+                    tree.any { it.contentDescription?.toString()=="Bass Root" } &&
+                    tree.any { it.contentDescription?.toString()=="New chord duration" && it.stateDescription?.toString()=="Whole bar" } &&
+                    tree.none { it.contentDescription?.toString()?.let { label -> label.startsWith("Additional type ") || label.startsWith("Degree ") || label.startsWith("Custom interval ") || label.startsWith("Stack component ") }==true }
+            }
+            assertTrue(nativeSelected(findDescription("Type Major"))); assertTrue(nativeSelected(findDescription("Accidental ♮")))
+            assertTrue(nodes().any { it.contentDescription?.toString()=="Bass Root" })
+            assertFalse(nodes().any { it.contentDescription?.toString()?.let { label -> label.startsWith("Additional type ") || label.startsWith("Degree ") || label.startsWith("Custom interval ") || label.startsWith("Stack component ") }==true })
+            assertFalse(nodes().any { it.contentDescription?.toString()?.let { label -> label.startsWith("Extensions ") || label.startsWith("Alterations ") }==true && nativeSelected(it) })
+            assertEquals(editor().score.measureTicks,editor().duration); assertNull(editor().selectedId); assertEquals(ChordTimeline.next(editor().score),editor().position)
+        }
+        try {
+            main { model.setDuration(480) }
+            clickDescription("Add chord after last chord"); fresh(); progress("New chord duration",0)
+            clickDescription("Root F"); clickDescription("Accidental ♯"); clickDescription("Type 7")
+            clickDescription("Extensions 13"); clickDescription("Alterations b9"); clickDescription("Alterations #11")
+            clickDescription("Bass Root"); clickDescription("Bass note G")
+            await("natural G bass committed and closed") { nodes().any { it.contentDescription?.toString()=="Chord preview F#13(b9,#11)/G" } && nodes().none { it.contentDescription?.toString()=="Bass note G" } }
+            capture("14-bass-letter-selects-natural")
+            clickDescription("Bass G"); clickText("Gb")
+            await("optional Gb bass preview") { nodes().any { it.contentDescription?.toString()=="Chord preview F#13(b9,#11)/Gb" } }
+            clickDescription("Additional types"); clickText("Add tone ▾"); clickDescription("Degree 2"); clickDescription("Tone accidental #"); clickText("Toggle add#2")
+            clickText("Omit tone ▾"); clickDescription("Degree 5"); clickText("Toggle no5")
+            clickText("Add"); fresh()
+            val first=ChordTimeline.groups(editor().score).last()
+            val firstDefinition=first.event.definition!!
+            assertEquals(480,first.ticks); assertEquals(ChordSpelling("G",-1),firstDefinition.bass)
+            assertEquals(listOf(ChordDegree(2,1)),firstDefinition.additions); assertEquals(listOf(5),firstDefinition.omissions)
+            clickText("Custom tones"); clickDescription("Custom interval 1"); clickText("Polychord")
+            bass("Component bass Root","G",-1); bass("Stack bass Root","F",0)
+            clickDescription("Additional types"); clickText("Add tone ▾")
+            clickText("Add"); fresh()
+            val second=ChordTimeline.groups(editor().score).last()
+            val secondDefinition=second.event.definition!!
+            assertEquals("polychord",secondDefinition.kind); assertEquals("custom",secondDefinition.components[0].kind)
+            assertEquals(ChordSpelling("G",-1),secondDefinition.components[1].bass); assertEquals(ChordSpelling("F"),secondDefinition.bass)
+            capture("15-reset-after-complex-add")
+            // Equal default chords still start independent fresh UI sessions.
+            repeat(2) { clickDescription("Additional types"); clickText("Add tone ▾"); clickText("Add"); fresh() }
+            assertEquals(listOf("C","C"),ChordTimeline.groups(editor().score).takeLast(2).map { it.event.symbol })
+            clickDescription("Close chord dialog"); clickText("Undo"); clickText("Undo")
+            assertEquals(second.event.id,ChordTimeline.groups(editor().score).last().event.id)
+            // Apply keeps the existing construction and expanded controls.
+            main { model.selectChord(first.event.id) }
+            await("existing complex editor root row") { nodes().any { it.contentDescription?.toString()=="Chord preview ${firstDefinition.symbol}" } && nodes().any { it.contentDescription?.toString()=="Root D" && it.isVisibleToUser } }
+            clickDescription("Root D"); clickDescription("Accidental ♮")
+            val editedPreview="Chord preview ${firstDefinition.copy(root=ChordSpelling("D")).symbol}"
+            await("edited complex draft preview") { nodes().any { it.contentDescription?.toString()==editedPreview } }
+            clickDescription("Additional types"); clickText("Apply")
+            await("Apply retains preview and expanded controls") { nodes().any { it.contentDescription?.toString()==editedPreview } && nodes().any { it.contentDescription?.toString()=="Additional type Power 5" } }
+            assertEquals("D",ChordTimeline.find(editor().score,first.event.id)!!.event.definition!!.root!!.step)
+            assertTrue(nodes().any { it.contentDescription?.toString()=="Additional type Power 5" }); assertTrue(nodes().any { it.contentDescription?.toString()=="Bass Gb" })
+            clickDescription("Close chord dialog"); midi.connect(); main { model.setDuration(480) }; clickText("Start MIDI entry"); midi.chord(60,61,62)
+            await("captured custom tones") { editor().pending!=null }
+            clickDescription("Close chord dialog"); clickText("Assign captured chord")
+            await("reopened captured custom preview") { nodes().any { it.contentDescription?.toString()=="Chord preview C{0,1,2}" } }
+            assertEquals(listOf(60,61,62),editor().pending!!.notes); assertEquals(480,editor().pending!!.duration)
+            assertTrue(nodes().any { it.contentDescription?.toString()=="Chord preview C{0,1,2}" })
+            clickText("Add"); fresh(); assertNull(editor().pending)
+            assertEquals("C{0,1,2}",ChordTimeline.groups(editor().score).last().event.symbol)
+            clickDescription("Close chord dialog")
+            // Failed Add retains local custom input and the expanded chooser.
+            val base=model.state.value.selected!!
+            val dense=base.score.copy(schemaVersion=2,measures=listOf(base.score.measures.first().copy(chords=(0..63).map { ChordEvent("dense-$it",it,1,"C") })))
+            main { model.restoreRecovery(RecoveryDraft(UUID.randomUUID().toString(),model.state.value.user!!.id,1,base,dense,dense.title,"",ScorePosition())); model.setDuration(480); model.armEntry() }
+            midi.chord(60,61,62); await("dense capture") { editor().pending!=null }
+            await("dense captured custom preview") { nodes().any { it.contentDescription?.toString()=="Chord preview C{0,1,2}" } }
+            clickDescription("Root D"); clickDescription("Additional types"); clickText("Add tone ▾"); clickText("Add")
+            await("failed Add retains custom preview and chooser") { editor().chordDialogError!=null && nodes().any { it.contentDescription?.toString()=="Chord preview D{0,1,2}" } && nodes().any { it.contentDescription?.toString()=="Degree 9" } }
+            assertEquals(dense,editor().score); assertEquals(listOf(60,61,62),editor().pending!!.notes); assertEquals(480,editor().pending!!.duration)
+            assertNotNull(editor().chordDialogError)
+            assertTrue(nodes().any { it.contentDescription?.toString()=="Chord preview D{0,1,2}" }); assertTrue(nodes().any { it.contentDescription?.toString()=="Degree 9" })
+            clickText("Discard")
+        } catch(error:Throwable) { capture("reset-failure"); throw error }
+        finally { main { model.signOut(); activity.finish() } }
+    }
+
     @Test fun legalImportedAliasOpensCompleteBuilderImmediately() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("chordDialogUi") == "true")
         val accessibility=automation.serviceInfo
@@ -158,7 +255,7 @@ class ChordDialogUiTest {
             progress("New chord duration",3); clickDescription("Root E"); clickDescription("Type Minor"); clickText("Add")
             assertEquals(2,editor().score.measures.size); assertTrue(editor().chordDialogOpen); assertNull(editor().selectedId)
             val appended = ChordTimeline.groups(editor().score).last(); assertEquals(1440,appended.start); assertEquals(1920,appended.ticks)
-            capture("05-append-new-bar"); clickText("Add"); assertEquals("Em",ChordTimeline.groups(editor().score).last().event.symbol); assertEquals(3,editor().score.measures.size)
+            capture("05-append-new-bar"); clickDescription("Root E"); clickDescription("Type Minor"); clickText("Add"); assertEquals("Em",ChordTimeline.groups(editor().score).last().event.symbol); assertEquals(3,editor().score.measures.size)
             clickDescription("Close chord dialog")
             // A continuation is editable as one chord; shortening removes the tapped fragment.
             clickDescription("Edit chord Em in bar 2"); assertEquals(appended.event.id,editor().selectedId); assertEquals(1920,group().ticks)
@@ -168,11 +265,11 @@ class ChordDialogUiTest {
             clickDescription("Add chord after last chord"); clickText("Custom tones")
             clickDescription("Custom interval 1"); clickDescription("Custom interval 6"); clickText("Add")
             assertEquals("custom",ChordTimeline.groups(editor().score).last().event.definition!!.kind)
+            clickText("Custom tones"); clickDescription("Custom interval 1"); clickDescription("Custom interval 6")
             clickText("Polychord"); clickDescription("Root D"); clickDescription("Type Major")
             bass("Component bass Root","E",0); bass("Stack bass Root","F",1)
-            clickText("Add"); val stack=ChordTimeline.groups(editor().score).last().event.definition!!
+            capture("07-polychord"); clickText("Add"); val stack=ChordTimeline.groups(editor().score).last().event.definition!!
             assertEquals("polychord",stack.kind); assertEquals(ChordSpelling("E"),stack.components[1].bass); assertEquals(ChordSpelling("F",1),stack.bass)
-            capture("07-polychord")
             clickDescription("Close chord dialog")
             val last=ChordTimeline.groups(editor().score).last()
             main { model.selectChord(last.event.id) }
@@ -218,10 +315,10 @@ class ChordDialogUiTest {
             midi.chord(60,61,62); await("unknown capture") { editor().pending != null }
             val unassigned=editor().score; clickDescription("Close chord dialog")
             clickText("Assign captured chord"); assertEquals(listOf(60,61,62),editor().pending!!.notes)
-            clickDescription("Root C"); clickText("Add"); assertNull(editor().pending)
+            clickDescription("Root C"); capture("11-unknown-capture-assigned"); clickText("Add"); assertNull(editor().pending)
             assertEquals("custom",ChordTimeline.groups(editor().score).last().event.definition!!.kind)
             assertEquals(unassigned.measures.map { it.melody },editor().score.measures.take(unassigned.measures.size).map { it.melody })
-            capture("11-unknown-capture-assigned"); clickDescription("Close chord dialog")
+            clickDescription("Close chord dialog")
             // A real Add failure at the 64-event boundary retains the captured correction.
             val dense=expected.copy(measures=listOf(expected.measures.first().copy(chords=(0..63).map { ChordEvent("dense-$it",it,1,"C") })))
             val base=model.state.value.selected!!
@@ -303,7 +400,7 @@ class ChordDialogUiTest {
     private fun clickDescription(s:String) = click(reveal { nodes().firstOrNull { it.contentDescription?.toString()==s } })
     private fun bass(control:String,step:String,alter:Int) {
         clickDescription(control); clickDescription("Bass note $step")
-        val label=ChordSpelling(step,alter).label; clickText(label)
+        if(alter!=0) { clickDescription(control.substringBeforeLast(' ')+" $step"); clickText(ChordSpelling(step,alter).label) }
     }
     private fun progress(description:String,index:Int) {
         val node=reveal { nodes().firstOrNull { it.contentDescription?.toString()==description } }

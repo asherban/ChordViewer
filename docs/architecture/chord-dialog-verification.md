@@ -2,11 +2,13 @@
 
 Original implementation and verification: 3 October 2026; legal-demo-data follow-up: 4 October 2026. Sol owns the implementation, test execution and real application captures. The parent reviews against the [accepted handoff](chord-dialog-implementation-plan.md) and [selected complete design](mockups/create-entry/complete-chord-dialog.png).
 
-**Implementation and verification approved by parent review, including the 4 October follow-up.** All original required physical interaction and layout phases passed on the 3 October APK. The parent approved that code, all twelve screenshot categories, command/result record and preservation comparison. The changed legal-alias path and its new capture passed and were approved separately below. No unresolved acceptance items remain.
+**Implementation and both follow-ups approved by parent review.** All original required physical interaction and layout phases passed on the 3 October APK. The parent approved that code, all twelve screenshot categories, command/result record and preservation comparison. The legal-alias path and Add-reset/direct-bass path passed separately on their finalized APKs; their results and three new captures are recorded below.
 
 ## Implemented behavior and contract
 
 The Android Create view opens one complete Add/Edit chord popup beside a chord or the harmony append marker. The ordinary landscape layout shows root/accidental/type/bass, duration, extensions, alterations and Add/Omit/Alter/Custom/Polychord actions together. Rare types, double spellings, degree choices, custom sets and components expand internally. Small layouts and large text have bounded scrolling with a visible scroll hint and persistent actions. Every effective choice target is at least 48 dp. The native keyboard, symbol text field, obsolete manual forms and chord bar-entry buttons are removed.
+
+Ordinary Add opening and successful Add start a fresh C-major construction with natural spelling, Root bass, whole-bar duration, closed advanced controls and reset scrolling. Each successful Add advances the append anchor. Apply and failed additions retain the current construction; pending MIDI assignment retains its captured tones and duration. A bass letter immediately selects its natural note and closes the dropdown; reopening offers optional accidental variants, including component and stack bass.
 
 The v3 definition is shared by Kotlin/TypeScript: tonal families with seventh/extension and degree modifiers, arbitrary nonempty 12-tone sets, N.C., and flat two-to-four-component polychords. Components support independent slash bass and the stack supports an additional bass. Nested stacks are consistently excluded from the nonrecursive schema and runtime. Generated power-family extensions use explicit added degrees. Modifier sets and JSON property order do not affect semantic equality; component order and note spelling do.
 
@@ -184,3 +186,65 @@ The original 12 captures, 32 browser cases across runs, four native regression f
 | Follow-up capture | Caption |
 | --- | --- |
 | [13 Legal imported chord](evidence/chord-dialog/13-legal-imported-chord.png) | Tapping Cm(add9) opens the complete builder immediately, with C/Minor selected, canonical Cmadd9 preview, retained add9, duration and Apply; selected anchor and fixed actions remain clear. |
+
+
+## 4 October Add-reset and direct-bass follow-up
+
+The prior implementation and legal-data cleanup were committed as checkpoints `3056a47` (implementation) and `4bee984` (documentation/evidence) before this work. They remain unchanged; these fixes are a separate change.
+
+The popup now resets its complete construction, duration, expanded controls and scrolling for fresh ordinary Add and after each successful Add. A transient session counter also resets consecutive default C additions without introducing score/history fields. Apply retains its edited construction and expansion. Failed Add retains local correction, duration, captured notes and open chooser. MIDI assignment opening retains captured tones and duration; successful captured Add starts the next default session. Bass letters commit natural notes immediately and close their dropdown; accidental variants are optional on reopen. The main root row remains immediate and preserves its accidental behavior.
+
+Verification is limited to affected native product behavior, APKs/lint and one focused actual-device method. No shared/API/web suite is rerun for this native-only change, and no development-tool test is added or run.
+
+```powershell
+. .\scripts\development\Initialize-AndroidEnvironment.ps1
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 `
+  '-Dorg.gradle.jvmargs=-Xmx512m -Dfile.encoding=UTF-8' `
+  '-Pkotlin.compiler.execution.strategy=in-process' `
+  testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug
+# Final test-navigation-only rebuild (main APK unchanged):
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 `
+  '-Dorg.gradle.jvmargs=-Xmx512m -Dfile.encoding=UTF-8' `
+  '-Pkotlin.compiler.execution.strategy=in-process' assembleDebugAndroidTest lintDebug
+$adb='C:\Users\andre\DeveloperTools\Android\Sdk\platform-tools\adb.exe'
+& $adb -s R52X50CFTMW install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
+& $adb -s R52X50CFTMW install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+& $adb -s R52X50CFTMW reverse tcp:3001 tcp:3001
+& $adb -s R52X50CFTMW shell am instrument -w -r -e chordDialogUi true `
+  -e class 'com.chordviewer.library.ChordDialogUiTest#addResetsBuilderAndBassLetterCommitsImmediately' `
+  com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner |
+  Tee-Object -FilePath .local/demo-chord-repair/reset-ui-result-final.txt
+& $adb -s R52X50CFTMW pull `
+  /sdcard/Android/data/com.chordviewer.debug/files/chord-dialog-14-bass-letter-selects-natural.png `
+  docs/architecture/evidence/chord-dialog/14-bass-letter-selects-natural.png
+& $adb -s R52X50CFTMW pull `
+  /sdcard/Android/data/com.chordviewer.debug/files/chord-dialog-15-reset-after-complex-add.png `
+  docs/architecture/evidence/chord-dialog/15-reset-after-complex-add.png
+& $adb -s R52X50CFTMW shell am force-stop com.chordviewer.debug
+# Private post-test snapshot, captured as binary bytes with Python subprocess.check_output:
+# [adb, '-s', 'R52X50CFTMW', 'exec-out', 'run-as', 'com.chordviewer.debug',
+#  'tar', '-cf', '-', 'files', 'shared_prefs', 'no_backup']
+& $adb -s R52X50CFTMW shell rm `
+  /sdcard/Android/data/com.chordviewer.debug/files/chord-dialog-14-bass-letter-selects-natural.png `
+  /sdcard/Android/data/com.chordviewer.debug/files/chord-dialog-15-reset-after-complex-add.png `
+  /sdcard/Android/data/com.chordviewer.debug/files/chord-dialog-reset-failure.png
+& $adb -s R52X50CFTMW reverse --remove tcp:3001
+& $adb -s R52X50CFTMW reverse --list
+```
+
+| Reset follow-up check | Result |
+| --- | --- |
+| Native product units/APKs/lint | 136/136 tests in 13 suites passed, zero failures/errors/skips; both APKs and lint passed (`BUILD SUCCESSFUL in 2m 19s`). Final test-only APK/lint rebuild passed in 1m 6s. The new dense fixture needed empty melody to avoid a truncated tie and a valid recovery UUID; those fixture errors were corrected before the passing run. |
+| Physical reset/direct-bass behavior | 1/1 passed, zero failed/skipped; `OK (1 test)`, 43.506 seconds. Natural G commits and closes the menu; optional Gb works on reopen. Complex/slash and custom/polychord Add reset all construction, duration, menus and scrolling. Consecutive default C additions reset independently, and Undo restores the prior score. Apply retains its edited definition/expansion, captured assignment survives reopen then resets after success, and rejected Add retains notes/duration/custom draft/open chooser. Final-run captures 14/15 approved by parent. |
+| Normal data preservation | All 5 normal draft files and all 14 protected original files byte-identical; encrypted account session unchanged. Zero protected or new user files changed. Only two framework runtime files differ, as detailed below; original private snapshot retained. |
+
+The first physical run stopped at an immediate optional-Gb accessibility read; its genuine failure capture showed the correct Gb preview. The next run passed all reset and repeated-Add phases, then its test reveal helper searched forward for a root above the viewport after expanding rare controls. Exact preview/reset waits and choosing the root before that expansion corrected these test-navigation issues without changing product code or dropping assertions. Both feature captures were visually approved while the remaining regression checks ran.
+
+The final passing run used the physical SM-X610 / Android 16, serial R52X50CFTMW, landscape 2560×1600, density 340 dpi and ordinary system font. Main APK version 0.1.0-debug / code 1 is 10,881,164 bytes, built 4 October 2026 at 00:55:50 local time; SHA-256 `ED538A894BD4D6CCEDF4F10B1A01935011CEF132E25ABC1EBA484F5B1B594A03`. Final instrumentation-only edits did not change it. This native-only follow-up does not rerun the dated shared/API/web checks or the original 12-layout UI flow.
+
+After the final test, the stopped normal app's private snapshot contains the same 17 files as the fresh pre-test snapshot. All five draft JSON files, the encrypted account session and all fourteen non-runtime files match byte-for-byte. No chord fields, melody, IDs, metadata or normal backend records were edited for this follow-up. Runtime exclusions are `files/profileInstalled`, Android's `shared_prefs/android.app.ActivityThread.IDS.xml` (`IDSCount` 6 → 3), and the unchanged WebView preference file. Only the first two differ; framework state was not restored. Original and pre-test private backups remain intact. Only this task's external screenshot files and owned 3001 reverse were removed; `UsbFfs tcp:3000 tcp:3000` remains.
+
+| Reset follow-up capture | Caption |
+| --- | --- |
+| [14 One-tap natural bass](evidence/chord-dialog/14-bass-letter-selects-natural.png) | One G letter tap commits natural G and closes its dropdown. The complete F#13(b9,#11)/G draft and fixed actions remain visible. SHA-256 `B3854B656DEED0F63ABD8EEA7D38C3E8A5DE5EA4FB80114E86B7587B7B6F3A66`. |
+| [15 Reset after complex Add](evidence/chord-dialog/15-reset-after-complex-add.png) | After adding a custom polychord with component and stack bass, the next anchored Add is C/natural/Major/Root/Whole bar, with cleared modifiers, closed expanded controls and scroll at the top. SHA-256 `663CC5478B3E6A0F5B8FB1B0A73C26A362D85DAC5CDC098A4613514ACD660D01`. |

@@ -21,6 +21,52 @@ class LibraryViewModelTest {
     @Before fun setup() { Dispatchers.setMain(dispatcher) }
     @After fun teardown() { Dispatchers.resetMain() }
 
+    @Test fun eachOrdinaryAddResetsToMajorAndWholeBarWithoutAddingHistory() = runTest(dispatcher) {
+        val gateway=FakeGateway(); val model=LibraryViewModel(gateway,dispatcher)
+        model.authenticate("one@example.test","a-long-password",null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
+        fun editor()=model.state.value.editor!!
+        val original=editor().score
+        model.setDuration(480); model.openChordDialog(); assertEquals(original.measureTicks,editor().duration)
+        val firstSession=editor().chordDialogSession
+        model.setChordDialogDuration(480)
+        val complex=ChordDefinition(root=ChordSpelling("F",1),seventh="dominant",extension="13",alterations=listOf(ChordDegree(9,-1)),bass=ChordSpelling("G",-1))
+        model.applyChordDefinition(complex)
+        val added=ChordTimeline.groups(editor().score).last()
+        assertEquals(complex,added.event.definition); assertEquals(480,added.ticks)
+        assertEquals(ChordDefinition(),editor().chordEntryDefinition); assertEquals(original.measureTicks,editor().duration)
+        assertTrue(editor().chordDialogSession>firstSession); assertEquals(ChordTimeline.next(editor().score),editor().position)
+        val afterComplex=editor().score; val session=editor().chordDialogSession
+        model.applyChordDefinition(ChordDefinition()); model.applyChordDefinition(ChordDefinition())
+        assertEquals(listOf("C","C"),ChordTimeline.groups(editor().score).takeLast(2).map { it.event.symbol })
+        assertEquals(session+2,editor().chordDialogSession)
+        model.undoChord(); model.undoChord(); assertEquals(afterComplex,editor().score)
+        model.undoChord(); assertEquals(original,editor().score)
+        model.redoChord(); assertEquals(afterComplex,editor().score)
+        model.setDuration(960); model.selectChord(added.event.id); val editSession=editor().chordDialogSession
+        model.applyChordDefinition(complex.copy(root=ChordSpelling("D")))
+        assertEquals(editSession,editor().chordDialogSession); assertEquals(960,editor().duration)
+        assertEquals("D13(b9)/Gb",ChordTimeline.find(editor().score,added.event.id)!!.event.symbol)
+        model.closeChordDialog(); model.openChordDialog()
+        assertEquals(ChordDefinition(),editor().chordEntryDefinition); assertEquals(original.measureTicks,editor().duration)
+    }
+
+    @Test fun pendingMidiAndRejectedAddRetainTonesDurationAndDialogSession() = runTest(dispatcher) {
+        val gateway=FakeGateway(); val model=LibraryViewModel(gateway,dispatcher); configure(model)
+        model.authenticate("one@example.test","a-long-password",null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
+        val dense=gateway.sheet.score.copy(schemaVersion=2,measures=listOf(gateway.sheet.score.measures.first().copy(chords=(0..63).map { ChordEvent("dense-$it",it,1,"C") },melody=emptyList())))
+        model.restoreRecovery(RecoveryDraft("00000000-0000-0000-0000-000000000001",model.state.value.user!!.id,1,gateway.sheet,dense,dense.title,"",ScorePosition()))
+        model.setDuration(480); model.armEntry(); play(model,60,61,62)
+        val before=model.state.value.editor!!; assertEquals(listOf(60,61,62),before.pending!!.notes)
+        model.closeChordDialog(); model.openChordDialog()
+        val reopened=model.state.value.editor!!
+        assertEquals(before.pending,reopened.pending); assertEquals(480,reopened.duration)
+        assertEquals(before.chordDialogSession,reopened.chordDialogSession)
+        model.applyChordDefinition(ChordDefinition(kind="custom",family=null,tones=listOf(0,1,2)))
+        val failed=model.state.value.editor!!
+        assertEquals(dense,failed.score); assertEquals(before.pending,failed.pending); assertEquals(480,failed.duration)
+        assertEquals(before.chordDialogSession,failed.chordDialogSession); assertNotNull(failed.chordDialogError)
+    }
+
     @Test fun longLegalChordSavesIntactWithBoundedLibraryPreview() = runTest(dispatcher) {
         val gateway=FakeGateway(); val model=LibraryViewModel(gateway,dispatcher)
         model.authenticate("one@example.test","a-long-password",null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
