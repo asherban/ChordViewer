@@ -1,5 +1,7 @@
 # Selected mockups
 
+The [Create view designs](create-entry/README.md) show a persistent chord keyboard and direct stave entry. The [implementation and test plan](../create-entry-plan.md) describes their behavior and delivery order.
+
 These are the relevant saved concepts from the planning discussion. They share a warm white and sage palette, large touch targets and a landscape layout suitable for the browser and native tablet app. They are design references, not implemented screens.
 
 The [product plan](../product-plan.md) governs behavior when an older image differs. Generated music glyphs are illustrative and must not be used as score data or notation test fixtures. The populated Library is an example; a new user's library starts empty.

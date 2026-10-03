@@ -13,6 +13,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [M2 verification record](../development/m2-verification.md) | Clean rebuild, shared notation, web/native MIDI checks, reviews and screenshots. |
 | [M3 verification record](../development/m3-verification.md) | Shared account libraries, container persistence, session/isolation checks and native/browser evidence. |
 | [M4 chord authoring](chord-authoring.md) | Automatic entry, shared recognition, duration/position rules, correction and capture recovery. |
+| [Fast Create entry plan](create-entry-plan.md) | The plan covers chord entry, direct stave editing, implementation order and testing, with visual examples. |
 | [M4 verification record](../development/m4-verification.md) | Real LoopBe chord creation on both clients, full-score persistence, reviews and screenshots. |
 | [M5 melody and import rules](melody-authoring.md) | Separate entry passes, direct editing, expanded keys/meters, safe import and JSON export. |
 | [M5 verification record](../development/m5-verification.md) | Product tests, real MIDI authoring, import/export, reviews and actual application captures. |

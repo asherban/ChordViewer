@@ -1,6 +1,6 @@
-# M4 chord authoring contract
+# Chord authoring contract
 
-This contract defines the shared chord behavior for the web and native Android editors. M4 established score version 1: C key signature, 4/4, 480 ticks per quarter, one melody voice and a separate chord lane. [M5 melody authoring](melody-authoring.md) extends keys and meters in version 2 while retaining these gesture and recognition rules. Editing the chord lane must preserve existing melody, pitch spelling, ties and event IDs in the other lane.
+This contract defines chord behavior for the web and native Android editors. Scores use 480 ticks per quarter, one melody voice and an independent chord lane. [Melody authoring](melody-authoring.md) defines supported keys and meters. Editing chords preserves the melody, including pitch spelling, ties and event IDs.
 
 ## Automatic insertion gesture
 
@@ -32,22 +32,22 @@ This deterministic ordering supplies a suggested name, not a claim that an ambig
 
 ## Positions, duration and correction
 
-`ChordPosition` is `{ measureIndex, offsetTicks }`. The selected durations in ticks are 240, 480, 720, 960, 1440 and 1920: eighth, quarter, dotted quarter, half, dotted half and whole notes. M5 also accepts the current whole-bar duration, which is the default for chord entry.
+`ChordPosition` is `{ measureIndex, offsetTicks }`. Durations in ticks are 240, 480, 720, 960, 1440 and 1920: eighth, quarter, dotted quarter, half, dotted half and whole notes. Chord entry defaults to the remaining time in the current bar. The keyboard stays open after insertion and offers roots, qualities, accidentals, slash bass, recent and pinned chords, and custom text.
 
-`insertChord(score, position, symbol, duration, idFactory)` inserts only into free space. It returns `{ score, position, eventId }`, with the cursor advanced by that duration. Ending exactly at the current bar's duration (1920 ticks in 4/4) advances to offset zero of the next bar. The next bar can be a virtual position at `measureIndex === score.measures.length`; the actual bar is created only when a chord is inserted there. The ID factory is called first for the chord and then for that new bar, if needed.
+`writeChord` in TypeScript and `FastEntry.chord` in Kotlin write an exact time span. They return the score, next position and event ID. Ending at a barline advances to the next bar. Writing past a barline splits the chord and creates missing bars, up to the 256-bar limit.
 
-Insertion rejects overlap, a position outside the sheet or its virtual next bar, and a duration crossing the barline. It never overwrites an occupied slot, silently truncates a chord or creates more than 256 measures. Existing chords are kept in offset order. A virtual next bar may contain a deliberate initial gap when its insertion offset is greater than zero.
+Writing overwrites the entered span and preserves any preceding or following fragments of existing chords. Surviving fragments retain their IDs where possible; additional fragments receive fresh IDs. Events outside the span keep their timing and IDs. The other lane stays unchanged. Insertion positions may be anywhere in an existing bar or the virtual next bar; an initial gap is allowed.
 
-`replaceChord(score, eventId, symbol, duration)` returns the same result shape. It retains the original chord ID and offset, advances from that original position by the new duration, and permits shortening or expansion only inside available space. A correction must not move or shorten its neighbours.
+Passing an existing event ID corrects or moves that chord while retaining its identity. A move leaves a gap at the original location and overwrites the destination span. Dragging previews the destination; cancellation changes nothing. The bar controls append a bar or insert one before or after the selected bar, moving both musical lanes together.
 
 `deleteChord(score, eventId)` returns the updated score. It leaves a gap and retains the measure, surviving event positions and melody. `findChord(score, eventId)` returns `{ event, position }` or `null`; the UI uses it to resolve a selected ID against the current score.
 
-All mutations are immutable and validate the resulting score. Input and existing melody are never modified. Errors distinguish invalid position, duration, symbol or ID; occupied space; barline crossing; the measure limit; and a chord removed since selection. Failed insertion should leave the user's recognized or manually named candidate available so that choosing a shorter duration or another slot does not require replaying it. Undo and redo belong to the editor's score history; capture state is transient and must be reset during history or selection changes.
+All mutations are immutable and validate the complete result before committing. Invalid positions, durations, symbols, IDs and score limits cannot produce partial edits. Failed input remains available for correction. One undo restores overwritten music, created bars and cursor positions together. Selection, saving, navigation and history changes pause capture. Changing the entry duration keeps MIDI armed; if keys are held, the new duration applies to the next gesture.
 
 ## Shared acceptance fixtures
 
 - [`chord-recognition-cases.json`](../../tests/fixtures/music/chord-recognition-cases.json) preserves the original M2 identity requirements, including seventh chords without a fifth.
 - [`chord-authoring-cases.json`](../../tests/fixtures/music/chord-authoring-cases.json) specifies exact alternative order and raw MIDI gesture completion. Each byte step has either its expected completed gesture or no completion. `resetHeld` contains physical identities and disables capture.
-- [`chord-entry.test.ts`](../../contracts/src/chord-entry.test.ts) covers every vocabulary entry in all twelve keys, immutable corrections, bar and overlap bounds, safe manual names, original melody preservation and the shared gesture cases. Native tests apply the same shared recognition and gesture fixtures.
+- [`chord-entry.test.ts`](../../contracts/src/chord-entry.test.ts) covers recognition, safe names and the low-level free-space operations. [`fast-entry.test.ts`](../../contracts/src/fast-entry.test.ts) covers the editor's overwrite, extension, move and bar-insertion behavior. Native tests cover equivalent musical cases and the shared MIDI fixtures.
 
 Device arrival order is the only timing dependency in this milestone. There is no debounce delay, metronome quantization or wall-clock duration inference in chord capture; duration is chosen explicitly by the user.

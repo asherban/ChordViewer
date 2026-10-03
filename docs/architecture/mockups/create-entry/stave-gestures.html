@@ -1,0 +1,195 @@
+<div id="cv-stave-gestures">
+  <div class="cv-heading">
+    <div><h3>Melody</h3><span class="cv-meta">C major · 4/4 · bar 1</span></div>
+    <div class="cv-actions">
+      <button type="button" data-resume hidden>Resume entry</button>
+      <button type="button" data-undo disabled>Undo</button>
+    </div>
+  </div>
+  <div class="cv-duration">
+    <div class="cv-duration-label">
+      <label for="cv-duration-slider"><span data-context>Next note</span><span class="cv-meta"> · Duration</span></label>
+      <output for="cv-duration-slider" data-value>Quarter · 1 beat</output>
+    </div>
+    <input id="cv-duration-slider" type="range" min="0" max="4" step="1" value="2" aria-valuetext="Quarter note, 1 beat">
+    <div class="cv-stops" aria-hidden="true"><span>1/16</span><span>1/8</span><span>1/4</span><span>1/2</span><span>Whole</span></div>
+  </div>
+  <div class="cv-stage" aria-label="Interactive treble stave">
+    <svg class="cv-stave" role="img" aria-label="One bar of treble notation with editable notes"></svg>
+    <div data-hits></div>
+  </div>
+  <p data-error role="alert" hidden></p>
+  <span class="cv-sr" data-status role="status" aria-live="polite"></span>
+</div>
+<style>
+#cv-stave-gestures {--cv-paper:light-dark(#fffefb,#172520);--cv-ink:light-dark(#18332f,#e3eee8);--cv-muted:light-dark(#546960,#a8bbb1);--cv-green:light-dark(#176f5b,#83d4b5);--cv-soft:light-dark(#e6eee7,#2c4137);--cv-line:light-dark(#b9c6be,#63786b);--cv-error:light-dark(#a33927,#ffb6a1);background:var(--cv-paper);color:var(--cv-ink);padding:24px;border-radius:20px;font:14px/1.5 system-ui,sans-serif;}
+#cv-stave-gestures [hidden] {display:none!important;}
+#cv-stave-gestures * {box-sizing:border-box;}
+#cv-stave-gestures .cv-heading,#cv-stave-gestures .cv-actions,#cv-stave-gestures .cv-duration-label {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+#cv-stave-gestures h3 {font:500 24px/1.3 Georgia,serif;margin:0 0 4px;}
+#cv-stave-gestures .cv-meta {color:var(--cv-muted);font-size:13px;}
+#cv-stave-gestures .cv-actions {justify-content:flex-start;}
+#cv-stave-gestures .cv-actions button {font:inherit;color:var(--cv-green);background:transparent;border:0;border-radius:8px;padding:10px 12px;min-height:44px;}
+#cv-stave-gestures .cv-actions button:hover {background:var(--cv-soft);}
+#cv-stave-gestures .cv-actions button:disabled {opacity:.45;}
+#cv-stave-gestures .cv-duration {margin-top:24px;}
+#cv-stave-gestures .cv-duration-label {min-height:24px;font-weight:500;}
+#cv-stave-gestures output {color:var(--cv-green);font-variant-numeric:tabular-nums;}
+#cv-stave-gestures input[type=range] {--cv-fill:50%;display:block;width:100%;height:44px;margin:6px 0 0;padding:0;appearance:none;background:transparent;touch-action:pan-y;}
+#cv-stave-gestures input[type=range]::-webkit-slider-runnable-track {height:6px;border-radius:8px;background:linear-gradient(to right,var(--cv-green) var(--cv-fill),var(--cv-soft) var(--cv-fill));}
+#cv-stave-gestures input[type=range]::-webkit-slider-thumb {appearance:none;width:22px;height:22px;margin-top:-8px;border:4px solid var(--cv-paper);border-radius:50%;background:var(--cv-green);box-shadow:0 0 0 1px var(--cv-line);}
+#cv-stave-gestures input[type=range]::-moz-range-track {height:6px;border-radius:8px;background:var(--cv-soft);}
+#cv-stave-gestures input[type=range]::-moz-range-progress {height:6px;border-radius:8px;background:var(--cv-green);}
+#cv-stave-gestures input[type=range]::-moz-range-thumb {width:16px;height:16px;border:4px solid var(--cv-paper);border-radius:50%;background:var(--cv-green);}
+#cv-stave-gestures .cv-stops {display:flex;justify-content:space-between;color:var(--cv-muted);font-size:12px;padding:0 2px;}
+#cv-stave-gestures .cv-stage {position:relative;height:272px;user-select:none;touch-action:none;margin-top:12px;}
+#cv-stave-gestures .cv-stave {display:block;width:100%;height:272px;color:var(--cv-ink);font:13px system-ui,sans-serif;}
+#cv-stave-gestures .cv-hit {position:absolute;width:44px;height:44px;padding:0;border:0;background:transparent;border-radius:50%;color:var(--cv-ink);touch-action:none;cursor:ns-resize;}
+#cv-stave-gestures [data-error] {margin:0;color:var(--cv-error);}
+#cv-stave-gestures .cv-sr {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+@media(max-width:420px){#cv-stave-gestures {padding:16px;}#cv-stave-gestures .cv-duration {margin-top:16px;}#cv-stave-gestures .cv-actions button {padding:8px;}}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('cv-stave-gestures');
+  const stage = root.querySelector('.cv-stage');
+  const svg = root.querySelector('.cv-stave');
+  const hits = root.querySelector('[data-hits]');
+  const status = root.querySelector('[data-status]');
+  const error = root.querySelector('[data-error]');
+  const context = root.querySelector('[data-context]');
+  const slider = root.querySelector('input[type=range]');
+  const value = root.querySelector('[data-value]');
+  const resume = root.querySelector('[data-resume]');
+  const undoButton = root.querySelector('[data-undo]');
+  const durations = [.25,.5,1,2,4];
+  const initial = [{id:1,t:0,p:2,d:1},{id:2,t:1,p:4,d:1}];
+  let notes = initial.map(n=>({...n})), selected=null, duration=1, cursor=2, serial=3;
+  let width=600, gesture=null, durationEdit=null, cancelledSlider=false, blocked=false, history=[];
+  const pointers=new Set();
+  const pitchNames=['C','D','E','F','G','A','B'];
+  const durationName = d => ({4:'Whole',2:'Half',1:'Quarter',0.5:'Eighth',0.25:'Sixteenth'}[d] || `${d} beats`);
+  const beatName = d => `${({.25:'¼',.5:'½'}[d]||d)} ${d===1?'beat':'beats'}`;
+  const pitchName = p => pitchNames[((p%7)+7)%7]+(4+Math.floor(p/7));
+  const xAt = t => 46+t*(width-88)/4;
+  const yAt = p => 200-(p-2)*12;
+  const timeAt = x => Math.max(0,Math.min(3.75,Math.round((x-46)*4/(width-88)*4)/4));
+  const pitchAt = y => Math.max(-2,Math.min(12,Math.round((200-y)/12+2)));
+  const position = e => {const r=stage.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
+  function snapshot(){return {notes:notes.map(n=>({...n})),selected,duration,cursor,serial};}
+  function save(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{interaction:'direct-stave',notes:notes.map(n=>({pitch:pitchName(n.p),beat:n.t+1,duration:n.d})),entryDuration:duration},privateContent:snapshot()}).catch(()=>{});}
+  function restore(state){
+    const s=state?.privateContent;
+    if(s&&JSON.stringify(s)===JSON.stringify(snapshot()))return;
+    if(!s||!Array.isArray(s.notes)||s.notes.length>24)return;
+    if(!s.notes.every(n=>Number.isInteger(n.id)&&Number.isInteger(n.p)&&n.p>=-2&&n.p<=12&&Number.isFinite(n.t)&&n.t>=0&&n.t<4&&durations.includes(n.d)&&n.t+n.d<=4))return;
+    notes=s.notes.map(n=>({...n})); selected=notes.some(n=>n.id===s.selected)?s.selected:null;
+    duration=durations.includes(s.duration)?s.duration:1;
+    cursor=Number.isFinite(s.cursor)?Math.max(0,Math.min(4,s.cursor)):0;
+    serial=Math.max(0,...notes.map(n=>n.id))+1;gesture=null;durationEdit=null;history=[];
+  }
+  function checkpoint(){history.push(snapshot());if(history.length>30)history.shift();}
+  function overlap(n){return notes.some(o=>o.id!==n.id&&o.t<n.t+n.d&&o.t+o.d>n.t);}
+  function valid(n){return n.t+n.d<=4&&!overlap(n);}
+  function fail(){error.textContent='This study uses free space within one bar. Choose a shorter duration or an empty beat.';error.hidden=false;}
+  function clearError(){error.hidden=true;error.textContent='';}
+  function commit(n,isNew){
+    if(!valid(n)){fail();return false;}
+    if(!isNew&&notes.some(o=>o.id===n.id&&o.p===n.p&&o.t===n.t&&o.d===n.d))return true;
+    clearError();
+    checkpoint();
+    if(isNew){notes.push(n);serial++;cursor=n.t+n.d;selected=null;}else notes=notes.map(o=>o.id===n.id?n:o);
+    notes.sort((a,b)=>a.t-b.t);
+    status.textContent=`${pitchName(n.p)}, beat ${n.t+1}, ${durationName(n.d)} note`;
+    save();return true;
+  }
+  function draw(){
+    width=Math.max(240,stage.clientWidth);
+    svg.setAttribute('viewBox',`0 0 ${width} 272`);
+    const focus=gesture?.candidate||durationEdit?.candidate||notes.find(n=>n.id===selected);
+    const shownDuration=focus?.d||durationEdit?.next||duration;
+    context.textContent=selected===null?'Next note':`Selected ${pitchName(focus.p)}`;
+    slider.value=String(durations.indexOf(shownDuration));
+    slider.style.setProperty('--cv-fill',`${Number(slider.value)*25}%`);
+    slider.setAttribute('aria-valuetext',`${durationName(shownDuration)} note, ${beatName(shownDuration)}`);
+    value.textContent=`${durationName(shownDuration)} · ${beatName(shownDuration)}`;
+    undoButton.disabled=history.length===0;resume.hidden=selected===null;
+    let out='<title>Direct stave entry</title><desc>Press empty stave space to place a note. Drag a note vertically to change pitch. Select a note to change its duration with the slider above.</desc>';
+    for(let i=0;i<5;i++)out+=`<line x1="20" x2="${width-20}" y1="${104+i*24}" y2="${104+i*24}" stroke="currentColor" stroke-opacity=".45"/>`;
+    for(let t=0;t<=4;t+=.5){let x=xAt(t);out+=`<line x1="${x}" x2="${x}" y1="80" y2="226" stroke="currentColor" stroke-opacity="${t%1===0?'.11':'.05'}"/>`;if(t<4&&t%1===0)out+=`<text x="${x}" y="66" text-anchor="middle" fill="currentColor">${t+1}</text>`;}
+    out+=`<line x1="${xAt(4)}" x2="${xAt(4)}" y1="104" y2="200" stroke="currentColor"/>`;
+    if(selected===null&&!gesture)out+=`<line x1="${xAt(cursor)}" x2="${xAt(cursor)}" y1="91" y2="215" stroke="var(--cv-green)" stroke-width="2" stroke-dasharray="4 4"/>`;
+    const preview=gesture?.candidate||durationEdit?.candidate;
+    const display=notes.filter(n=>!preview||n.id!==preview.id);
+    if(preview)display.push(preview);
+    for(const n of display){
+      const x=xAt(n.t),y=yAt(n.p),active=n.id===focus?.id;
+      const ink=active?'var(--cv-green)':'currentColor';
+      if(n.p<=0)for(let p=0;p>=n.p;p-=2)out+=`<line x1="${x-16}" x2="${x+16}" y1="${yAt(p)}" y2="${yAt(p)}" stroke="currentColor"/>`;
+      if(n.p>=12)for(let p=12;p<=n.p;p+=2)out+=`<line x1="${x-16}" x2="${x+16}" y1="${yAt(p)}" y2="${yAt(p)}" stroke="currentColor"/>`;
+      if(active)out+=`<circle cx="${x}" cy="${y}" r="19" fill="none" stroke="${ink}" stroke-width="2"/>`;
+      out+=`<ellipse cx="${x}" cy="${y}" rx="10" ry="7" transform="rotate(-18 ${x} ${y})" fill="${n.d>=2?'var(--cv-paper)':ink}" stroke="${ink}" stroke-width="2"/>`;
+      if(n.d<4)out+=`<line x1="${x+9}" x2="${x+9}" y1="${y-1}" y2="${y-47}" stroke="${ink}" stroke-width="2"/>`;
+      if(n.d<=.5)out+=`<path d="M ${x+9} ${y-47} q 23 11 10 27" fill="none" stroke="${ink}" stroke-width="3"/>`;
+      if(n.d<=.25)out+=`<path d="M ${x+9} ${y-37} q 23 11 10 27" fill="none" stroke="${ink}" stroke-width="3"/>`;
+    }
+    if(gesture)out+=`<text x="${Math.max(48,Math.min(width-48,xAt(focus.t)))}" y="30" text-anchor="middle" fill="currentColor">${pitchName(focus.p)} · beat ${focus.t+1}</text>`;
+    svg.innerHTML=out;
+    hits.replaceChildren();
+    for(const n of notes){
+      const b=document.createElement('button');b.type='button';b.className='cv-hit';b.dataset.note=String(n.id);b.setAttribute('aria-label',`${pitchName(n.p)}, beat ${n.t+1}, ${durationName(n.d)}`);
+      b.style.left=`${xAt(n.t)-22}px`;b.style.top=`${yAt(n.p)-22}px`;
+      b.addEventListener('click',e=>{if(e.detail===0){selected=n.id;slider.focus({preventScroll:true});clearError();draw();save();}});hits.append(b);
+    }
+  }
+  slider.addEventListener('pointerdown',()=>{cancelledSlider=false;clearError();});
+  slider.addEventListener('keydown',e=>{if(e.key!=='Escape')cancelledSlider=false;});
+  slider.addEventListener('input',()=>{
+    if(cancelledSlider){draw();return;}
+    clearError();const d=durations[Number(slider.value)],n=notes.find(n=>n.id===selected);
+    durationEdit=n?{candidate:{...n,d}}:{next:d};draw();
+  });
+  slider.addEventListener('change',()=>{
+    const edit=durationEdit;durationEdit=null;
+    if(edit&&!cancelledSlider){if(edit.candidate)commit(edit.candidate,false);else{duration=edit.next;save();}}
+    draw();
+  });
+  slider.addEventListener('pointercancel',()=>{cancelledSlider=true;durationEdit=null;draw();});
+  resume.addEventListener('click',()=>{selected=null;clearError();draw();save();});
+  undoButton.addEventListener('click',()=>{const s=history.pop();if(!s)return;({notes,selected,duration,cursor,serial}=s);gesture=null;durationEdit=null;clearError();draw();save();status.textContent='Undone';});
+  stage.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;pointers.add(e.pointerId);
+    if(pointers.size>1){blocked=true;gesture=null;draw();return;}
+    if(blocked)return;
+    const pos=position(e),button=e.target.closest('[data-note]');
+    if(!button&&(pos.y<76||pos.y>235||pos.x<30||pos.x>width-24)){pointers.delete(e.pointerId);return;}
+    clearError();const n=button?notes.find(n=>n.id===Number(button.dataset.note)):null;
+    if(n)selected=n.id;else selected=null;
+    const candidate=n?{...n}:{id:serial,t:timeAt(pos.x),p:pitchAt(pos.y),d:duration};
+    slider.focus({preventScroll:true});
+    gesture={candidate,original:{...candidate},isNew:!n,start:pos,moved:false,id:e.pointerId};
+    stage.setPointerCapture(e.pointerId);stage.dataset.active='true';e.preventDefault();draw();
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!gesture||blocked||e.pointerId!==gesture.id)return;
+    const pos=position(e);if(Math.hypot(pos.x-gesture.start.x,pos.y-gesture.start.y)<5&&!gesture.moved)return;
+    gesture.moved=true;const n=gesture.original,c=gesture.candidate;
+    const desired=gesture.isNew?pitchAt(pos.y):n.p+Math.round((gesture.start.y-pos.y)/12);c.p=Math.max(-2,Math.min(12,desired));
+    draw();
+  });
+  function end(e,cancel){
+    pointers.delete(e.pointerId);
+    if(blocked){if(!pointers.size){blocked=false;stage.dataset.active='false';}return;}
+    if(!gesture||gesture.id!==e.pointerId)return;
+    const g=gesture;gesture=null;stage.dataset.active='false';const pos=position(e);
+    if(!cancel&&pos.x>=0&&pos.x<=width&&pos.y>=0&&pos.y<=272){if(g.isNew||g.moved)commit(g.candidate,g.isNew);else{status.textContent=`Selected ${pitchName(g.candidate.p)} · ${durationName(g.candidate.d)}`;save();}}
+    else status.textContent='Gesture cancelled';draw();
+  }
+  stage.addEventListener('pointerup',e=>end(e,false));stage.addEventListener('pointercancel',e=>end(e,true));
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&(gesture||root.contains(document.activeElement))){e.preventDefault();if(durationEdit){durationEdit=null;cancelledSlider=true;}else{gesture=null;selected=null;pointers.clear();blocked=false;stage.dataset.active='false';}clearError();draw();status.textContent='Gesture cancelled';}});
+  restore(window.openai?.widgetState);
+  window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState){restore(e.detail.globals.widgetState);draw();}});
+  new ResizeObserver(()=>{if(!gesture)draw();}).observe(stage);
+  draw();
+})();
+</script>
