@@ -12,7 +12,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,8 +29,10 @@ import com.chordviewer.midi.MidiInputEvent
 
 private const val TOKEN_EXTRA = "chordviewer.midi.token"
 
+fun emulatorMidiRequested(intent: Intent): Boolean = intent.getStringExtra(TOKEN_EXTRA).orEmpty().matches(Regex("[a-fA-F0-9]{64}"))
+
 @Composable
-fun rememberMidiInput(initialIntent: Intent, onEvent: (MidiInputEvent) -> Unit = {}): MidiInputState {
+fun rememberEmulatorMidiInput(initialIntent: Intent, enabled: Boolean, onEvent: (MidiInputEvent) -> Unit): MidiInputState? {
     val initialToken = remember {
         initialIntent.getStringExtra(TOKEN_EXTRA).orEmpty().also { initialIntent.removeExtra(TOKEN_EXTRA) }
     }
@@ -47,18 +48,17 @@ fun rememberMidiInput(initialIntent: Intent, onEvent: (MidiInputEvent) -> Unit =
         }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(relay, lifecycle) {
+    DisposableEffect(relay, lifecycle, enabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) relay.disconnect()
         }
         lifecycle.addObserver(observer)
+        if (enabled && initialToken.matches(Regex("[a-fA-F0-9]{64}"))) relay.connect(initialToken)
+        if (!enabled) relay.disconnect()
         onDispose {
             lifecycle.removeObserver(observer)
             relay.disconnect()
         }
-    }
-    LaunchedEffect(relay) {
-        if (initialToken.matches(Regex("[a-fA-F0-9]{64}"))) relay.connect(initialToken)
     }
     return MidiInputState(snapshot, status, connected, relay::disconnect) { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Debug input · LoopBe1 bridge")

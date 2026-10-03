@@ -3,9 +3,18 @@ param(
     [ValidateSet('development', 'test')][string]$Environment = 'development',
     [ValidateRange(0.1, 10.0)][double]$Speed = 0.25,
     [switch]$SkipBuild,
-    [switch]$Headless
+    [switch]$Headless,
+    [ValidatePattern('\A[A-Za-z0-9._:-]+\z')][string]$TabletSerial,
+    [ValidateRange(-1, 65535)][int]$MidiOutputId = -1,
+    [switch]$InstallApk
 )
 $ErrorActionPreference = 'Stop'
+if ($TabletSerial) {
+    $backendPort = if ($Environment -eq 'test') { 3001 } else { 3000 }
+    & (Join-Path $PSScriptRoot 'Start-Tablet.ps1') -Serial $TabletSerial -MidiOutputId $MidiOutputId -BackendPort $backendPort -InstallApk:$InstallApk -SkipBuild:$SkipBuild
+    return
+}
+if ($InstallApk -or $MidiOutputId -ge 0) { throw '-InstallApk and -MidiOutputId require -TabletSerial.' }
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $guardian = $null
 $session = $null
