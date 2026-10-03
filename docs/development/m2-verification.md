@@ -1,5 +1,7 @@
 # M2 verification record
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Date: 2026-09-20. **M2 is complete.** This record covers the clean three-part foundation, developer setup and notation proof. The [root README](../../README.md) contains the commands to reproduce local development and acceptance checks.
 
 ## Implemented scope

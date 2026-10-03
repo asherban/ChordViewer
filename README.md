@@ -54,18 +54,18 @@ Start Docker Desktop with Linux containers, then run this from the repository ro
 .\scripts\development\Start-Testing.ps1
 ```
 
-The launcher selects the pinned Node and Android tools, builds the contracts and Android debug APK, starts the API/database and web development server, boots `ChordViewerTabletLocal`, installs the native app, and connects the real LoopBe MIDI bridge. It opens a dedicated Chrome window, falling back to Edge when Chrome is unavailable. The web app is at **http://127.0.0.1:5173/**; the launcher owns emulator **emulator-5560**. First startup can take several minutes. The native build finishes before the emulator boots to reduce memory pressure.
+The launcher selects the pinned Node and Android tools, builds the contracts and Android debug APK, starts the API/database and web development server, boots `ChordViewerTabletLocal`, and installs the native app. It opens a dedicated Chrome window, falling back to Edge when Chrome is unavailable. The web app is at **http://127.0.0.1:5173/**; the launcher owns emulator **emulator-5560**. MIDI playback feeds Chrome through LoopBe. Android emulator checks use test APK fixtures; live Android MIDI uses the [physical USB workflow](docs/development/usb-midi.md). First startup can take several minutes. The native build finishes before the emulator boots to reduce memory pressure.
 
 Wait for the **ready** message, then:
 
-1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to see the live MIDI monitor. The bridge is already connected. Android restores the saved sign-in after app restarts and updates; an expired or explicitly signed-out session requires sign-in again.
+1. In Android, choose **Explore the example sheet**, or sign in and open a saved sheet, to inspect the native UI. Android restores the saved sign-in after app restarts and updates; an expired or explicitly signed-out session requires sign-in again.
 2. The browser opens the anonymous score preview and enables LoopBe automatically. If its saved account opens Library instead, select or create a sheet. The launcher keeps the current sheet and unsaved draft when preparing later playback.
-3. Enter **P** and press **Enter**, or just press **Enter**, to broadcast the chord/smoke fixture. Enter **M** for a six-note melody sequence. Both go to every connected client without producing audio. To write music, open a saved sheet in **Create**, choose the matching chord or melody pass, select a free position/duration and press **Start MIDI entry** on each client. For **M**, G major, 3/4 and quarter-note duration fill two bars. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each broadcast. Keep Android in the foreground; after backgrounding, reopen **MIDI**, press **Connect**, then start entry again.
+3. Enter **P** and press **Enter**, or just press **Enter**, to send the chord/smoke fixture through LoopBe. Enter **M** for a six-note melody sequence. To write music in the browser, open a saved sheet in **Create**, choose the matching chord or melody pass, select a free position/duration and press **Start MIDI entry**. For **M**, G major, 3/4 and quarter-note duration fill two bars. Restore the browser if minimized; the launcher brings the app tab forward and prepares its input before each playback. The emulator does not receive this live stream.
 4. Save your edits, then enter **Q** and press **Enter**, or press **Ctrl+C**, to stop. Quitting also works during startup or playback. Confirmed local recovery copies survive ordinary shutdown; pending writes and unfinished MIDI gestures may not.
 
-Both clients receive the same real LoopBe sequence; there is no synthetic browser event injection. Open the same saved sheet in each client to compare drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
+The browser receives the real LoopBe sequence. Open the same saved sheet in each client to compare layouts and drafts. Save from one client at a time: revision conflicts prevent silently overwriting the other client's saved changes.
 
-For an M6 smoke pass, search and filter Library, favorite and mark a sheet Draft, duplicate it, and move the copy to Trash and restore it. Open the original in Practice: Android starts in On match; on the web, enable On match. Broadcast **P** for a fresh chord gesture that matches the highlighted chart chord. Check live comparison and target advancement without changing saved notation. Link a YouTube URL in Sheet details, use the standard embedded player on Android (or tap **Play tutorial** on the web), and use **Edit sheet** to return to the selected Practice position. Run `npx playwright test tests/web/library-practice.spec.ts tests/web/library-practice-midi.spec.ts` for the focused browser checks; set `$env:CHORDVIEWER_REAL_MIDI='1'` first on this Windows/LoopBe workstation to run the physical-MIDI case (otherwise it skips). Native API, visual and UI commands below cover the emulator; add `-Organization` to `Test-NativeShell.ps1` for its isolated Library favorite/Draft/duplicate/Trash/restore UI check.
+For an M6 smoke pass, search and filter Library, favorite and mark a sheet Draft, duplicate it, and move the copy to Trash and restore it. Open the original in Practice: Android starts in On match; on the web, enable On match. In the browser, send **P** for a fresh chord gesture that matches the highlighted chart chord, then check live comparison and target advancement without changing saved notation. Native emulator Practice matching uses `Test-NativeShell.ps1 -WithMidi` with injected product events; live tablet matching uses the USB workflow. Link a YouTube URL in Sheet details, use the standard embedded player on Android (or tap **Play tutorial** on the web), and use **Edit sheet** to return to the selected Practice position. Run `npx playwright test tests/web/library-practice.spec.ts tests/web/library-practice-midi.spec.ts` for the focused browser checks; set `$env:CHORDVIEWER_REAL_MIDI='1'` first on this Windows/LoopBe workstation to run the physical-MIDI case (otherwise it skips). Native API, visual and UI commands below cover the emulator; add `-Organization` to `Test-NativeShell.ps1` for its isolated Library favorite/Draft/duplicate/Trash/restore UI check.
 
 Useful options:
 
@@ -85,7 +85,7 @@ Useful options:
 
 `-SkipBuild` requires an existing debug APK and does not rebuild Android changes. The backend still builds its image, and the web development process rebuilds/watches contracts. `-Headless` is intended for automation; use the default visible windows for interactive testing. Development is the default database environment; test mode keeps port 5173 for the browser and forwards the native app to the test API.
 
-Close existing manual development sessions before starting. The launcher refuses an existing backend stack, an already-running `ChordViewerTabletLocal`, or conflicts on ports **3000** (or **3001** in test mode), **5173**, **39173**, **5560** and **5561**. It does not take over those services. Only one testing launcher can run at a time. Stop a manual backend with `Stop-LocalBackend.ps1 -Environment development` or `-Environment test`, matching the environment you intend to launch; stop its web server, bridge and emulator using their own terminals.
+Close existing manual development sessions before starting. The launcher refuses an existing backend stack, an already-running `ChordViewerTabletLocal`, or conflicts on ports **3000** (or **3001** in test mode), **5173**, **5560** and **5561**. It does not take over those services. Only one testing launcher can run at a time. Stop a manual backend with `Stop-LocalBackend.ps1 -Environment development` or `-Environment test`, matching the environment you intend to launch; stop its web server and emulator using their own terminals.
 
 Shutdown releases MIDI, closes the owned browser and emulator, removes their port forwards, and stops/removes this session's backend containers and network. It preserves saved sheets, private backend credentials, emulator data, build caches and browser cookies. The private browser profile is `.local/testing/browser`; it is separate from your normal browser profile. Session status and logs are under the printed `.local/testing/<session-id>` directory. Docker Desktop and the shared ADB server remain running.
 
@@ -98,7 +98,7 @@ A separate watchdog also cleans up if the launcher terminal closes or its PowerS
 
 Inspect the previous session's `status.json` and logs if cleanup reports a failure or startup still finds a conflict. See the [testing launcher verification and recovery record](docs/development/testing-launcher.md). The individual workflows below remain available for focused development and troubleshooting.
 
-Android startup retries an explicit Activity Manager timeout up to three attempts while a cold emulator settles. Other launch errors stop immediately; the console and `android-launch.log` include a diagnostic with the MIDI token redacted.
+Android startup retries an explicit Activity Manager timeout up to three attempts while a cold emulator settles. Other launch errors stop immediately; the console and `android-launch.log` include the launch diagnostic.
 
 ## Start only the web client and API
 
@@ -314,30 +314,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps
 
 This broadcasts C4, D4, F-sharp4, F-sharp4, G4 and A4 as separate gestures, including repeated notes under sustain.
 
-For the Android emulator, keep the MIDI bridge running in a separate terminal:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Start-Bridge.ps1
-```
-
-In the initialized Android terminal, connect the debug app and send notes:
-
-```powershell
-.\scripts\development\Connect-AndroidMidi.ps1 -Serial emulator-5554
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1 -Speed 0.25
-```
-
-The bridge listens only on `127.0.0.1:39173`; the helper creates `adb reverse` and passes a private per-run token without printing it. You do not need to copy the token. The [bridge guide](scripts/midi/README.md) documents connection behavior and fixture options. The development bridge and debug relay have no dedicated test suites; the product acceptance tests below can still use them to supply MIDI input.
+Android emulator product tests inject musical events from the test APK into `LibraryViewModel.onMidiEvent`. They exercise gestures and editing without a shipped MIDI transport. Live computer input requires a physical tablet.
 
 For a physical tablet, use `scripts/development/Start-Testing.ps1 -TabletSerial <serial>` with the local backend already running. First choose the tablet's output with `-MidiOutputId <Id>` and its input in ChordViewer. Add `-InstallApk` to build/update the debug app explicitly. This mode uses native USB MIDI without a token and starts no emulator. The [USB MIDI guide](docs/development/usb-midi.md) explains first-time selection, automatic reconnect and separate backend forwarding.
 
-For the optional native UI acceptance test, prepare a synthetic account with at least one saved sheet in the **test** backend. Store its `email` and `password` as a JSON object in a private, ignored fixture file, then run with the bridge active:
+For the optional native UI acceptance test, prepare a synthetic account with at least one saved sheet in the **test** backend. Store its `email` and `password` as a JSON object in a private, ignored fixture file, then run:
 
 ```powershell
 .\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -WithMidi
 ```
 
-This changes a test sheet's title, checks draft preservation and read-only Practice, holds a real LoopBe note through navigation and saving, advances on a fresh matching gesture, verifies sign-out, and captures native screenshots under `.local/android-ui-evidence`. Run the separate Library organization UI check with the same private fixture and test API:
+This changes a test sheet's title, checks draft preservation and read-only Practice, holds an injected chord through navigation and saving, advances on a fresh matching gesture, verifies sign-out state, and captures native screenshots under `.local/android-ui-evidence`. It does not verify transport or native live-note cards. Run the separate Library organization UI check with the same private fixture and test API:
 
 ```powershell
 .\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -Organization
@@ -355,23 +342,22 @@ npx playwright test tests/web/recovery.spec.ts
 
 Phase 1 creates music through the native UI, temporarily disconnects its backend route, retries Save after reconnecting, and leaves a confirmed unsaved recovery copy. Phase 2 force-stops/relaunches the app, changes the saved original from another client, restores the local copy and saves it as a new sheet. Phase 1 requires its own port-3000 reverse mapping; the runner preserves unrelated mappings. These are product acceptance tests using the development adapter, not tests for the adapter itself. Screenshots are under `.local/android-ui-evidence`; [M7 verification](docs/development/m7-verification.md) records checked results.
 
-For native chord/melody authoring acceptance, use the same private synthetic account and running bridge:
+For native chord/melody authoring acceptance, use the same private synthetic account:
 
 ```powershell
 .\apps\android\scripts\Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local\backend\ui-native-fixture.json -Authoring
 ```
 
-This installs the built debug/test APKs and broadcasts real MIDI only when instrumentation signals readiness. It checks chord and melody entry, polyphony rejection, direct editing, ties/rests, key/meter changes, history, replacement, read-only Practice, reconnect, save/reopen, and JSON export/import through Android's document pickers. It creates synthetic sheets and captures M4/M5 screenshots. Run it separately from browser MIDI tests and other senders; all LoopBe listeners hear the same broadcasts.
+This installs the built debug/test APKs and injects ordered musical events through the product model. It checks chord and melody entry, polyphony rejection, direct editing, ties/rests, key/meter changes, history, replacement, read-only Practice, reset/reconnect behavior, save/reopen, and JSON export/import through Android's document pickers. It creates synthetic sheets and captures M4/M5 screenshots. Physical transport is checked separately with native USB MIDI.
 
-When finished, stop the bridge with Ctrl+C in its terminal, then:
+When finished with a manually started emulator:
 
 ```powershell
-adb -s emulator-5554 reverse --remove tcp:39173
 adb -s emulator-5554 reverse --remove tcp:3000
 adb -s emulator-5554 emu kill
 ```
 
-The debug bridge is excluded from the Android release build. Emulator testing does not establish physical USB/Bluetooth or Samsung hardware compatibility.
+Both debug and release use native USB MIDI. Emulator fixtures do not establish physical USB/Bluetooth or Samsung hardware compatibility.
 
 ## Next milestones
 

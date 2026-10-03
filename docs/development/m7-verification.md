@@ -1,5 +1,7 @@
 # M7 local validation
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Verification date: 2026-09-26. Work is on `codex/m7-local-validation`, stacked above M6. The [execution plan](../architecture/m7-execution-plan.md), [recovery contract](../architecture/draft-recovery.md) and [backup guide](local-backup-restore.md) define the scope. No NAS or public deployment, push or pull request is included.
 
 ## Delivered behavior

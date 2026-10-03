@@ -44,7 +44,7 @@ This initial probe proves Windows-to-tablet native USB MIDI receipt on the attac
 - Reject LoopBe as an output destination and never echo incoming events into it. Preserve channel and byte ordering. SysEx, MIDI clock routing, audio generation, and musical recognition remain outside this component.
 - Bound the queue to 1,024 messages. Overflow, input failure, or output failure ends the connection and discards queued events. Do not replay old note events after reconnect.
 - Before forwarding a new connection, send sustain-off (`CC64=0`), all-sound-off (`CC120=0`), and all-notes-off (`CC123=0`) on all 16 channels, then the first Active Sensing byte. Serialize this complete startup sequence ahead of notes and recurring heartbeats. Stop forwarding and heartbeats before graceful shutdown cleanup. These cleanup messages also establish the reset-and-pause boundary described below. Report failures and close only owned MIDI handles.
-- Integrate the router into a physical-tablet launcher mode without starting the emulator. Keep the existing TCP bridge selectable for emulator sessions.
+- Integrate the router into a physical-tablet launcher mode without starting the emulator. Emulator musical tests inject product events from the test APK; the app uses native USB input in both build variants.
 
 [Windows short-message API](https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/nf-mmeapi-midioutshortmsg), [WinMM input callback restrictions](https://learn.microsoft.com/en-us/previous-versions/dd798460(v=vs.85)).
 
@@ -72,7 +72,7 @@ Changing the tablet's default USB configuration is not part of this design. Duri
 
 ## Implementation and acceptance
 
-Shared Android native discovery, receiving, source selection and health handling are implemented alongside the debug emulator relay. The Windows LoopBe router provides destination selection, cleanup and Active Sensing. The physical-tablet launcher maintains backend forwarding independently and reuses the existing Activity. Product tests, builds, lint and the native LoopBe hardware check passed; the [verification guide](../development/usb-midi.md#verification) distinguishes those results from the remaining acceptance cases below.
+Shared Android native discovery, receiving, source selection and health handling are implemented in both build variants. The Windows LoopBe router provides destination selection, cleanup and Active Sensing. The physical-tablet launcher maintains backend forwarding independently and reuses the existing Activity. Product tests, builds, lint and the native LoopBe hardware check passed; the [verification guide](../development/usb-midi.md#verification) distinguishes those results from the remaining acceptance cases below.
 
 | Acceptance area | Required result |
 | --- | --- |

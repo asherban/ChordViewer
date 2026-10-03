@@ -1,5 +1,7 @@
 # M5 melody and import verification
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Work is on `codex/m5-melody-input`, stacked above `codex/dev-test-policy`. The user selected MusicXML plus ChordViewer JSON and expanded keys/time signatures. This milestone remains local; no push, public deployment or NAS change is included.
 
 ## Delivered behavior

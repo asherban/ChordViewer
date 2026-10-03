@@ -1,5 +1,7 @@
 # M6 Library and Practice verification
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Verification date: 2026-09-23. Work is on `codex/m6-library-practice` above the M5 baseline. This milestone is accepted locally; there is no push, pull request or deployment. The [execution plan](../architecture/m6-execution-plan.md) and [product contract](../architecture/library-practice.md) define the behavior. M7 is the next local validation milestone.
 
 ## Delivered behavior

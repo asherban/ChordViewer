@@ -1,5 +1,7 @@
 # M3 verification — local accounts and persistence
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Verified on this Windows workstation on 2026-09-20. M3 is complete on branch `codex/m3-local-persistence`, stacked above M2. Nothing was deployed to the NAS or a public host. The [README](../../README.md) contains runnable developer commands; the [backend contract](../architecture/backend-contract.md) records the API and security decisions.
 
 ## Delivered behavior

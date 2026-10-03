@@ -6,14 +6,14 @@ Both web and native Android are part of the product. A milestone involving a use
 
 The M3 design follow-up aligns both clients with the selected mockups and gives the web client a full-window shell plus an optional full-screen button. See [shared application layout](ui-style.md) and [UI verification](../development/m3-ui-verification.md). This does not advance the authoring or guided-practice milestones below.
 
-Routine acceptance uses the local browser and Android emulator with loopback MIDI. A piano and tablet are not required. See [Local MIDI testing](local-midi-testing.md) for verified coverage and the later product scenarios still to implement.
+Routine acceptance uses real loopback MIDI in the browser and test APK musical fixtures in the Android emulator. A piano and tablet are not required for those product checks. Live Android input uses the physical USB route. See [Local MIDI testing](local-midi-testing.md) for current coverage and hardware limits.
 
 Develop and test the backend, database, web client and Android emulator on the development machine through M7. NAS deployment is deferred to M8, after the complete workflow has passed local validation.
 
 | Milestone | Outcome | Completion criterion |
 | --- | --- | --- |
 | **M0 — Repository planning baseline** | The design discussion becomes a durable reference. | Product decisions, setup/cleanup plan, relevant mockups and this roadmap are available under `docs/architecture/`. **Complete.** |
-| **M1 — Local development and MIDI testing** | Both clients can be developed and tested on this computer. | Android tooling builds and runs a minimal native app in a tablet-shaped emulator. LoopBe1 input reaches the web app directly and the native app through a local debug bridge; notes, sustain and bridge reconnect are verified. The setup requires no physical piano or tablet. **Complete.** |
+| **M1 — Local development and MIDI testing** | Both clients can be developed and tested on this computer. | Android tooling builds and runs a native app in a tablet-shaped emulator. LoopBe1 reaches the web app directly; native emulator product fixtures exercise musical events and resets. Live Android input uses the physical USB route. **Complete**, with dated verification in M1 and current routes in the local MIDI guide. |
 | **M2 — Clean project foundation** | The old project is replaced by a maintainable foundation for three application parts. | A recoverable baseline preserves relevant prior work; obsolete code/configuration is retired; web, API and Android have clear boundaries and build checks. The score/API contract and notation approach are agreed and shown to work on both clients. **Complete.** |
 | **M3 — Local backend and persistence** | Both clients use one persistent backend on the development machine. | A repeatable local container setup runs the backend and database; basic account access and sheet storage work from the local browser and Android emulator. Each new user's library starts empty, and test data persists across service restarts and updates. **Complete.** |
 | **M4 — Create chord sheets from MIDI** | The first usable authoring workflow is ready for private use. | On either client, the user can create a chord sheet, link a tutorial, automatically insert MIDI input, undo/change/delete entries, and save/reopen it. Repeatable local MIDI scenarios exercise entry timing, duration selection and input recovery. **Complete**, with actual LoopBe input in Chrome and the native emulator. |
@@ -37,7 +37,7 @@ The main sequence is M0 through M9. Preservation precedes repository cleanup, an
 
 | Before completing | Decisions or evidence needed |
 | --- | --- |
-| M1 | Android emulator/system image, available workstation resources, working loopback input, and the local bridge/debug adapter. |
+| M1 | Android emulator/system image, available workstation resources, working browser loopback input, and native test APK fixtures. |
 | M2 | Backend framework, account/authentication approach, native/web notation rendering, initial score schema and compatible toolchain versions. |
 | M3 | Working local container runtime, browser/emulator access to the local backend, separate development/test settings and manageable workstation resource use. |
 | M4 | Resolved in the [chord authoring contract](chord-authoring.md): release every physical key to insert, sustain-independent capture, selected duration (one bar by default), shared naming alternatives and explicit correction. |

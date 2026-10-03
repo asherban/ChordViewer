@@ -2,6 +2,8 @@
 
 The [connection design](../architecture/usb-midi-connection.md) uses the computer as USB host and the tablet as USB MIDI peripheral. The Windows router forwards LoopBe input to the selected physical output. Shared Android input supports this route and a piano attached with the tablet as host.
 
+Both Android build variants use native USB input. Emulator musical tests inject events from the test APK; live Windows MIDI requires the physical tablet.
+
 ## Local tablet workflow
 
 Start the local backend using `scripts/development/Start-LocalBackend.ps1` when needed. The focused tablet mode uses that running backend and does not start an emulator, web server, or another backend stack.

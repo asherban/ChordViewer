@@ -87,31 +87,32 @@ For local development with the backend already running, use `scripts/development
 
 Outside the development launcher, select MIDI in Android's USB preferences and run the [Windows USB router](../../scripts/midi/README.md). MIDI requires no ADB, token, or network connection. The current debug backend still needs its independent ADB mapping.
 
-## Emulator MIDI input
+## Emulator product input
 
-Build before booting the emulator, then start the [Windows bridge](../../scripts/midi/README.md) on the development machine. From the repository root in an initialized Android shell, run:
+The emulator supports native UI and backend work. Musical product acceptance injects events from the test APK into the existing product model. To open the app in an initialized Android shell:
 
 ```powershell
 adb -s emulator-5554 install -r -t apps/android/app/build/outputs/apk/debug/app-debug.apk
-.\scripts\development\Connect-AndroidMidi.ps1 -Serial emulator-5554
+adb -s emulator-5554 reverse tcp:3000 tcp:3000
+adb -s emulator-5554 shell am start -W -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-The first command installs the built debug APK. The helper establishes `adb reverse` and launches **ChordViewer** with the private session token without printing it. Use the actual serial from `adb devices` if it differs. The debug application ID is `com.chordviewer.debug`; its activity is `com.chordviewer.MainActivity`. The [root README](../../README.md) gives the full build, boot, test and shutdown commands.
+These commands install the built debug APK, map the local backend and open ChordViewer. Use the actual serial from `adb devices` if it differs. The debug application ID is `com.chordviewer.debug`; its activity is `com.chordviewer.MainActivity`. The [root README](../../README.md) gives the full build, boot, test and shutdown commands.
 
-Use the header MIDI button for connection settings, then open a sheet or Explore example in Create / Practice to see live feedback. Connection ownership stays at the app root, so opening dialogs, switching modes and saving do not reset the live held-note display; they pause automatic writing and cancel any incomplete entry gesture. Send the fixture through LoopBe1. Held notes should appear immediately, note-off should clear held notes, and sustain should retain only sounding notes until pedal release. **Disconnect / clear** and backgrounding the app clear state. Restarting the bridge requires a fresh connection and may require its new token. This setup does not create sound or send notes back to the loopback device.
+For live computer input, use the [physical USB workflow](../../docs/development/usb-midi.md). Connection ownership stays at the app root, so opening dialogs, switching modes and saving do not reset live held notes; they pause automatic writing and cancel incomplete entry. Native **Disconnect**, **Clear notes** and backgrounding clear state. MIDI does not create sound or send notes back to LoopBe.
 
 ## Boundaries and tests
 
 - `src/main` contains native USB discovery and receiving, connection health, transport-independent MIDI processing, shared controls, the native app shell and live note cards. One selected source owns musical state; resets pause authoring without changing a sheet.
-- `src/debug` contains all TCP transport, authentication token handling, relay framing and emulator controls. It connects only to `127.0.0.1:39173` through `adb reverse`; it has no configurable remote endpoint. A reset must precede ordered MIDI frames; malformed input closes the connection and clears notes.
+- `src/debug` configures the local backend origin and its cleartext networking policy. It contains no MIDI transport.
 - `src/release` uses the shared native USB input and an unconfigured public API origin. Release includes Internet permission for future HTTPS API use, but has no relay endpoint, relay token field, debug cleartext exception or debug transport. Bluetooth discovery is not implemented.
-- Local product tests exercise fragmented and running-status MIDI, interleaved realtime messages, note-on with zero velocity, sustain and channel separation, and panic/reset behavior. Development-only bridge and relay tests are excluded under the repository's [testing policy](../../AGENTS.md).
+- Local product tests exercise fragmented and running-status MIDI, interleaved realtime messages, note-on with zero velocity, sustain and channel separation, and panic/reset behavior. Development-only tooling has no dedicated test suite under the repository's [testing policy](../../AGENTS.md).
 
-The debug relay coalesces only the live screen snapshot. A separate ordered queue delivers every validated raw frame to the common gesture engine before updating the screen. The queue is bounded to 1,024 frames with at most one posted delivery; overflow closes the connection, clears the queue and pauses entry rather than dropping a note-off. Recognition uses `contracts/fixtures/chord-vocabulary-v1.json` directly, with shared native/web recognition and gesture fixtures. It does not infer gestures from recomposition or from held-note snapshots.
+Native USB input delivers every ordered musical event to the common gesture engine before updating the screen. The queue is bounded to 1,024 events with at most one posted delivery; overflow closes the connection, clears the queue and pauses entry rather than dropping a note-off. Recognition uses `contracts/fixtures/chord-vocabulary-v1.json` directly, with shared native/web recognition and gesture fixtures. It does not infer gestures from recomposition or from held-note snapshots.
 
 M1 builds, 17 JVM tests and real LoopBe/emulator instrumentation passed on 2026-09-20. See the [verification record](../../docs/development/m1-verification.md) and [local setup guide](../../docs/development/local-setup.md) for the tested hardware-graphics AVD. A successful loopback run covers application input behavior; it does not verify a physical tablet's USB/Bluetooth compatibility.
 
-The earlier relay-only instrumentation and protocol tests have been removed. Native shell and chord-authoring acceptance tests remain because they verify product behavior, using the debug relay only to supply input.
+Native shell and chord-authoring acceptance use `MidiProductFixture` in the test APK to supply musical events. They verify the real product model and native UI without shipping test input in the app. Native transport and live-note cards require the separate USB hardware check.
 
 Build references: [AGP 8.13 compatibility](https://developer.android.com/build/releases/agp-8-13-0-release-notes), [Kotlin compatibility](https://kotlinlang.org/docs/gradle-configure-project.html), [Gradle security advisory](https://github.com/gradle/gradle/security/advisories/GHSA-w78c-w6vf-rw82), [Compose compiler setup](https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler), [Compose BOM mapping](https://developer.android.com/develop/ui/compose/bom/bom-mapping).
 
@@ -182,14 +183,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File apps/android/scripts/Test-Na
 
 The helper installs the APKs and maps the local API ports. It streams the fixture over ADB stdin to an app-private file; credentials never enter process arguments. The instrumentation reads and immediately deletes that temporary test file, fills the native accessible fields, checks Library/Create/Practice navigation and unsaved details, saves through the real API, verifies the saved record, checks the preserved melody display preference, captures screenshots, and signs out. Screenshots are captured only after the password form is gone and are copied to `.local/android-ui-evidence/`.
 
-For the full UI plus real loopback gesture check, start `scripts/midi/Start-Bridge.ps1` in another terminal and add `-WithMidi`. Do not run another LoopBe sender at the same time. The helper supplies the bridge token through the same private fixture, sends and holds C4 only after native instrumentation reports readiness, verifies that navigation and saving preserve it, and verifies that sign-out disconnects MIDI. It always releases its notes, removes its temporary fixture and removes only reverse mappings it created. Existing mappings and the caller's bridge/emulator remain available.
+Add `-WithMidi` to include test APK input. The test holds an injected C chord through navigation and saving, matches a fresh G7 gesture in Practice, and verifies that sign-out clears product MIDI state. It does not assert transport readiness or live-note cards. The helper removes its temporary fixture and only backend mappings it created; existing mappings and the emulator remain available.
 
-For real MIDI authoring acceptance, use a synthetic account on the test backend, start the bridge, then run:
+For musical authoring acceptance, use a synthetic account on the test backend, then run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File apps/android/scripts/Test-NativeShell.ps1 -Serial emulator-5554 -FixturePath .local/backend/ui-native-fixture.json -Authoring
 ```
 
-This creates a new test sheet, sends two immediate chords with sustain held, checks undo/redo, manual correction, delete/undo and one-shot replacement, confirms Practice cannot edit, reconnects MIDI, then saves and reopens the full score and tutorial. It also captures a separate melody pass, rejects overlapping pitches, replaces one note from MIDI, edits rests and ties, changes key/meter, saves/reopens, and exports/imports JSON through Android's document pickers. Screenshots are copied to `.local/android-ui-evidence/`. The exported synthetic JSON remains in the emulator's chosen document location. Do not run another LoopBe sender concurrently.
+This creates a new test sheet and injects two immediate chords with sustain held. It checks undo/redo, manual correction, delete/undo and one-shot replacement, confirms Practice cannot edit, resets and reconnects product input, then saves and reopens the full score and tutorial. It also captures a separate melody pass, rejects overlapping pitches, replaces one note from MIDI, edits rests and ties, changes key/meter, saves/reopens, and exports/imports JSON through Android's document pickers. Screenshots are copied to `.local/android-ui-evidence/`. The exported synthetic JSON remains in the emulator's chosen document location.
 
 `NativeShellFlowTest` and `NativeChordAuthoringTest` are skipped unless explicitly run by this helper (`shellUi=true` or `authoringUi=true`). A skipped run does not establish UI acceptance. The helper bounds instrumentation runtime and redacts fixture values from any failure transcript. Test-only fixture delivery is separate from the application: passwords remain in memory only, while the account session uses the encrypted device store described above.

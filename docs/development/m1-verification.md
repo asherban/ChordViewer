@@ -1,5 +1,7 @@
 # M1 verification record
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 Date: 2026-09-20. **M1 is complete.** The native emulator acceptance run passed after selecting a working hardware-graphics configuration. This record distinguishes verified local tooling from later product and physical-device work.
 
 ## Passed

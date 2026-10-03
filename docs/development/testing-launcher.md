@@ -2,7 +2,7 @@
 
 `scripts/development/Start-Testing.ps1` runs the complete Windows testing environment. See the [README workflow](../../README.md#run-the-complete-local-testing-environment) for setup, playback controls and options.
 
-`-TabletSerial <serial>` selects the focused [physical USB MIDI workflow](usb-midi.md). It uses an already-running backend and installed app, starts a USB router instead of the TCP bridge, and does not start an emulator or web server. `-InstallApk` explicitly builds/updates the app. The ownership and shutdown description below applies to the full emulator mode.
+`-TabletSerial <serial>` selects the focused [physical USB MIDI workflow](usb-midi.md). It uses an already-running backend and installed app, starts a USB router, and does not start an emulator or web server. `-InstallApk` explicitly builds/updates the app. The ownership and shutdown description below applies to the full emulator mode, where P/M playback feeds the browser and native musical tests use test APK fixtures.
 
 ## Ownership and shutdown
 
@@ -12,13 +12,13 @@ Before starting workers, the watchdog joins a Windows Job Object with `KILL_ON_J
 
 Docker containers and the Compose network receive a unique session label. Cleanup selects that label, stops/removes those resources and retains database volumes. The launcher refuses occupied ports, an existing matching Compose project, or an already-running tablet AVD. It rechecks backend ownership after the build. Do not start a second manual stack against the same environment while the launcher is running.
 
-The shared Docker Desktop engine and ADB server remain available. Your normal browser profile is never attached or closed. The launcher's browser profile and private logs live under ignored `.local/testing`, restricted to the current Windows user and SYSTEM. Bridge credentials are generated per session, are never printed, and are removed on shutdown. No public host, NAS or deployment is involved.
+The shared Docker Desktop engine and ADB server remain available. Your normal browser profile is never attached or closed. The launcher's browser profile and private logs live under ignored `.local/testing`, restricted to the current Windows user and SYSTEM. No public host, NAS or deployment is involved.
 
-Status and commands use small local files. Status replacement is atomic, readers permit Windows file replacement, and commands are acknowledged so repeated keys cannot queue overlapping playback. Browser control uses a narrow local stdin/stdout protocol. MIDI still travels through real LoopBe/WinMM, Web MIDI, and the authenticated debug Android bridge.
+Status and commands use small local files. Status replacement is atomic, readers permit Windows file replacement, and commands are acknowledged so repeated keys cannot queue overlapping playback. Browser control uses a narrow local stdin/stdout protocol. Browser MIDI travels through real LoopBe/WinMM and Web MIDI. The emulator has no live Windows MIDI route.
 
 ## Verification on this workstation
 
-Checked on 2026-09-21 using Windows PowerShell 5.1, the pinned Node installation, Docker Desktop's Linux engine, Chrome, LoopBe1 and the API 35 tablet emulator:
+Checked on 2026-09-21 using Windows PowerShell 5.1, the pinned Node installation, Docker Desktop's Linux engine, Chrome, LoopBe1 and the API 35 tablet emulator. These are historical results from before the emulator bridge was removed on 3 October 2026:
 
 | Check | Result |
 | --- | --- |
@@ -53,4 +53,4 @@ After confirming the old testing session is no longer active, stop the matching 
 
 Inspect that session's `status.json`, `failure.log`, `guardian-error.log` and stage logs when present. Do not delete backend credentials while retaining the corresponding database volume. The launcher does not promise to preserve an unsaved in-memory sheet draft across process termination.
 
-Emulator checks cover the debug adapter, not physical tablet USB/Bluetooth compatibility. LoopBe playback produces MIDI input, not audio. A disconnected app may miss a broadcast; reopen its sheet and MIDI connection before the next run.
+Emulator fixtures cover product processing and UI, while [USB hardware checks](usb-midi.md#verification) cover native transport. LoopBe playback produces MIDI input, not audio. A disconnected browser or tablet may miss a sequence; reopen its sheet and MIDI connection before the next run.

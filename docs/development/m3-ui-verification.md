@@ -1,5 +1,7 @@
 # M3 UI alignment verification
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 This follow-up aligns the web and native Android clients with the selected warm-neutral/sage mockups. It is separate from M4 authoring work. Implementation and evidence are on `codex/m3-ui-alignment`, stacked above M3; no deployment or push is part of this change.
 
 ## Delivered behavior

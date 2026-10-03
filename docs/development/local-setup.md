@@ -75,36 +75,29 @@ emulator -accel-check
 
 This image/profile enforces at least 2560 MB even if a lower memory value is requested. First boot can take several minutes under memory pressure; wait for `adb -s emulator-5554 shell getprop sys.boot_completed` to return `1`. The tested profile uses hardware graphics because software/SwiftShader runs became unresponsive. Keep Windows virtualization and security settings unchanged.
 
-## Real LoopBe MIDI test
+## MIDI product checks
 
-Start the bridge in its own PowerShell terminal:
+The browser receives real LoopBe input through Web MIDI. A physical tablet receives the same input through the [native USB router](usb-midi.md). Android emulator musical tests inject events from the test APK into the product model; the installed application contains no emulator MIDI transport.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Start-Bridge.ps1
-```
-
-This process listens only on `127.0.0.1:39173`. It creates a private, ignored, per-run credential under `.local/midi/`; stopping it removes the credential. Execution-policy bypass applies only to this process.
-
-To inspect the native UI:
+To inspect the native UI on an emulator:
 
 ```powershell
 . .\scripts\development\Initialize-AndroidEnvironment.ps1
 adb -s emulator-5554 install -r -t apps/android/app/build/outputs/apk/debug/app-debug.apk
-.\scripts\development\Connect-AndroidMidi.ps1 -Serial emulator-5554
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1
+adb -s emulator-5554 reverse tcp:3000 tcp:3000
+adb -s emulator-5554 shell am start -W -n com.chordviewer.debug/com.chordviewer.MainActivity
 ```
 
-The launcher establishes the local `adb reverse` mapping, restarts the debug diagnostic app and passes the session token without printing it. The app shows held notes separately from sustained sounding notes. Backgrounding, disconnecting or restarting clears state; reconnect using the current bridge session.
-
-See the [bridge guide](../../scripts/midi/README.md) for fixture options and the [Android guide](../../apps/android/README.md#native-shell-acceptance) for product UI and chord-authoring acceptance. Development-only bridge and relay test suites have been removed under the [testing policy](../../AGENTS.md). The input adapter is compiled into debug builds only. Native USB/Bluetooth integration belongs to later product work and is not verified by the emulator.
+Use the [Android guide](../../apps/android/README.md#native-shell-acceptance) for UI and musical authoring acceptance, and the [fixture guide](../../scripts/midi/README.md) for browser and USB playback. Emulator fixtures verify product behavior without establishing physical transport or live-note-card behavior.
 
 ## Stop local testing
 
-Stop the bridge with Ctrl+C in its terminal. Remove forwarding and stop the selected emulator:
+Remove a backend mapping you created and stop the selected emulator:
 
 ```powershell
-adb -s emulator-5554 reverse --remove tcp:39173
+adb -s emulator-5554 reverse --remove tcp:3000
 adb -s emulator-5554 emu kill
 ```
 
 No NAS or public service is involved. The baseline source and private configuration were preserved outside the repository before cleanup. The source history, license, domain ownership and design mockups remain intact.
+

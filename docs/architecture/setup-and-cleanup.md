@@ -51,7 +51,7 @@ Sources: [Android Studio installation](https://developer.android.com/studio/inst
 
 - Create an Android virtual device with a landscape tablet layout. Neither the Samsung tablet nor the RP102 is needed for routine development tests.
 - Use the installed LoopBe1 port for generated notes, chord sequences and sustain events. The existing browser app already receives this input through Web MIDI.
-- Add a Windows MIDI-to-network test bridge and a debug-only native input adapter for the emulator. Feed the real native MIDI parser/state logic, rather than setting chord labels or editor state directly. This is proposed work, not an existing emulator capability.
+- Use musical fixtures confined to the Android test APK to exercise the real product event path. Use native USB MIDI on a physical tablet for live Windows input and transport checks.
 - With 16 GB workstation RAM, start with one accelerated emulator and measure responsiveness alongside the local backend/database. Tune resource allocations and run only the services needed for the current test. Defer NAS deployment until the later deployment milestone.
 - Validate Windows Hypervisor Platform acceleration and its coexistence with the existing WSL/Docker setup. Do not change virtualization features or reboot as a side effect of a documentation step.
 
@@ -63,8 +63,8 @@ The tooling milestone is complete when:
 
 1. The minimal native application builds with the checked-in Gradle wrapper and selected build JDK in a normal terminal. Android Studio uses the same project and JDK configuration; record any graphical IDE import/build checks separately from this repeatable build acceptance.
 2. The debug application installs and launches in the local tablet-shaped emulator, with logs available.
-3. A local sender drives LoopBe1 and a bridge carries its events into the native application's debug input adapter.
-4. A small MIDI diagnostic screen receives note-on, note-off and sustain events, and recovers from bridge disconnect/reconnect without stuck notes. Equivalent events reach the web client through its normal Web MIDI input.
+3. A local sender drives LoopBe1 into the browser's normal Web MIDI input. The physical tablet receives this stream through its native USB port and the Windows router.
+4. Native product tests exercise ordered note-on, note-off, sustain and reset events through the product model. Physical checks separately verify USB discovery, receipt and interruption recovery.
 5. Once the local backend milestone is available, both clients can reach it on the development machine. This integration check does not block the earlier toolchain and loopback MIDI checks.
 
 The local setup covers application behavior. It does not establish USB/Bluetooth MIDI compatibility, hardware latency, cable/power behavior or Samsung-specific behavior; those remain unverified rather than prerequisites for this test plan.
@@ -94,7 +94,7 @@ docs/
 - `contracts` holds the versioned API/score schema. Web and Kotlin clients can consume the same contract without pretending that TypeScript modules run natively on Android.
 - Music fixtures describe expected input/output behavior for both clients; selected web logic may also be ported or reused where appropriate.
 - Compose configuration starts with local backend/database services and persistent test data. Keep release containers portable, with separate settings for the later NAS and VPS deployments.
-- Setup scripts and documentation provide a repeatable path for checking prerequisites, starting development, launching the emulator and MIDI bridge, and installing a debug Android build.
+- Setup scripts and documentation provide a repeatable path for checking prerequisites, starting development, launching the emulator or physical USB session, and installing a debug Android build.
 
 ### Cleanup inventory
 
@@ -142,7 +142,7 @@ After the complete workflow passes local validation (M7), deploy compatible rele
 ## Recommended execution order
 
 1. Preserve the baseline and local work/configuration. The new user library starts empty.
-2. Install Android tooling and prove the loopback-to-emulator bridge with a minimal native app; retain the already verified direct browser MIDI path.
+2. Install Android tooling and verify native product processing with test APK fixtures; retain the direct browser MIDI path and use the physical USB route for live Android input.
 3. Establish the new repository layout, reference music cases and build checks.
 4. Remove the identified obsolete code/configuration and generated remnants as coherent, reviewable changes.
 5. Run the backend and database locally and connect both a minimal web client and native Android emulator client.

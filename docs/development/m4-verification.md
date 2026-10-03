@@ -1,5 +1,7 @@
 # M4 MIDI chord authoring verification
 
+Historical record: the emulator MIDI bridge described here was removed on 3 October 2026. Current native product tests use test APK fixtures; live tablet MIDI uses the [USB workflow](usb-midi.md). The dated results below retain their original scope.
+
 M4 adds the first private authoring workflow to the web and native Android clients. Work is on `codex/m4-midi-authoring`, stacked above the local testing launcher. No public deployment or push is included.
 
 ## Delivered behavior
