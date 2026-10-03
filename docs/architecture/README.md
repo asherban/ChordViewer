@@ -7,6 +7,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [Product and architecture plan](product-plan.md) | Accepted scope, Library/Create/Practice behavior, the three application parts, deployment direction and open decisions. |
 | [Development setup and repository cleanup](setup-and-cleanup.md) | Workstation audit, Android tooling, local development, later private NAS deployment, preservation and cleanup boundaries. |
 | [Local MIDI testing](local-midi-testing.md) | Verified Windows loopback/web test and the proposed bridge to the Android emulator, without a piano or tablet. |
+| [USB MIDI connection design](usb-midi-connection.md) | Verified Windows-to-tablet native USB MIDI receipt and the design for LoopBe routing, automatic input discovery, connection health and backend forwarding. |
 | [Milestone roadmap](milestones.md) | Delivery outcomes, completion criteria and decisions needed before each stage. |
 | [Local development guide](../development/local-setup.md) | Installed Android tools, build commands, emulator and real LoopBe MIDI test workflow. |
 | [M1 verification record](../development/m1-verification.md) | Passed builds/tests/reviews, working emulator configuration and native MIDI evidence. |

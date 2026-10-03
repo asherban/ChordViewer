@@ -79,6 +79,14 @@ These options apply only to that invocation. Close memory-heavy applications if 
 
 The build pins AGP 8.13.2, Gradle 8.14.5, Kotlin / Compose compiler 2.3.21, Compose BOM 2025.04.01 and SDK 35. Gradle's distribution checksum is pinned. Gradle 8.14.5 includes the repository-resolution security fixes announced in January 2026. These form a compatible baseline rather than a promise of current Play Store submission readiness; review target SDK and dependency updates before the public launch milestone.
 
+## Physical USB MIDI input
+
+USB MIDI input is available in debug and release builds. A piano connects with the tablet as USB host. For computer input, the computer is host and Android exposes its own standard USB MIDI peripheral port; LoopBe is routed to that port by the Windows helper. See the [USB MIDI setup and verification guide](../../docs/development/usb-midi.md).
+
+For local development with the backend already running, use `scripts/development/Start-Testing.ps1 -TabletSerial <serial>`. First select the tablet's Windows destination with `-MidiOutputId <Id>` and its input in ChordViewer's MIDI controls. Later connections remember an unambiguous identity. `-InstallApk` explicitly builds and updates the debug app; ordinary MIDI reconnect preserves the existing Activity and ViewModel. The launcher temporarily enables USB MIDI, maintains backend forwarding separately, and restores its owned resources on normal shutdown. It starts no emulator.
+
+Outside the development launcher, select MIDI in Android's USB preferences and run the [Windows USB router](../../scripts/midi/README.md). MIDI requires no ADB, token, or network connection. The current debug backend still needs its independent ADB mapping.
+
 ## Emulator MIDI input
 
 Build before booting the emulator, then start the [Windows bridge](../../scripts/midi/README.md) on the development machine. From the repository root in an initialized Android shell, run:
@@ -94,9 +102,9 @@ Use the header MIDI button for connection settings, then open a sheet or Explore
 
 ## Boundaries and tests
 
-- `src/main` contains the transport-independent MIDI byte parser, shared MIDI view state, native app shell and live note cards.
-- `src/debug` contains all TCP transport, authentication token handling, relay framing and connection controls. It connects only to `127.0.0.1:39173` through `adb reverse`; it has no configurable remote endpoint. A reset must precede ordered MIDI frames; malformed input closes the connection and clears notes.
-- `src/release` provides a placeholder for future device MIDI input and an unconfigured public API origin. Release includes Internet permission for future HTTPS API use, but has no relay endpoint, relay token field, debug cleartext exception or debug transport. USB and Bluetooth transport are not implemented in this milestone.
+- `src/main` contains native USB discovery and receiving, connection health, transport-independent MIDI processing, shared controls, the native app shell and live note cards. One selected source owns musical state; resets pause authoring without changing a sheet.
+- `src/debug` contains all TCP transport, authentication token handling, relay framing and emulator controls. It connects only to `127.0.0.1:39173` through `adb reverse`; it has no configurable remote endpoint. A reset must precede ordered MIDI frames; malformed input closes the connection and clears notes.
+- `src/release` uses the shared native USB input and an unconfigured public API origin. Release includes Internet permission for future HTTPS API use, but has no relay endpoint, relay token field, debug cleartext exception or debug transport. Bluetooth discovery is not implemented.
 - Local product tests exercise fragmented and running-status MIDI, interleaved realtime messages, note-on with zero velocity, sustain and channel separation, and panic/reset behavior. Development-only bridge and relay tests are excluded under the repository's [testing policy](../../AGENTS.md).
 
 The debug relay coalesces only the live screen snapshot. A separate ordered queue delivers every validated raw frame to the common gesture engine before updating the screen. The queue is bounded to 1,024 frames with at most one posted delivery; overflow closes the connection, clears the queue and pauses entry rather than dropping a note-off. Recognition uses `contracts/fixtures/chord-vocabulary-v1.json` directly, with shared native/web recognition and gesture fixtures. It does not infer gestures from recomposition or from held-note snapshots.

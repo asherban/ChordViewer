@@ -9,7 +9,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Start-Bridge.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps1
 ```
 
-For the web application, select LoopBe Internal MIDI in Chrome's MIDI input picker and allow the localhost origin's MIDI permission. The sender alone is sufficient; the bridge is only needed for Android.
+For the web application, select LoopBe Internal MIDI in Chrome's MIDI input picker and allow the localhost origin's MIDI permission. The sender alone is sufficient; the TCP bridge is needed for the Android emulator.
+
+## Physical tablet USB router
+
+Select MIDI in the connected tablet's USB preferences, then list outputs and explicitly choose the tablet on first use:
+
+```powershell
+.\scripts\midi\Start-UsbRouter.ps1 -List
+.\scripts\midi\Start-UsbRouter.ps1 -Select <Id>
+```
+
+The verified SM-X610 exposes **MIDI function** on Windows. Its name is a display hint; choose the actual tablet endpoint. Later runs can omit `-Select` when its remembered Windows device interface is unambiguous. Missing devices are never replaced with another output. Destinations without a persistent identity and ambiguous identities require selection again. Selection lives in ignored `.local/usb-midi/destination.json`; an exclusive worker-owned lock prevents concurrent routers.
+
+The router receives LoopBe channel messages, sends them through native USB MIDI, and emits Active Sensing every 100 ms from the same forwarding worker. Startup/shutdown cleanup and a 300 ms input watchdog clear notes and pause score entry on interruption. No MIDI token or ADB forwarding is used. `-DurationSeconds 60` bounds a manual run; Ctrl+C requests cleanup. No notes are sent back to LoopBe. SysEx, clock routing and audio are outside this component.
+
+The [tablet guide](../../docs/development/usb-midi.md) explains launcher integration, backend routing, first-time Android selection, and the remaining hardware checks.
 
 The execution-policy option applies only to that process, allowing these repository scripts on a workstation with the default restrictive policy; it does not change machine or user policy.
 

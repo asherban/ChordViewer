@@ -2,6 +2,8 @@
 
 `scripts/development/Start-Testing.ps1` runs the complete Windows testing environment. See the [README workflow](../../README.md#run-the-complete-local-testing-environment) for setup, playback controls and options.
 
+`-TabletSerial <serial>` selects the focused [physical USB MIDI workflow](usb-midi.md). It uses an already-running backend and installed app, starts a USB router instead of the TCP bridge, and does not start an emulator or web server. `-InstallApk` explicitly builds/updates the app. The ownership and shutdown description below applies to the full emulator mode.
+
 ## Ownership and shutdown
 
 The visible PowerShell launcher handles the menu. A separate hidden PowerShell watchdog owns the workloads and watches the launcher's captured process handle and creation time. This makes cleanup survive termination of the launcher process, including while startup is incomplete.

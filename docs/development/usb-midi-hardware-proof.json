@@ -1,0 +1,861 @@
+{
+  "date": "2026-10-03",
+  "timezone": "Asia/Jerusalem",
+  "startedAt": "2026-10-03T18:04:08.7578566+03:00",
+  "restoredAt": "2026-10-03T18:07:29.1995804+03:00",
+  "computer": "ASUS Zenbook Flip UP3404VA",
+  "tablet": "Samsung SM-X610",
+  "androidVersion": "16",
+  "route": "WinMM midiOutShortMsg -> physical USB MIDI -> Android MidiManager MidiOutputPort 0",
+  "probe": {
+    "internetPermission": false,
+    "relayOrSocketCode": false,
+    "package": "com.chordviewer.usbmidiproof",
+    "sourceHashes": [
+      {
+        "file": "ProbeActivity.java",
+        "Hash": "86295CF645F846841AB59C6AB523EA50A53D4CED3E23BCF1F50FAC711D006C15"
+      },
+      {
+        "file": "WinMidiProof.cs",
+        "Hash": "DAA6754BD2E41CD79C0C11F381485F1CBB8E5A2A35111BFCE094E238842FAF4E"
+      }
+    ],
+    "manifest": "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"com.chordviewer.usbmidiproof\">\n    <uses-sdk android:minSdkVersion=\"26\" android:targetSdkVersion=\"35\" />\n    <uses-feature android:name=\"android.software.midi\" android:required=\"true\" />\n    <application android:label=\"USB MIDI hardware proof\" android:allowBackup=\"false\" android:debuggable=\"true\" android:theme=\"@android:style/Theme.Material.Light.NoActionBar\">\n        <activity android:name=\".ProbeActivity\" android:exported=\"true\">\n            <intent-filter>\n                <action android:name=\"android.intent.action.MAIN\" />\n                <category android:name=\"android.intent.category.LAUNCHER\" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n"
+  },
+  "windowsOutputsBefore": [
+    {
+      "Id": 0,
+      "Name": "Microsoft GS Wavetable Synth",
+      "Manufacturer": 1,
+      "Product": 27
+    },
+    {
+      "Id": 1,
+      "Name": "LoopBe Internal MIDI",
+      "Manufacturer": 1,
+      "Product": 26
+    }
+  ],
+  "windowsOutputsMidi": [
+    {
+      "Id": 0,
+      "Name": "Microsoft GS Wavetable Synth",
+      "Manufacturer": 1,
+      "Product": 27
+    },
+    {
+      "Id": 1,
+      "Name": "LoopBe Internal MIDI",
+      "Manufacturer": 1,
+      "Product": 26
+    },
+    {
+      "Id": 2,
+      "Name": "MIDI function",
+      "Manufacturer": 1,
+      "Product": 102
+    }
+  ],
+  "windowsOutputsBetween": [
+    {
+      "Id": 0,
+      "Name": "Microsoft GS Wavetable Synth",
+      "Manufacturer": 1,
+      "Product": 27
+    },
+    {
+      "Id": 1,
+      "Name": "LoopBe Internal MIDI",
+      "Manufacturer": 1,
+      "Product": 26
+    }
+  ],
+  "firstSequence": {
+    "outcome": "PASS",
+    "expectedMessages": 16,
+    "expectedBytes": 48,
+    "receivedBytes": 48,
+    "receiveCallbacks": 16,
+    "outputName": "MIDI function",
+    "androidPort": "Android USB Peripheral Port",
+    "sentBytes": [
+      144,
+      60,
+      96,
+      144,
+      64,
+      96,
+      144,
+      67,
+      96,
+      176,
+      64,
+      127,
+      128,
+      60,
+      0,
+      128,
+      64,
+      0,
+      128,
+      67,
+      0,
+      176,
+      64,
+      0,
+      144,
+      62,
+      80,
+      144,
+      62,
+      0,
+      145,
+      69,
+      80,
+      129,
+      69,
+      0,
+      176,
+      64,
+      0,
+      176,
+      123,
+      0,
+      177,
+      64,
+      0,
+      177,
+      123,
+      0
+    ],
+    "observedBytes": [
+      144,
+      60,
+      96,
+      144,
+      64,
+      96,
+      144,
+      67,
+      96,
+      176,
+      64,
+      127,
+      128,
+      60,
+      0,
+      128,
+      64,
+      0,
+      128,
+      67,
+      0,
+      176,
+      64,
+      0,
+      144,
+      62,
+      80,
+      144,
+      62,
+      0,
+      145,
+      69,
+      80,
+      129,
+      69,
+      0,
+      176,
+      64,
+      0,
+      176,
+      123,
+      0,
+      177,
+      64,
+      0,
+      177,
+      123,
+      0
+    ]
+  },
+  "secondSequence": {
+    "outcome": "PASS",
+    "expectedMessages": 16,
+    "expectedBytes": 48,
+    "receivedBytes": 48,
+    "receiveCallbacks": 16,
+    "generation": 3,
+    "sentBytes": [
+      144,
+      60,
+      96,
+      144,
+      64,
+      96,
+      144,
+      67,
+      96,
+      176,
+      64,
+      127,
+      128,
+      60,
+      0,
+      128,
+      64,
+      0,
+      128,
+      67,
+      0,
+      176,
+      64,
+      0,
+      144,
+      62,
+      80,
+      144,
+      62,
+      0,
+      145,
+      69,
+      80,
+      129,
+      69,
+      0,
+      176,
+      64,
+      0,
+      176,
+      123,
+      0,
+      177,
+      64,
+      0,
+      177,
+      123,
+      0
+    ],
+    "observedBytes": [
+      144,
+      60,
+      96,
+      144,
+      64,
+      96,
+      144,
+      67,
+      96,
+      176,
+      64,
+      127,
+      128,
+      60,
+      0,
+      128,
+      64,
+      0,
+      128,
+      67,
+      0,
+      176,
+      64,
+      0,
+      144,
+      62,
+      80,
+      144,
+      62,
+      0,
+      145,
+      69,
+      80,
+      129,
+      69,
+      0,
+      176,
+      64,
+      0,
+      176,
+      123,
+      0,
+      177,
+      64,
+      0,
+      177,
+      123,
+      0
+    ]
+  },
+  "nativeEvents": [
+    {
+      "event": "started",
+      "elapsedRealtimeNanos": 19750806312179
+    },
+    {
+      "event": "waiting_for_usb_midi",
+      "elapsedRealtimeNanos": 19750811628987
+    },
+    {
+      "deviceId": 1,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "added",
+      "elapsedRealtimeNanos": 19752945701216
+    },
+    {
+      "deviceId": 1,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "enumerated",
+      "elapsedRealtimeNanos": 19752946766178
+    },
+    {
+      "deviceId": 1,
+      "port": 0,
+      "generation": 1,
+      "event": "opened",
+      "elapsedRealtimeNanos": 19752956647293
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802057793989,
+      "data": [
+        144,
+        60,
+        96
+      ],
+      "callback": 1,
+      "receivedBytes": 3,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802062630065
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802208928181,
+      "data": [
+        144,
+        64,
+        96
+      ],
+      "callback": 2,
+      "receivedBytes": 6,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802209814104
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802360431296,
+      "data": [
+        144,
+        67,
+        96
+      ],
+      "callback": 3,
+      "receivedBytes": 9,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802361885258
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802511787296,
+      "data": [
+        176,
+        64,
+        127
+      ],
+      "callback": 4,
+      "receivedBytes": 12,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802513358104
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802663952488,
+      "data": [
+        128,
+        60,
+        0
+      ],
+      "callback": 5,
+      "receivedBytes": 15,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802665330950
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802814061719,
+      "data": [
+        128,
+        64,
+        0
+      ],
+      "callback": 6,
+      "receivedBytes": 18,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802815244911
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19802965902296,
+      "data": [
+        128,
+        67,
+        0
+      ],
+      "callback": 7,
+      "receivedBytes": 21,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19802967493988
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803116861680,
+      "data": [
+        176,
+        64,
+        0
+      ],
+      "callback": 8,
+      "receivedBytes": 24,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803117883565
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803267588988,
+      "data": [
+        144,
+        62,
+        80
+      ],
+      "callback": 9,
+      "receivedBytes": 27,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803268699142
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803418303218,
+      "data": [
+        144,
+        62,
+        0
+      ],
+      "callback": 10,
+      "receivedBytes": 30,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803419433488
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803569619641,
+      "data": [
+        145,
+        69,
+        80
+      ],
+      "callback": 11,
+      "receivedBytes": 33,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803570713026
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803720802141,
+      "data": [
+        129,
+        69,
+        0
+      ],
+      "callback": 12,
+      "receivedBytes": 36,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803721910334
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19803879327641,
+      "data": [
+        176,
+        64,
+        0
+      ],
+      "callback": 13,
+      "receivedBytes": 39,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19803879809987
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19804029158064,
+      "data": [
+        176,
+        123,
+        0
+      ],
+      "callback": 14,
+      "receivedBytes": 42,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19804029686141
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19804181552295,
+      "data": [
+        177,
+        64,
+        0
+      ],
+      "callback": 15,
+      "receivedBytes": 45,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19804182077333
+    },
+    {
+      "deviceId": 1,
+      "generation": 1,
+      "timestampNanos": 19804332830179,
+      "data": [
+        177,
+        123,
+        0
+      ],
+      "callback": 16,
+      "receivedBytes": 48,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19804333344948
+    },
+    {
+      "deviceId": 1,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "removed",
+      "elapsedRealtimeNanos": 19837917628963
+    },
+    {
+      "reason": "device_removed",
+      "event": "closed",
+      "elapsedRealtimeNanos": 19837919714117
+    },
+    {
+      "deviceId": 2,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "added",
+      "elapsedRealtimeNanos": 19860806532754
+    },
+    {
+      "deviceId": 2,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "enumerated",
+      "elapsedRealtimeNanos": 19860809017600
+    },
+    {
+      "deviceId": 2,
+      "port": 0,
+      "generation": 3,
+      "event": "opened",
+      "elapsedRealtimeNanos": 19860832264793
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19882714766700,
+      "data": [
+        144,
+        60,
+        96
+      ],
+      "callback": 17,
+      "receivedBytes": 51,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19882720946123
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19882866425892,
+      "data": [
+        144,
+        64,
+        96
+      ],
+      "callback": 18,
+      "receivedBytes": 54,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19882867941700
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883017347738,
+      "data": [
+        144,
+        67,
+        96
+      ],
+      "callback": 19,
+      "receivedBytes": 57,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883018289200
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883170158661,
+      "data": [
+        176,
+        64,
+        127
+      ],
+      "callback": 20,
+      "receivedBytes": 60,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883171527546
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883321882238,
+      "data": [
+        128,
+        60,
+        0
+      ],
+      "callback": 21,
+      "receivedBytes": 63,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883323002277
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883474339853,
+      "data": [
+        128,
+        64,
+        0
+      ],
+      "callback": 22,
+      "receivedBytes": 66,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883475890853
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883625447892,
+      "data": [
+        128,
+        67,
+        0
+      ],
+      "callback": 23,
+      "receivedBytes": 69,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883626669892
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883776723930,
+      "data": [
+        176,
+        64,
+        0
+      ],
+      "callback": 24,
+      "receivedBytes": 72,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883777612969
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19883927972584,
+      "data": [
+        144,
+        62,
+        80
+      ],
+      "callback": 25,
+      "receivedBytes": 75,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19883929218084
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884078758968,
+      "data": [
+        144,
+        62,
+        0
+      ],
+      "callback": 26,
+      "receivedBytes": 78,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884079780507
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884230943776,
+      "data": [
+        145,
+        69,
+        80
+      ],
+      "callback": 27,
+      "receivedBytes": 81,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884231996776
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884382119699,
+      "data": [
+        129,
+        69,
+        0
+      ],
+      "callback": 28,
+      "receivedBytes": 84,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884383159853
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884533877507,
+      "data": [
+        176,
+        64,
+        0
+      ],
+      "callback": 29,
+      "receivedBytes": 87,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884534416199
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884684788622,
+      "data": [
+        176,
+        123,
+        0
+      ],
+      "callback": 30,
+      "receivedBytes": 90,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884687935814
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884835882776,
+      "data": [
+        177,
+        64,
+        0
+      ],
+      "callback": 31,
+      "receivedBytes": 93,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884836785429
+    },
+    {
+      "deviceId": 2,
+      "generation": 3,
+      "timestampNanos": 19884988168198,
+      "data": [
+        177,
+        123,
+        0
+      ],
+      "callback": 32,
+      "receivedBytes": 96,
+      "event": "bytes",
+      "elapsedRealtimeNanos": 19884989203622
+    },
+    {
+      "deviceId": 2,
+      "type": 1,
+      "inputPorts": 1,
+      "outputPorts": 1,
+      "name": "Android USB Peripheral Port",
+      "manufacturer": "Android",
+      "product": "USB Peripheral Port",
+      "hasUsbDeviceProperty": false,
+      "event": "removed",
+      "elapsedRealtimeNanos": 19922493890133
+    },
+    {
+      "reason": "device_removed",
+      "event": "closed",
+      "elapsedRealtimeNanos": 19922495283095
+    }
+  ],
+  "senderClosedWhileDeviceRemainedPresent": true,
+  "restored": {
+    "defaultUsbConfig": "sec_charging,adb",
+    "originalChordViewerTaskResumed": true,
+    "probeInstalled": false,
+    "backendForward": "tcp:3000 -> tcp:3000",
+    "usbConfig": "sec_charging,adb",
+    "backendHealthStatus": 200
+  },
+  "limits": [
+    "USB configuration reconnect was exercised; physical cable unplug/replug was not.",
+    "ADB remained enabled for setup and evidence collection, not MIDI transport.",
+    "No LoopBe-to-USB router was implemented or exercised.",
+    "No ChordViewer native MIDI input was implemented or exercised.",
+    "USB MIDI default persistence, lock/reboot/sleep behavior, latency and piano input were not tested."
+  ]
+}

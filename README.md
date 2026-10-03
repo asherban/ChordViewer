@@ -329,6 +329,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/midi/Send-Fixture.ps
 
 The bridge listens only on `127.0.0.1:39173`; the helper creates `adb reverse` and passes a private per-run token without printing it. You do not need to copy the token. The [bridge guide](scripts/midi/README.md) documents connection behavior and fixture options. The development bridge and debug relay have no dedicated test suites; the product acceptance tests below can still use them to supply MIDI input.
 
+For a physical tablet, use `scripts/development/Start-Testing.ps1 -TabletSerial <serial>` with the local backend already running. First choose the tablet's output with `-MidiOutputId <Id>` and its input in ChordViewer. Add `-InstallApk` to build/update the debug app explicitly. This mode uses native USB MIDI without a token and starts no emulator. The [USB MIDI guide](docs/development/usb-midi.md) explains first-time selection, automatic reconnect and separate backend forwarding.
+
 For the optional native UI acceptance test, prepare a synthetic account with at least one saved sheet in the **test** backend. Store its `email` and `password` as a JSON object in a private, ignored fixture file, then run with the bridge active:
 
 ```powershell
