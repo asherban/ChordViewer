@@ -1,5 +1,11 @@
 import type { LeadSheet } from './score.js';
 
+/** Library cards abbreviate labels; the full score always retains the complete symbol. */
+export function chordPreviewSymbol(symbol: string): string {
+  const points = [...symbol];
+  return points.length <= 64 ? symbol : points.slice(0,63).join('') + '…';
+}
+
 export interface AccountSummary { id: string; name: string; email: string }
 export interface SheetSummary {
   id: string; title: string; tutorialUrl: string | null; revision: number; createdAt: string; updatedAt: string;

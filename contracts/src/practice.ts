@@ -1,3 +1,5 @@
+import { chordPitchClasses, chordPitchClass, chordSymbol, parseChordDefinition, transposeChordDefinition, type ChordDefinition } from './chord-definition.js';
+import { logicalChords } from './chord-timeline.js';
 import vocabulary from '../fixtures/chord-vocabulary-v1.json' with { type: 'json' };
 import { ChordCapture, type ChordPosition } from './chord-entry.js';
 import { midiToPitch } from './melody-entry.js';
@@ -5,7 +7,7 @@ import { SUPPORTED_KEYS } from './music.js';
 import { parseScore } from './validation.js';
 import type { LeadSheet, Pitch } from './score.js';
 
-export interface PracticeEvent { id: string; symbol: string; position: ChordPosition }
+export interface PracticeEvent { id: string; symbol: string; definition?: ChordDefinition | undefined; position: ChordPosition }
 const NATURAL: Record<Pitch['step'], number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const mod = (value: number) => (value % 12 + 12) % 12;
 const rootPattern = /^([A-G](?:#|b)?)(.*)$/;
@@ -16,20 +18,19 @@ function pitchClass(name: string): number | null {
 }
 
 export function practiceEvents(score: LeadSheet): PracticeEvent[] {
-  return score.measures.flatMap((measure, measureIndex) => measure.chords.map(event =>
-    ({ id: event.id, symbol: event.symbol, position: { measureIndex, offsetTicks: event.offsetTicks } })));
+  return logicalChords(score).map(c => ({ id: c.event.id, symbol: c.event.symbol, definition: c.event.definition, position: c.position }));
 }
 export function practiceBar(score: LeadSheet, bar: number): number {
   return Number.isFinite(bar) ? Math.max(0, Math.min(score.measures.length - 1, Math.trunc(bar))) : 0;
 }
 export function firstPracticeEventInBar(score: LeadSheet, bar: number): number {
-  const events = practiceEvents(score);
-  return events.findIndex(event => event.position.measureIndex === practiceBar(score, bar));
+  const target = practiceBar(score, bar);
+  return logicalChords(score).findIndex(chord => chord.position.measureIndex <= target && score.measures[target]!.chords.some(fragment => chord.ids.includes(fragment.id)));
 }
 
 function parseChord(symbol: string) {
   const match = rootPattern.exec(symbol);
-  if (!match) return null;
+  if (!match || match[0] !== symbol) return null;
   const root = pitchClass(match[1]!);
   if (root === null) return null;
   let suffix = match[2]!;
@@ -46,11 +47,23 @@ function parseChord(symbol: string) {
   const entry = vocabulary.entries.find(item => item.suffix === suffix);
   return entry ? { root, bass, suffix, entry } : null;
 }
-export function supportsPracticeMatch(symbol: string): boolean { return parseChord(symbol) !== null; }
+export function supportsPracticeMatch(symbol: string, definition?: ChordDefinition): boolean {
+  if (definition) return definition.kind !== 'none';
+  const parsed = parseChordDefinition(symbol);
+  return parseChord(symbol) !== null || !!parsed && parsed.kind !== 'none';
+}
 /** Exact pitch-class identity, with optional chord tones and an explicitly written bass. */
-export function matchesPracticeChord(symbol: string, midiNotes: readonly number[]): boolean {
+export function matchesPracticeChord(symbol: string, midiNotes: readonly number[], definition?: ChordDefinition): boolean {
+  if (definition) {
+    if (definition.kind === 'tonal' && !definition.additions?.length && !definition.alterations?.length && !definition.omissions?.length && parseChord(chordSymbol(definition))) return matchesPracticeChord(chordSymbol(definition), midiNotes);
+    if (!midiNotes.length || midiNotes.some(n => !Number.isInteger(n) || n < 0 || n > 127)) return false;
+    if (definition.bass && Math.min(...midiNotes) % 12 !== chordPitchClass(definition.bass)) return false;
+    const actual = [...new Set(midiNotes.map(n => n % 12))].sort((a,b) => a-b);
+    return JSON.stringify(actual) === JSON.stringify(chordPitchClasses(definition));
+  }
   const chord = parseChord(symbol);
-  if (!chord || !midiNotes.length || midiNotes.some(note => !Number.isInteger(note) || note < 0 || note > 127)) return false;
+  if (!chord) { const parsed = parseChordDefinition(symbol); return parsed ? matchesPracticeChord(symbol,midiNotes,parsed) : false; }
+  if (!midiNotes.length || midiNotes.some(note => !Number.isInteger(note) || note < 0 || note > 127)) return false;
   const pitches = new Set(midiNotes.map(note => mod(note)));
   const optional: readonly number[] = 'optionalIntervals' in chord.entry ? chord.entry.optionalIntervals : [];
   if (chord.bass !== null && mod(Math.min(...midiNotes)) !== chord.bass) return false;
@@ -76,7 +89,12 @@ export function transposePracticeScore(score: LeadSheet, semitones: number): Lea
   if (!targetKey) throw new RangeError('The transposed key is outside supported notation.');
   const measures = score.measures.map(measure => ({
     ...measure,
-    chords: measure.chords.map(event => ({ ...event, symbol: transposeSymbol(event.symbol, semitones, targetKey) })),
+    chords: measure.chords.map(event => {
+      const definition = event.definition ?? parseChordDefinition(event.symbol);
+      if (!definition) return { ...event, symbol: transposeSymbol(event.symbol, semitones, targetKey) };
+      const transposed = transposeChordDefinition(definition, semitones, targetKey.includes('b') || ['F','Dm','Gm','Cm','Fm','Bbm','Ebm'].includes(targetKey));
+      return { ...event, ...(event.definition ? { definition: transposed } : {}), symbol: chordSymbol(transposed) };
+    }),
     melody: measure.melody.map(event => {
       if (event.kind !== 'note') return event;
       const midi = (event.pitch.octave + 1) * 12 + NATURAL[event.pitch.step] + event.pitch.alter + semitones;
@@ -84,7 +102,7 @@ export function transposePracticeScore(score: LeadSheet, semitones: number): Lea
       return { ...event, pitch: midiToPitch(midi, targetKey) };
     }),
   }));
-  return parseScore({ ...score, schemaVersion: 2, keySignature: targetKey, measures });
+  return parseScore({ ...score, schemaVersion: Math.max(2, score.schemaVersion) as LeadSheet['schemaVersion'], keySignature: targetKey, measures });
 }
 
 export interface PracticeSnapshot {
@@ -141,10 +159,10 @@ export class PracticeSession {
     const events = practiceEvents(this.score);
     const target = events[this.snapshot.eventIndex];
     if (!target) return this.snapshot;
-    if (!supportsPracticeMatch(target.symbol)) {
+    if (!supportsPracticeMatch(target.symbol, target.definition)) {
       this.snapshot = { ...this.snapshot, lastGesture: 'unsupported' }; this.publish(); return this.snapshot;
     }
-    if (!matchesPracticeChord(target.symbol, notes)) {
+    if (!matchesPracticeChord(target.symbol, notes, target.definition)) {
       this.snapshot = { ...this.snapshot, lastGesture: 'different' }; this.publish(); return this.snapshot;
     }
     const next = this.snapshot.eventIndex + 1;

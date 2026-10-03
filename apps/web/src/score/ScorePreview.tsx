@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { durationTicks, measureTicks, keyAccidentals, nextMelodyPosition, melodyGroup, notationRests, type Pitch, type ChordPosition, type LeadSheet, type MelodyEvent } from "@chordviewer/contracts";
+import { durationTicks, measureTicks, keyAccidentals, nextMelodyPosition, melodyGroup, chordGroup, notationRests, type Pitch, type ChordPosition, type LeadSheet, type MelodyEvent } from "@chordviewer/contracts";
 import { Accidental, BarlineType, Dot, Formatter, Fraction, GhostNote, Renderer, Stave, StaveNote, StaveTie, TextNote, Voice, type Tickable } from "vexflow/bravura";
 import { melodyAccidentals } from "./accidentals";
 import { chordSegments, positionChordSegments, scoreSystems, scoreTickAtX, type Measure } from "./layout";
@@ -160,6 +160,8 @@ export function ScorePreview({ score, melody, editing, practice }: { score: Lead
   const noteDrag = useRef<{ pointer: number; y: number; original: Pitch; pitch: Pitch; position: ChordPosition; id?: string; x: number; bottom: number; moved: boolean } | null>(null);
   const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
   const melodyEntry = editing?.lane === "melody";
+  const selectedChordIds = new Set(!melodyEntry && editing?.selectedId ? chordGroup(score, editing.selectedId)?.ids : []);
+  const practiceChordIds = new Set(practice?.chordId ? chordGroup(score, practice.chordId)?.ids : []);
   const cursor = melodyEntry ? nextMelodyPosition(score) : editing?.position;
   const suppressClick = useRef(false);
   const pointers = useRef(new Set<number>());
@@ -323,12 +325,12 @@ export function ScorePreview({ score, melody, editing, practice }: { score: Lead
       {ghost && <div className="melody-ghost" style={{ left: ghost.x, top: ghost.y }}><span>{ghost.label}</span></div>}
       {practice && layout?.bars.map(bar => <button key={bar.index} className="practice-bar-target" style={{ left: bar.left + 2, top: bar.top + 2 }}
         aria-label={`Select bar ${bar.index + 1}`} onClick={() => practice.selectBar(bar.index)} />)}
-      {practice && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target practice-chord-target${practice.chordId === chord.id ? " selected" : ""}`}
+      {practice && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target practice-chord-target${practiceChordIds.has(chord.id) ? " selected" : ""}`}
         style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={`Select ${chordLabel(chord, score)}`}
-        data-practice-chord-current={practice.chordId === chord.id ? "true" : undefined}
-        aria-pressed={practice.chordId === chord.id} onClick={() => practice.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
-      {editing && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
-        style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={chordLabel(chord, score)} title={chordLabel(chord, score)} aria-pressed={editing.selectedId === chord.id}
+        data-practice-chord-current={practiceChordIds.has(chord.id) ? "true" : undefined}
+        aria-pressed={practiceChordIds.has(chord.id)} onClick={() => practice.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
+      {editing && layout?.chords.map(chord => <button key={chord.id} className={`notation-chord-target editable-chord${selectedChordIds.has(chord.id) ? " selected" : ""}`}
+        style={{ left: chord.left, top: chord.top, width: Math.max(44, chord.width) }} aria-label={chordLabel(chord, score)} title={chordLabel(chord, score)} aria-pressed={selectedChordIds.has(chord.id)}
         data-chord-id={chord.id} disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}><span className="sr-only">{chord.symbol}</span></button>)}
       {editing && layout?.melody.map(note => <button key={note.id} className={`notation-note-target editable-melody${selectedGroup?.ids.includes(note.id) ? " selected" : ""}`}
         style={{ left: note.left, top: note.top, width: note.width, height: note.height }} aria-label={note.label} title={note.label} aria-pressed={!!selectedGroup?.ids.includes(note.id)}
@@ -347,11 +349,11 @@ export function ScorePreview({ score, melody, editing, practice }: { score: Lead
               {slots.filter(slot => slot.chord).map(slot => {
                 const chord = slot.chord!;
                 const label = chordLabel({ id: chord.id, symbol: chord.symbol, offset: chord.offsetTicks, duration: chord.durationTicks, bar: index, left: 0, top: 0, width: 0 }, score);
-                return editing ? <button key={chord.id} style={{ left: slot.left, width: slot.width }} className={`score-chord editable-chord${editing.selectedId === chord.id ? " selected" : ""}`}
-                  data-chord-id={chord.id} aria-label={label} title={label} aria-pressed={editing.selectedId === chord.id} disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}>{chord.symbol}</button>
-                  : practice ? <button className={`score-chord practice-chord${practice.chordId === chord.id ? " selected" : ""}`} key={chord.id}
-                      style={{ left: slot.left, width: slot.width }} aria-label={`Select ${label}`} aria-pressed={practice.chordId === chord.id}
-                      data-practice-chord-current={practice.chordId === chord.id ? "true" : undefined}
+                return editing ? <button key={chord.id} style={{ left: slot.left, width: slot.width }} className={`score-chord editable-chord${selectedChordIds.has(chord.id) ? " selected" : ""}`}
+                  data-chord-id={chord.id} aria-label={label} title={label} aria-pressed={selectedChordIds.has(chord.id)} disabled={!editing.writable} onClick={() => editing.selectChord(chord.id)}>{chord.symbol}</button>
+                  : practice ? <button className={`score-chord practice-chord${practiceChordIds.has(chord.id) ? " selected" : ""}`} key={chord.id}
+                      style={{ left: slot.left, width: slot.width }} aria-label={`Select ${label}`} aria-pressed={practiceChordIds.has(chord.id)}
+                      data-practice-chord-current={practiceChordIds.has(chord.id) ? "true" : undefined}
                       onClick={() => practice.selectChord(chord.id)}>{chord.symbol}</button>
                     : <span className="score-chord" key={chord.id} style={{ left: slot.left, width: slot.width }} title={label}>{chord.symbol}</span>;
               })}

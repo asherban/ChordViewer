@@ -1,3 +1,4 @@
+import type { ChordDefinition } from './chord-definition.js';
 import type { KeySignature, TimeSignature } from './music.js';
 
 export const TICKS_PER_QUARTER = 480;
@@ -9,14 +10,14 @@ export interface Pitch {
   octave: 3 | 4 | 5 | 6;
 }
 export interface NoteDuration { denominator: 1 | 2 | 4 | 8 | 16 | 32; dots: 0 | 1 }
-export interface ChordEvent { id: string; offsetTicks: number; durationTicks: number; symbol: string }
+export interface ChordEvent { id: string; offsetTicks: number; durationTicks: number; symbol: string; logicalId?: string; definition?: ChordDefinition | undefined }
 interface MelodyBase { id: string; offsetTicks: number; duration: NoteDuration }
 export interface NoteEvent extends MelodyBase { kind: 'note'; pitch: Pitch; tieToNext?: boolean }
 export interface RestEvent extends MelodyBase { kind: 'rest' }
 export type MelodyEvent = NoteEvent | RestEvent;
 export interface Measure { id: string; chords: ChordEvent[]; melody: MelodyEvent[] }
 export interface LeadSheet {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   id: string;
   title: string;
   keySignature: KeySignature;

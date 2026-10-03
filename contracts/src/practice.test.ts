@@ -87,7 +87,7 @@ describe('practice rules', () => {
       expect(result.measures[0].melody[3].kind).toBe('rest');
     }
     expect(JSON.stringify(minor)).toBe(source);
-    expect(() => transposePracticeScore(score(['verse']), 1)).toThrow(/unsupported chord/);
+    expect(() => score(['verse'])).toThrow();
     const high = parseScore({ ...score(['C']), measures: [{ id: 'high', chords: [], melody: [{
       id: 'note', kind: 'note', offsetTicks: 0, duration: { denominator: 4, dots: 0 }, pitch: { step: 'B', alter: 0, octave: 6 },
     }] }] });

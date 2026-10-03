@@ -1,3 +1,5 @@
+import { chordGroup } from './chord-timeline.js';
+import { parseChordDefinition } from './chord-definition.js';
 import vocabulary from '../fixtures/chord-vocabulary-v1.json' with { type: 'json' };
 import { measureTicks, type ChordEvent, type LeadSheet } from './score.js';
 import { parseScore } from './validation.js';
@@ -23,6 +25,7 @@ function validateEntry(score: LeadSheet, symbol: string, duration: number): void
     || /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(symbol)) {
     throw new ChordEntryError('symbol', 'Enter a trimmed, printable chord symbol of 1 to 32 characters.');
   }
+  if (!parseChordDefinition(symbol)) throw new ChordEntryError('symbol', 'Choose a supported chord symbol.');
 }
 
 function validatePosition(score: LeadSheet, position: ChordPosition): void {
@@ -61,11 +64,8 @@ function newId(idFactory: () => string, used: Set<string>): string {
 
 /** Chord lookup preserves the event's stored spelling and duration. */
 export function findChord(score: LeadSheet, eventId: string): LocatedChord | null {
-  for (const [measureIndex, measure] of score.measures.entries()) {
-    const event = measure.chords.find(chord => chord.id === eventId);
-    if (event) return { event, position: { measureIndex, offsetTicks: event.offsetTicks } };
-  }
-  return null;
+  const group = chordGroup(score, eventId);
+  return group ? { event: group.fragments.length === 1 ? group.event : { ...group.event, durationTicks: group.ticks }, position: group.position } : null;
 }
 
 /** Inserts only into free space. The factory is called for the chord, then for a new bar if needed. */

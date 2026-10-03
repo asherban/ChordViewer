@@ -148,11 +148,12 @@ private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, m
                 NativeScore(score, melody || (state.mode == LibraryMode.CREATE && state.editor?.lane == com.chordviewer.score.EntryLane.MELODY), if (state.mode == LibraryMode.CREATE) state.editor?.selectedMelodyId else null,
                     if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::selectMelody else null,
                     practiceBar = if (state.mode == LibraryMode.PRACTICE) state.practice.bar else null,
-                    practiceChordId = if (state.mode == LibraryMode.PRACTICE) score.measures.flatMap { it.chords }.getOrNull(state.practice.eventIndex)?.id else null,
-                    entryPosition = if (state.mode == LibraryMode.CREATE) state.editor?.position else null,
+                    practiceChordId = if (state.mode == LibraryMode.PRACTICE) com.chordviewer.score.ChordTimeline.groups(score).getOrNull(state.practice.eventIndex)?.event?.id else null,
+                    selectPracticeChord = if (!sample && state.mode == LibraryMode.PRACTICE && !state.busy) model::practiceChord else null,
+                    entryPosition = if (state.mode == LibraryMode.CREATE) if (state.editor?.lane == com.chordviewer.score.EntryLane.CHORDS) com.chordviewer.score.ChordTimeline.next(score) else state.editor?.position else null,
                     selectPosition = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::setPosition else null,
                     selectChord = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::selectChord else null,
-                    moveChord = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::moveChord else null,
+                    moveChord = null,
                     melodyEntry = !sample && state.mode == LibraryMode.CREATE && state.editor?.lane == com.chordviewer.score.EntryLane.MELODY,
                     entryDuration = state.editor?.melodyDuration ?: com.chordviewer.score.ScoreDuration(4, 0),
                     placeNote = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::placeNote else null,
@@ -160,7 +161,10 @@ private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, m
                     durationControl = { MelodyDurationControl(state, model) },
                     deleteNote = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::deleteMelody else null,
                     setTie = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::setMelodyTie else null,
-                    pauseEntry = if (state.mode == LibraryMode.CREATE) model::pauseEntry else null)
+                    pauseEntry = if (state.mode == LibraryMode.CREATE) model::pauseEntry else null,
+                    selectedChordId = if(state.mode == LibraryMode.CREATE) state.editor?.selectedId else null, chordAnchorId = state.editor?.chordAnchorId, chordDialogOpen = state.editor?.chordDialogOpen == true,
+                    openChord = if (!sample && state.mode == LibraryMode.CREATE && !state.busy && state.editor?.lane == com.chordviewer.score.EntryLane.CHORDS) model::openChordDialog else null,
+                    chordControl = { ChordDialog(state, model) })
             }
         }
     }
@@ -210,12 +214,13 @@ private fun PracticeControls(state: LibraryState, score: LeadSheet, model: Libra
 @Composable
 private fun PlayedNotesPanel(state: LibraryState, score: LeadSheet, midi: MidiInputState, setup: () -> Unit) {
     val practicing = state.mode == LibraryMode.PRACTICE
-    val current = score.measures.flatMap { it.chords }.getOrNull(state.practice.eventIndex)
+    val current = com.chordviewer.score.ChordTimeline.groups(score).getOrNull(state.practice.eventIndex)?.event
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (practicing) Column(Modifier.weight(1f)) {
                 Text("CHART", color = MutedColor, style = MaterialTheme.typography.labelLarge)
-                Text(current?.symbol ?: "—", style = MaterialTheme.typography.headlineMedium)
+                Text(current?.symbol ?: "—", style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.semantics { contentDescription = "Practice target ${current?.symbol ?: "none"}" })
             }
             Column(Modifier.weight(1f)) {
                 Text(if (practicing) "PLAYED" else "LIVE INPUT", color = MutedColor, style = MaterialTheme.typography.labelLarge)

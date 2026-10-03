@@ -202,11 +202,11 @@ describe('immutable chord editing', () => {
       expectIssue(() => insertChord(blankScore(), position, 'C', 480, ids()), 'position');
     }
   });
-  it('preserves printable custom notation as data and counts Unicode codepoints', () => {
-    for (const symbol of ['N.C.', 'iiø7/V', 'F♯m7', 'CΔ7', '<b>C</b>', '🎹'.repeat(32)]) {
+  it('preserves supported legal spellings and rejects unsupported free-text annotations', () => {
+    for (const symbol of ['N.C.', 'F♯m7', 'CΔ7', 'C+', 'Cm(add9)']) {
       expect(insertChord(blankScore(), { measureIndex: 0, offsetTicks: 0 }, symbol, 480, ids()).score.measures[0]!.chords[0]!.symbol).toBe(symbol);
     }
-    for (const symbol of ['', ' ', ' C', 'C ', 'C\n7', 'C\u00007', 'C\u202e7', 'C\u20287', '\ud800', '🎹'.repeat(33)]) {
+    for (const symbol of ['', ' ', ' C', 'C ', 'C\n7', 'C\u00007', 'C\u202e7', 'C\u20287', '\ud800', 'iiø7/V', '<b>C</b>', '🎹'.repeat(32), '🎹'.repeat(33)]) {
       expectIssue(() => insertChord(blankScore(), { measureIndex: 0, offsetTicks: 0 }, symbol, 480, ids()), 'symbol');
     }
   });

@@ -26,7 +26,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("saves without silent trailing bars", async () => {
+it("saves explicit melody rest tails while trimming empty trailing bars", async () => {
   const fetch = vi.fn().mockResolvedValueOnce(json({ user })).mockResolvedValueOnce(json({ sheets: [sheet] }))
     .mockResolvedValueOnce(json(saved)).mockResolvedValueOnce(json({ ...saved, revision: 2 }));
   vi.stubGlobal("fetch", fetch);
@@ -35,9 +35,9 @@ it("saves without silent trailing bars", async () => {
   await act(async () => { await result.current.openSheet(saved.id); });
   const draft = parseScore({ ...example, measures: [...example.measures, { id: "tail", chords: [], melody: [
     { id: "tail-rest", kind: "rest", offsetTicks: 0, duration: { denominator: 1, dots: 0 } },
-  ] }] });
+  ] }, { id: "empty-tail", chords: [], melody: [] }] });
   await act(async () => { await result.current.saveSheet(example.title, null, draft); });
-  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).score.measures).toEqual(example.measures);
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).score.measures).toEqual(draft.measures.slice(0,-1));
 });
 
 it("ignores a private sheet response that arrives after sign-out", async () => {

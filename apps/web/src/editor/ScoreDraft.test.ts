@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseScore } from "@chordviewer/contracts";
+import { parseScore, parseChordDefinition, logicalChords } from "@chordviewer/contracts";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
 import { ScoreDraft } from "./ScoreDraft";
 
@@ -108,13 +108,13 @@ describe("synchronous chord draft", () => {
     model.redo(); expect(model.getSnapshot().score).toEqual(completed);
     expect(model.getSnapshot().dirty).toBe(false);
   });
-  it("changes symbols and durations, deletes without shifting time, and keeps metadata across undo", () => {
+  it("changes symbols and durations, deletes closing its span, and keeps metadata across undo", () => {
     const model = editor(); model.setDuration(480); model.arm(); chord(model); chord(model, [65, 69, 72]);
     const first = model.getSnapshot().score.measures[0].chords[0];
     model.selectChord(first.id); model.changeSelected(" Dm7 ", 240);
     expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ symbol: "Dm7", durationTicks: 240 });
     model.details("A new title", "https://youtu.be/dQw4w9WgXcQ"); model.deleteSelected();
-    expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ symbol: "F", offsetTicks: 480 });
+    expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ symbol: "F", offsetTicks: 0 });
     model.undo(); expect(model.getSnapshot().title).toBe("A new title");
     expect(model.getSnapshot().score.measures[0].melody).toEqual(base.measures[0].melody);
   });
@@ -122,28 +122,30 @@ describe("synchronous chord draft", () => {
     const model = editor(); model.setDuration(480); model.arm(); chord(model);
     const first = model.getSnapshot().score.measures[0].chords[0];
     model.selectChord(first.id); model.arm(true); chord(model, [65, 69, 72]); chord(model);
-    expect(model.getSnapshot().score.measures[0].chords).toEqual([{ ...first, symbol: "F" }]);
+    expect(model.getSnapshot().score.measures[0].chords).toEqual([{ ...first, symbol: "F", definition: parseChordDefinition("F") }]);
     expect(model.getSnapshot().entry).toBe("paused");
   });
-  it("retains an unrecognized capture for naming instead of inventing a symbol", () => {
+  it("retains an unrecognized capture until a legal correction is supplied", () => {
     const model = editor(); model.arm(); chord(model, [60, 61, 62]);
     expect(model.getSnapshot().pending?.notes).toEqual([60, 61, 62]);
     expect(model.getSnapshot().dirty).toBe(false);
     model.applyPending("  C cluster  ");
-    expect(model.getSnapshot().score.measures[0].chords[0].symbol).toBe("C cluster");
+    expect(model.getSnapshot().score.measures[0].chords).toEqual([]); expect(model.getSnapshot().pending?.notes).toEqual([60,61,62]);
+    model.applyPending("  Cm(add9)  ");
+    expect(model.getSnapshot().score.measures[0].chords[0].symbol).toBe("Cm(add9)");
     expect(model.getSnapshot().entry).toBe("paused");
   });
-  it("uses the remaining bar duration by default and keeps MIDI entry armed", () => {
+  it("appends at the harmony end with the remembered duration and keeps MIDI entry armed", () => {
     const model = editor(); model.selectPosition({ measureIndex: 0, offsetTicks: 1440 }); model.arm(); chord(model);
     expect(model.getSnapshot().dirty).toBe(true);
     expect(model.getSnapshot().entry).toBe("insert");
-    expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ offsetTicks: 1440, durationTicks: 480 });
+    expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ offsetTicks: 0, durationTicks: 1920 });
   });
-  it("overwrites neighbouring chords within a correction and restores them in one undo", () => {
+  it("shifts neighbouring chords within a correction and restores them in one undo", () => {
     const model = editor(); model.setDuration(480); model.arm(); chord(model); chord(model);
     const original = model.getSnapshot().score;
     model.selectChord(original.measures[0].chords[0].id); model.changeSelected("G", 1920);
-    expect(model.getSnapshot().score.measures[0].chords).toEqual([{ id: original.measures[0].chords[0].id, symbol: "G", offsetTicks: 0, durationTicks: 1920 }]);
+    expect(logicalChords(model.getSnapshot().score).map(c => [c.event.id,c.event.symbol,c.start,c.ticks])).toEqual([[original.measures[0].chords[0].id,"G",0,1920],[original.measures[0].chords[1].id,"C",1920,480]]);
     model.undo(); expect(model.getSnapshot().score).toEqual(original);
   });
   it("keeps the captured duration fixed while a held chord is followed by a new duration", () => {

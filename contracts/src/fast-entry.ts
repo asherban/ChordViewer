@@ -2,16 +2,17 @@ import { durationTicks, measureTicks, sameSpelledPitch, type ChordEvent, type Le
 import { parseScore } from './validation.js';
 import { removeInvalidMelodyTies } from './music.js';
 import { MELODY_DURATIONS, type MelodySpec } from './melody-entry.js';
+import { logicalChords, overwriteChord } from './chord-timeline.js';
 import type { ChordPosition } from './chord-entry.js';
 
-/** Keep interior silence, but end the sheet at its last pitched note or chord.
+/** Keep interior silence, but end the sheet at its last authored melody event or chord.
  * An active rest entry or an explicitly added bar may temporarily reserve more space.
  */
 export function trimTrailingSilentBars(score: LeadSheet, minimumBars = 1): LeadSheet {
   let count = score.measures.length;
   while (count > Math.max(1, minimumBars)) {
     const bar = score.measures[count - 1]!;
-    if (bar.chords.length > 0 || bar.melody.some(e => e.kind === 'note')) break;
+    if (bar.chords.length > 0 || bar.melody.length > 0) break;
     count--;
   }
   return count >= score.measures.length ? score : { ...score, measures: score.measures.slice(0, count) };
@@ -53,6 +54,7 @@ function range(score: LeadSheet, position: ChordPosition, ticks: number) {
 
 /** Writes exactly the requested span, retaining both tails of overlapped chords. */
 export function writeChord(score: LeadSheet, position: ChordPosition, symbol: string, ticks: number, factory: () => string, replaceId?: string) {
+  if (score.schemaVersion === 3) return overwriteChord(score, position, symbol, ticks, factory, replaceId);
   const r = range(score, position, ticks), id = allocator(score, factory);
   if (typeof symbol !== 'string' || !symbol.length || symbol.trim() !== symbol || [...symbol].length > 32 || /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(symbol)) throw new Error('Enter a printable chord symbol of 1 to 32 characters.');
   if (replaceId && !score.measures.some(m => m.chords.some(e => e.id === replaceId))) throw new Error('This chord no longer exists.');
@@ -118,7 +120,9 @@ export function insertBar(score: LeadSheet, index: number, factory: () => string
   if (!Number.isInteger(index) || index < 0 || index > score.measures.length) throw new Error('Choose an existing bar or the end of the sheet.');
   if (score.measures.length >= 256) throw new Error('This sheet has reached the 256-bar limit.');
   const measures = [...score.measures];
-  measures.splice(index, 0, { id: allocator(score, factory)(), chords: [], melody: [] });
+  const id = allocator(score, factory);
+  const crossing = score.schemaVersion === 3 ? chordGroupAtBar(score, index) : null;
+  measures.splice(index, 0, { id: id(), chords: crossing ? [{ ...crossing, id: id(), offsetTicks: 0, durationTicks: measureTicks(score) }] : [], melody: [] });
   return parseScore(removeInvalidMelodyTies({ ...score, measures }));
 }
 
@@ -187,4 +191,10 @@ function rewriteMelody(score: LeadSheet, eventId: string, spec: MelodySpec | nul
   }
   return { score: parseScore(removeInvalidMelodyTies({ ...score, measures })), eventId: selected.event.id,
     position: { measureIndex: Math.floor(selected.start / bar), offsetTicks: selected.start % bar } };
+}
+
+function chordGroupAtBar(score: LeadSheet, index: number): ChordEvent | null {
+  const boundary = index * measureTicks(score);
+  const c = logicalChords(score).find(c => c.start < boundary && c.start + c.ticks > boundary);
+  return c ? { ...c.event, logicalId: c.event.id } : null;
 }

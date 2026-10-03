@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseScore } from "@chordviewer/contracts";
+import { parseScore, chordSymbol, type ChordDefinition } from "@chordviewer/contracts";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
 import { parseRecovery, parseRecoveryList, RECOVERY_LIMIT, type RecoveryDraft } from "./recovery";
 import { ScoreDraft } from "../editor/ScoreDraft";
@@ -11,6 +11,18 @@ const copy: RecoveryDraft = { version: 1, id: "d426dbf3-baf2-47df-9953-693eea428
   updatedAt: 42, base, score, title: "Recovered title", tutorial: "", position: { measureIndex: 1, offsetTicks: 480 } };
 
 describe("local recovery boundary", () => {
+  it("round trips a long structured harmony through API envelopes and two-score recovery", () => {
+    const definition:ChordDefinition={kind:"tonal",root:{step:"C",alter:0},family:"major",seventh:"dominant",additions:Array.from({length:13},(_,i)=>({degree:i+1,alter:0})),alterations:Array.from({length:13},(_,i)=>({degree:i+1,alter:1}))};
+    const symbol=chordSymbol(definition);
+    const complex=parseScore({...score,schemaVersion:3,measures:Array.from({length:64},(_,bar)=>({id:`bar-${bar}`,melody:[],chords:Array.from({length:16},(_,i)=>({id:`chord-${bar}-${i}`,symbol,offsetTicks:i*120,durationTicks:120,definition}))}))});
+    const envelope=JSON.stringify({score:complex,tutorialUrl:null,expectedRevision:1});
+    expect(new TextEncoder().encode(envelope).length).toBeGreaterThan(500_000);
+    expect(new TextEncoder().encode(envelope).length).toBeLessThan(1_048_576);
+    const recovery={...copy,base:{...base,score:complex},score:complex};
+    expect(parseRecovery(JSON.parse(JSON.stringify(recovery)),"account-a").score).toEqual(complex);
+    const oversized={...complex,measures:[...complex.measures,...complex.measures.map((m,b)=>({...m,id:`extra-bar-${b}`,chords:m.chords.map((e,i)=>({...e,id:`extra-chord-${b}-${i}`}))}))]};
+    expect(()=>parseScore(oversized)).toThrow();
+  });
   it("lists valid copies despite damaged rows and never exposes another account's draft", () => {
     const newer = { ...copy, id: "857737d6-e035-438c-b8d6-6c1fa790d3b0", updatedAt: 43 };
     const damaged = { ...copy, score: null };

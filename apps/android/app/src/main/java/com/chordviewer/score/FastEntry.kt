@@ -6,7 +6,7 @@ import java.util.UUID
 object FastEntry {
     /** Interior silence stays. Extra space is reserved only for an active entry or Add bar. */
     fun trimTrailingSilentBars(score: LeadSheet, minimumBars: Int = 1): LeadSheet {
-        val lastMusic = score.measures.indexOfLast { it.chords.isNotEmpty() || it.melody.any { event -> event.pitch != null } }
+        val lastMusic = score.measures.indexOfLast { it.chords.isNotEmpty() || it.melody.isNotEmpty() }
         val count = maxOf(1, minimumBars, lastMusic + 1)
         return if (count >= score.measures.size) score else score.copy(measures = score.measures.take(count))
     }
@@ -166,7 +166,11 @@ object FastEntry {
         require(index in 0..score.measures.size) { "Choose an existing bar or the end of the sheet." }
         require(score.measures.size < 256) { "This sheet has reached the 256-bar limit." }
         val measures = score.measures.toMutableList()
-        measures.add(index, ScoreMeasure(allocator(score, factory)(), emptyList(), emptyList()))
+        val id = allocator(score, factory)
+        val boundary = index * score.measureTicks
+        val crossing = if (score.schemaVersion == 3) ChordTimeline.groups(score).firstOrNull { it.start < boundary && it.start + it.ticks > boundary } else null
+        val chords = crossing?.let { listOf(it.event.copy(id = id(), logicalId = it.event.id, offsetTicks = 0, durationTicks = score.measureTicks)) } ?: emptyList()
+        measures.add(index, ScoreMeasure(id(), chords, emptyList()))
         return removeInvalidMelodyTies(score.copy(measures = measures)).also { LeadSheetWriter.write(it) }
     }
 }

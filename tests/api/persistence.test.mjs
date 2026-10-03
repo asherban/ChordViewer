@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { appendChord, logicalChords } from '../../contracts/dist/index.js';
 
 // This suite restarts/recreates only the separately labelled test project. It never removes data.
 const base = process.env.TEST_API_URL ?? 'http://127.0.0.1:3001';
@@ -147,6 +148,8 @@ test('test-project persistence, browser renewal and native session lifetime', { 
     assert.equal(response.body.score.title, title);
     assert.equal(response.body.tutorialUrl, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     assert.deepEqual(response.body.score.measures, saved.score.measures);
+    assert.equal(response.body.score.schemaVersion, 3);
+    assert.equal(logicalChords(response.body.score).at(-1).ticks, 4800, 'A sustained v3 group remains one chord across container lifecycle');
   }
 
   await t.test('save a sheet and renew an aged browser cookie', async () => {
@@ -161,8 +164,12 @@ test('test-project persistence, browser renewal and native session lifetime', { 
     const created = await request('/api/v1/sheets', { method: 'POST', cookie, browser: true,
       body: { title: 'Before persistence check', template: 'example' } });
     assert.equal(created.status, 201);
+    let next = 0;
+    const harmony = appendChord(created.body.score, 'C7(b9,#11)/G', 4800, () => `persist-harmony-${++next}`,
+      { kind: 'tonal', root: { step: 'C', alter: 0 }, family: 'major', seventh: 'dominant',
+        alterations: [{ degree: 9, alter: -1 }, { degree: 11, alter: 1 }], bass: { step: 'G', alter: 0 } }).score;
     const updated = await request(`/api/v1/sheets/${created.body.id}`, { method: 'PUT', cookie, browser: true,
-      body: { score: { ...created.body.score, title }, tutorialUrl: 'https://youtu.be/dQw4w9WgXcQ', expectedRevision: 1 } });
+      body: { score: { ...harmony, title }, tutorialUrl: 'https://youtu.be/dQw4w9WgXcQ', expectedRevision: 1 } });
     assert.equal(updated.status, 200);
     saved = updated.body;
     await ageOwnSessions(userId, 'renew');

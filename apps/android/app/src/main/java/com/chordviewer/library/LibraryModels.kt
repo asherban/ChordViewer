@@ -8,6 +8,10 @@ import com.chordviewer.score.KEY_SIGNATURES
 
 data class Account(val id: String, val name: String, val email: String)
 
+/** Display-only abbreviation, matching the shared API/web Library preview bound. */
+fun chordPreviewSymbol(symbol: String): String = if(symbol.codePointCount(0,symbol.length)<=64) symbol
+    else symbol.substring(0,symbol.offsetByCodePoints(0,63))+"…"
+
 /** Deliberately not a data class: diagnostic toString must never expose the credential. */
 class AccountSession(val user: Account, internal val token: String) {
     override fun toString() = "AccountSession(redacted)"

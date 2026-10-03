@@ -1,5 +1,6 @@
 import {
   parseScore,
+  chordPreviewSymbol,
   SUPPORTED_KEYS,
   type AccountSummary as User,
   type SheetSummary,
@@ -196,6 +197,6 @@ export function summary(sheet: SavedSheet): SheetSummary {
     keySignature: sheet.score.keySignature, timeSignature: sheet.score.timeSignature,
     hasChords: sheet.score.measures.some(measure => measure.chords.length > 0),
     hasMelody: sheet.score.measures.some(measure => measure.melody.length > 0),
-    previewChords: sheet.score.measures[0]?.chords.slice(0, 4).map(chord => chord.symbol) ?? [],
+    previewChords: sheet.score.measures[0]?.chords.slice(0, 4).map(chord => chordPreviewSymbol(chord.symbol)) ?? [],
   };
 }

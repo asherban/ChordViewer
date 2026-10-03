@@ -100,7 +100,8 @@ class ChordAuthoringTest {
         listOf("", " C ", "a\n", "a\u202E", "a\u2028", "a\u0000", "C".repeat(33), "\uD800").forEach { symbol ->
             expectInvalid { ChordEdits.insert(blank(), ScorePosition(), 1920, symbol) }
         }
-        assertEquals("😀".repeat(32), ChordEdits.insert(blank(), ScorePosition(), 1920, "😀".repeat(32)).score.measures.first().chords.single().symbol)
+        expectInvalid { ChordEdits.insert(blank(),ScorePosition(),1920,"😀".repeat(32)) }
+        assertEquals("F♯m7", ChordEdits.insert(blank(), ScorePosition(), 1920, "F♯m7").score.measures.first().chords.single().symbol)
         val maximum = blank().copy(measures = List(256) { ScoreMeasure("bar_$it", emptyList(), emptyList()) })
         expectInvalid { ChordEdits.insert(maximum, ScorePosition(256), 1920, "C") }
         assertEquals(before, LeadSheetWriter.write(first))

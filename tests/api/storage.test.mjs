@@ -2,6 +2,7 @@ import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
+import { appendChord, chordSymbol, logicalChords, parseScore } from '../../contracts/dist/index.js';
 
 const base = process.env.TEST_API_URL ?? 'http://127.0.0.1:3001';
 if (base !== 'http://127.0.0.1:3001') throw new Error('Integration tests require the isolated local test backend on port 3001.');
@@ -182,17 +183,21 @@ test('Library metadata and recency are owner-scoped, bounded and guarded', async
   assert.equal((await request(path + '/metadata', { method: 'PATCH', token: second.token,
     body: { expectedRevision: 3, favorite: false } })).status, 404);
 });
-test('bounded chord previews preserve complete Unicode score symbols', async () => {
+test('bounded chord previews preserve legal Unicode spellings and structured labels', async () => {
   const person = await account('Unicode preview');
-  const symbol = '😀'.repeat(32);
-  const score = structuredClone(saved.score);
-  score.measures[0].chords[0].symbol = symbol;
-  const created = await request('/api/v1/sheets/import', { method: 'POST', token: person.token,
-    body: { score, title: 'Unicode chord preview' } });
-  assert.equal(created.status, 201);
-  const record = await created.json();
-  const listing = (await (await request('/api/v1/sheets', { token: person.token })).json()).sheets;
-  assert.equal(listing.find(item => item.id === record.id).previewChords[0], symbol);
+  const definition={kind:'tonal',root:{step:'C',alter:0},family:'major',seventh:'dominant',additions:Array.from({length:13},(_,i)=>({degree:i+1,alter:0}))};
+  for(const symbol of ['F♯m7',chordSymbol(definition)]) {
+    const score=structuredClone(saved.score); score.measures[0].chords[0].symbol=symbol;
+    if(symbol!== 'F♯m7') { score.schemaVersion=3; score.measures[0].chords[0].definition=definition; }
+    const created=await request('/api/v1/sheets/import',{method:'POST',token:person.token,body:{score,title:'Legal chord preview'}});
+    assert.equal(created.status,201); const record=await created.json();
+    assert.equal(record.score.measures[0].chords[0].symbol,symbol);
+    const listing=(await (await request('/api/v1/sheets',{token:person.token})).json()).sheets;
+    assert.equal(listing.find(item=>item.id===record.id).previewChords[0],[...symbol].length<=64 ? symbol : [...symbol].slice(0,63).join('')+'…');
+    assert.equal((await (await request('/api/v1/sheets/'+record.id,{token:person.token})).json()).score.measures[0].chords[0].symbol,symbol);
+  }
+  const bad=structuredClone(saved.score); bad.measures[0].chords[0].symbol='😀'.repeat(32);
+  assert.equal((await request('/api/v1/sheets/import',{method:'POST',token:person.token,body:{score:bad,title:'Unsupported label'}})).status,400);
 });
 test('duplicate uses a fresh identity and Unicode-safe title; Trash is recoverable and blocks stale saves', async () => {
   const source = '/api/v1/sheets/' + saved.id;
@@ -250,6 +255,48 @@ test('revoked/tampered native credentials are rejected and a fresh login reopens
   assert.equal(response.status, 200);
   assert.equal((await response.json()).revision, saved.revision);
 });
+test('v3 logical chords and a large structured document round-trip through native and browser storage', async () => {
+  const person = await account('Structured harmony');
+  const created = await request('/api/v1/sheets', { method: 'POST', token: person.token,
+    body: { title: 'Structured harmony', template: 'blank' } });
+  const sheet = await created.json();
+  let next = 0;
+  const definition = { kind: 'tonal', root: { step: 'C', alter: 0 }, family: 'major', seventh: 'dominant',
+    alterations: [{ degree: 9, alter: -1 }, { degree: 11, alter: 1 }], bass: { step: 'G', alter: 0 } };
+  const score = appendChord(sheet.score, chordSymbol(definition), 4800, () => `structured-${++next}`, definition).score;
+  const write = await request(`/api/v1/sheets/${sheet.id}`, { method: 'PUT', token: person.token,
+    body: { score, tutorialUrl: null, expectedRevision: sheet.revision } });
+  assert.equal(write.status, 200);
+  const reopened = await (await request(`/api/v1/sheets/${sheet.id}`, { token: person.token })).json();
+  assert.deepEqual(reopened.score, score);
+  assert.equal(logicalChords(parseScore(reopened.score)).length, 1);
+  assert.equal(logicalChords(reopened.score)[0].ticks, 4800);
+
+  const browser = await account('Browser structured harmony', true);
+  const importedResponse = await request('/api/v1/sheets/import', { method: 'POST', cookie: browser.cookie,
+    body: { score, title: 'Browser harmony' }, headers: { origin } });
+  assert.equal(importedResponse.status, 201);
+  const imported = await importedResponse.json();
+  assert.deepEqual(imported.score.measures, score.measures);
+  assert.equal(logicalChords(imported.score)[0].ticks, 4800);
+  const complex = { kind: 'tonal', root: { step: 'C', alter: 0 }, family: 'major', seventh: 'dominant',
+    additions: Array.from({ length: 13 }, (_, i) => ({ degree: i + 1, alter: 0 })),
+    alterations: Array.from({ length: 13 }, (_, i) => ({ degree: i + 1, alter: 1 })) };
+  const large = { ...imported.score, measures: Array.from({ length: 64 }, (_, bar) => ({ id: `long-bar-${bar}`, melody: [],
+    chords: Array.from({ length: 16 }, (_, i) => ({ id: `long-chord-${bar}-${i}`, offsetTicks: i * 120,
+      durationTicks: 120, symbol: chordSymbol(complex), definition: complex })) })) };
+  parseScore(large);
+  const envelope = { score: large, tutorialUrl: null, expectedRevision: imported.revision };
+  const bytes = Buffer.byteLength(JSON.stringify(envelope));
+  assert.ok(bytes > 500_000 && bytes < 1_048_576, `Large save envelope: ${bytes} bytes`);
+  const savedLarge = await request(`/api/v1/sheets/${imported.id}`, { method: 'PUT', cookie: browser.cookie,
+    body: envelope, headers: { origin } });
+  assert.equal(savedLarge.status, 200);
+  const loadedLarge = await (await request(`/api/v1/sheets/${imported.id}`, { cookie: browser.cookie })).json();
+  assert.deepEqual(loadedLarge.score, large);
+  assert.equal(logicalChords(loadedLarge.score).length, 1024);
+});
+
 test('concurrent creation cannot exceed the personal library limit', async () => {
   const before = (await (await request('/api/v1/sheets', { token: second.token })).json()).sheets;
   const existing = before.length;

@@ -34,7 +34,7 @@ describe('v2 keys and meter with strict v1 compatibility', () => {
     expect(parseScore({ ...blank(), schemaVersion: 1 }).schemaVersion).toBe(1);
     for (const score of [
       { ...blank(), schemaVersion: 1, keySignature: 'G' }, { ...blank(), schemaVersion: 1, timeSignature: { numerator: 3, denominator: 4 } },
-      { ...blank(), schemaVersion: 3 }, { ...blank(), keySignature: 'H' },
+      { ...blank(), schemaVersion: 4 }, { ...blank(), keySignature: 'H' },
       ...[{ numerator: 0, denominator: 4 }, { numerator: 13, denominator: 4 }, { numerator: 4, denominator: 16 }, { numerator: 3.5, denominator: 4 }, { numerator: '3', denominator: 4 }].map(timeSignature => ({ ...blank(), timeSignature })),
     ]) expect(() => parseScore(score)).toThrow();
     for (const key of ['H', '__proto__', 'constructor'] as unknown as Parameters<typeof keyAccidentals>[0][]) {

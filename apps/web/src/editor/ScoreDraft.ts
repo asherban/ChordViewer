@@ -1,5 +1,5 @@
 import {
-  ChordCapture, CHORD_DURATIONS, deleteChord, findChord, recognizeChord, writeChord,
+  ChordCapture, CHORD_DURATIONS, appendChord, changeChordAndShift, deleteChordAndShift, chordDefinitionKey, nextChordPosition, findChord, recognizeChord, writeChord,
   deleteMelodyAndShift, melodyGroup, findMelody, writeMelody, insertBar, setMelodyTie, midiToPitch, nextMelodyPosition, changeMelodyAndShift,
   changeScoreSettings, measureTicks, durationTicks, type ChordPosition, type LeadSheet, type NoteDuration, type MelodySpec,
   type KeySignature, type Pitch, trimTrailingSilentBars,
@@ -55,7 +55,7 @@ export class ScoreDraft {
   private music(score: LeadSheet) {
     // Persistence may reorder JSON object keys without changing any music.
     return JSON.stringify([score.schemaVersion, score.keySignature, score.timeSignature.numerator, score.timeSignature.denominator,
-      trimTrailingSilentBars(score).measures.map(m => [m.id, m.chords.map(e => [e.id, e.offsetTicks, e.durationTicks, e.symbol]),
+      trimTrailingSilentBars(score).measures.map(m => [m.id, m.chords.map(e => [e.id, e.offsetTicks, e.durationTicks, e.symbol, e.logicalId, chordDefinitionKey(e.definition)]),
         m.melody.map(e => [e.id, e.offsetTicks, e.kind, e.duration.denominator, e.duration.dots,
           ...(e.kind === "note" ? [e.pitch.step, e.pitch.alter, e.pitch.octave, !!e.tieToNext] : [])])])]);
   }
@@ -120,8 +120,7 @@ export class ScoreDraft {
     if (!this.view.writable || lane === this.view.lane) return;
     if (this.view.pending) { this.update({ notice: "Apply or discard your captured input before changing passes." }); return; }
     this.cancel();
-    const remembered = this.lanePositions[lane];
-    const position = lane === "melody" ? nextMelodyPosition(this.view.score) : { measureIndex: Math.min(remembered.measureIndex, this.view.score.measures.length), offsetTicks: Math.min(remembered.offsetTicks, measureTicks(this.view.score) - 1) };
+    const position = lane === "melody" ? nextMelodyPosition(this.view.score) : nextChordPosition(this.view.score);
     this.update({ lane, position, selectedId: null, pending: null, alternatives: [], lastEventId: null, entry: "paused",
       notice: "" });
   }
@@ -150,7 +149,7 @@ export class ScoreDraft {
     const found = findChord(this.view.score, id);
     if (!found) return;
     this.cancel();
-    this.update({ lane: "chords", selectedId: id, position: found.position, duration: found.event.durationTicks, entry: "paused", pending: null,
+    this.update({ lane: "chords", selectedId: id, position: found.position, entry: "paused", pending: null,
       alternatives: id === this.view.lastEventId ? this.view.alternatives : [], notice: "Entry paused while you change this chord." });
   }
   selectMelody(id: string) {
@@ -215,7 +214,7 @@ export class ScoreDraft {
   }
   private commitChordCapture(pending: Pending & { lane: "chords" }, symbol: string, alternatives: string[]) {
     try {
-      const result = writeChord(this.view.score, pending.position, symbol, pending.duration, this.id, pending.replaceId ?? undefined);
+      const result = pending.replaceId ? changeChordAndShift(this.view.score, pending.replaceId, symbol, pending.duration, this.id) : appendChord(this.view.score, symbol, pending.duration, this.id);
       if (pending.replaceId) this.cancel();
       this.record(result.score, result.position, { selectedId: null, lastEventId: result.eventId, alternatives,
         ...(pending.replaceId ? { entry: "paused" as const } : {}), notice: pending.replaceId ? "Chord replaced. Entry paused." : `${symbol} inserted. Ready for the next chord.` });
@@ -241,7 +240,7 @@ export class ScoreDraft {
     if (!this.view.writable) return false;
     this.cancel();
     try {
-      const result = writeChord(this.view.score, this.view.position, symbol.trim(), this.chordTicks(), this.id);
+      const result = appendChord(this.view.score, symbol.trim(), this.view.duration, this.id);
       this.record(result.score, result.position, { entry: "paused", lane: "chords", selectedId: null, lastEventId: result.eventId, alternatives: [], notice: "Chord added." });
       return true;
     } catch (error) { this.problem(error); return false; }
@@ -261,8 +260,8 @@ export class ScoreDraft {
     if (!this.view.writable || !this.view.selectedId || this.view.lane !== "chords") return;
     this.cancel();
     try {
-      const result = writeChord(this.view.score, this.view.position, symbol.trim(), duration, this.id, this.view.selectedId);
-      this.record(result.score, this.view.position, { entry: "paused", duration, notice: "Chord changed." });
+      const result = changeChordAndShift(this.view.score, this.view.selectedId, symbol.trim(), duration, this.id);
+      this.record(result.score, this.view.position, { entry: "paused", selectedId: result.eventId, notice: "Chord changed." });
     } catch (error) { this.problem(error); }
   }
   changeMelody(spec: MelodySpec, tie?: boolean, ticks = durationTicks(spec.duration)) {
@@ -274,7 +273,9 @@ export class ScoreDraft {
       this.record(score, this.view.position, { entry: "paused", notice: "" });
     } catch (error) { this.problem(error); }
   }
-  private chordTicks() { return this.view.duration === measureTicks(this.view.score) ? measureTicks(this.view.score) - this.view.position.offsetTicks : this.view.duration; }
+  private chordTicks() {
+    return this.view.entry === "replace" && this.view.selectedId ? findChord(this.view.score, this.view.selectedId)?.event.durationTicks ?? this.view.duration : this.view.duration;
+  }
   placeNote(position: ChordPosition, pitch: Pitch, eventId?: string) {
     if (!this.view.writable || this.view.pending) return;
     this.cancel();
@@ -346,7 +347,7 @@ export class ScoreDraft {
     if (!this.view.writable || !this.view.selectedId) return;
     this.cancel();
     try {
-      const score = this.view.lane === "chords" ? deleteChord(this.view.score, this.view.selectedId) : deleteMelodyAndShift(this.view.score, this.view.selectedId, this.id);
+      const score = this.view.lane === "chords" ? deleteChordAndShift(this.view.score, this.view.selectedId, this.id) : deleteMelodyAndShift(this.view.score, this.view.selectedId, this.id);
       this.record(score, this.view.position, { entry: "paused", selectedId: null, lastEventId: null, alternatives: [],
         notice: this.view.lane === "chords" ? "Chord deleted. The melody is unchanged." : "" });
     } catch (error) { this.problem(error); }

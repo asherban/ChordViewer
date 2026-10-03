@@ -1,10 +1,20 @@
 import { afterEach, expect, it, vi } from "vitest";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
-import { ApiError, parseSavedSheet, request, safeTutorialUrl } from "./api";
+import { ApiError, parseSavedSheet, parseLibrary, request, safeTutorialUrl, summary } from "./api";
+import { chordSymbol, parseScore, type ChordDefinition } from '@chordviewer/contracts';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+it("keeps a long legal chord intact while local and received Library previews remain bounded", () => {
+  const definition:ChordDefinition={kind:'tonal',root:{step:'C',alter:0},family:'major',seventh:'dominant',additions:Array.from({length:13},(_,i)=>({degree:i+1,alter:0}))};
+  const symbol=chordSymbol(definition); expect(symbol.length).toBeGreaterThan(64);
+  const score=parseScore({...structuredClone(example),schemaVersion:3}); score.measures[0].chords[0]={...score.measures[0].chords[0],symbol,definition};
+  const saved=parseSavedSheet({id:score.id,score,tutorialUrl:null,revision:1,createdAt:'2026-01-01T00:00:00Z',updatedAt:'2026-01-01T00:00:00Z',favorite:false,draft:false,trashedAt:null,openedAt:null});
+  const card=summary(saved); expect([...card.previewChords[0]]).toHaveLength(64); expect(card.previewChords[0].endsWith('…')).toBe(true);
+  expect(parseLibrary({sheets:[card]})).toEqual([card]); expect(saved.score.measures[0].chords[0].symbol).toBe(symbol);
 });
 
 it("keeps the request deadline active when headers arrive but the body stalls", async () => {

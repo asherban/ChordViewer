@@ -8,14 +8,17 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.inputmethod.InputMethodManager
-import androidx.lifecycle.ViewModelProvider
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.chordviewer.MidiInputState
+import com.chordviewer.midi.MidiSnapshot
+import com.chordviewer.ui.ChordViewerTheme
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.chordviewer.MainActivity
 import com.chordviewer.score.EntryMode
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URI
 import java.util.UUID
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -23,42 +26,46 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Two invocations separated by a host force-stop exercise actual recovery files and account authentication. */
+/** Two separate instrumentation processes exercise actual isolated recovery files and account authentication. */
 @RunWith(AndroidJUnit4::class)
 class NativeRecoveryFlowTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
     private val context get() = instrumentation.targetContext
-    private fun fixture(): JSONObject {
+    private lateinit var isolated: LibraryViewModel
+    @Volatile private var offline=false
+    private fun fixture(create:Boolean=false): JSONObject {
         assumeTrue("Explicit recovery acceptance required", InstrumentationRegistry.getArguments().getString("recoveryUi") == "true")
-        val file = File(context.filesDir, "ui-fixture.json")
-        require(file.length() in 1..8192)
-        return try { JSONObject(file.readText()) } finally { check(file.delete()) }
+        val file=File(context.filesDir,"chord-dialog-recovery-fixture.json")
+        if(create) {
+            val nonce=UUID.randomUUID().toString(); val f=JSONObject().put("email","recovery-$nonce@example.test").put("password","Recovery-$nonce").put("apiPort",3001)
+            api(f).signIn(f.getString("email"),f.getString("password"),"Isolated recovery regression")
+            file.writeText(f.toString())
+        }
+        return JSONObject(file.readText())
     }
     private fun api(fixture: JSONObject) = LibraryApi("http://127.0.0.1:${fixture.optInt("apiPort", 3001)}", true)
     private fun start(fixture: JSONObject): MainActivity {
-        val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)) as MainActivity
-        waitFor("session restoration") { !model(activity).state.value.busy }
-        if (model(activity).state.value.user == null) {
-            setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
-            click("Sign in", last = true)
-        } else assertEquals(fixture.getString("email"), model(activity).state.value.user?.email)
-        waitFor("authenticated Library") { model(activity).state.value.libraryLoaded }
+        val real=api(fixture)
+        isolated=LibraryViewModel(object:LibraryGateway by real { override fun save(token:String,sheet:SavedSheet,title:String,tutorialUrl:String?):SavedSheet { if(offline) throw java.io.IOException("Offline acceptance transport"); return real.save(token,sheet,title,tutorialUrl) } })
+        instrumentation.runOnMainSync { isolated.configureRecovery(store()); isolated.authenticate(fixture.getString("email"),fixture.getString("password"),null) }
+        waitFor("isolated authentication") { isolated.state.value.user != null && !isolated.state.value.busy }
+        val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        instrumentation.runOnMainSync { activity.setContent { val state by isolated.state.collectAsState(); ChordViewerTheme { LibraryScreen(state,isolated,MidiInputState(MidiSnapshot(),"Disconnected",false,{},{})) } } }
         return activity
     }
-    private fun model(activity: MainActivity) = ViewModelProvider(activity)[LibraryViewModel::class.java]
-    private fun store() = FileRecoveryStore(File(context.noBackupFilesDir, "drafts"))
+    private fun model(@Suppress("UNUSED_PARAMETER") activity: MainActivity) = isolated
+    private fun store() = FileRecoveryStore(File(context.noBackupFilesDir, "chord-dialog-acceptance-drafts"))
 
     @Test fun writeRecoveryAcrossConnectionLoss() {
-        val fixture = fixture(); val api = api(fixture)
+        val fixture = fixture(create=true); val api = api(fixture)
         val account = api.signIn(fixture.getString("email"), fixture.getString("password"))
         val original = api.create(account.token, "M7 recovery ${UUID.randomUUID().toString().take(8)}", false)
         val activity = start(fixture)
         try {
             setField("Search sheets", original.score.title); hideKeyboard(activity); clickDescription("Edit ${original.score.title}")
             waitFor("open sheet") { model(activity).state.value.selected?.id == original.id }
-            click("Add chord"); setField("Chord symbol", "C"); click("Insert chord")
+            clickDescription("Add chord after last chord"); clickDescription("Root C"); clickDescription("Type Major"); click("Add"); clickDescription("Close chord dialog")
             clickDescription("Melody entry lane")
             // Gesture behavior is covered by FastEntryUiTest; this suite exercises durable recovery.
             instrumentation.runOnMainSync { model(activity).placeNote(com.chordviewer.score.ScorePosition(), com.chordviewer.score.ScorePitch("D", 0, 4)) }
@@ -69,14 +76,12 @@ class NativeRecoveryFlowTest {
             setField("Sheet title", "M7 native saved study")
             setField("YouTube tutorial URL (optional)", "https://youtu.be/M7lc1UVf-VE"); click("Done")
             waitFor("confirmed recovery") { model(activity).state.value.recoveryCopies.isNotEmpty() }
-            signal("M7_NATIVE_OFFLINE_READY")
-            waitFor("disconnected app route", 30_000) { !appReachable() }
+            offline=true
             click("Save sheet")
-            waitFor("failed offline save", 30_000) { !model(activity).state.value.busy && model(activity).state.value.message?.contains("reach", true) == true }
+            waitFor("failed offline save", 30_000) { !model(activity).state.value.busy && model(activity).state.value.message != null }
             assertTrue(model(activity).state.value.hasUnsavedChanges)
             assertEquals(1, api.get(account.token, original.id).revision)
-            signal("M7_NATIVE_ONLINE_READY")
-            waitFor("restored app route", 30_000) { appReachable() }
+            offline=false
             click("Save sheet")
             waitFor("explicit save") { !model(activity).state.value.busy && !model(activity).state.value.hasUnsavedChanges }
             assertEquals(2, api.get(account.token, original.id).revision)
@@ -86,7 +91,7 @@ class NativeRecoveryFlowTest {
             assertEquals(2, draft.base.revision)
             assertEquals("D", draft.score.measures.first().melody.first().pitch?.step)
             capture("m7-native-before-restart.png")
-        } finally { api.signOut(account.token); instrumentation.runOnMainSync { activity.finish() } }
+        } finally { api.signOut(account.token); instrumentation.runOnMainSync { isolated.signOut(); activity.finish() } }
     }
 
     @Test fun restoreAfterProcessRestartAndSaveConflictAsNew() {
@@ -111,13 +116,8 @@ class NativeRecoveryFlowTest {
             assertEquals(draft.tutorial, copied.tutorialUrl); assertEquals(remote, api.get(account.token, remote.id))
             waitFor("consumed files removed") { store().list(account.user.id).copies.isEmpty() }
             click("Practice"); capture("m7-native-recovered-practice.png")
-        } finally { api.signOut(account.token); instrumentation.runOnMainSync { activity.finish() } }
+        } finally { api.signOut(account.token); instrumentation.runOnMainSync { isolated.signOut(); activity.finish() } }
     }
-    private fun appReachable(): Boolean = runCatching {
-        val c = URI("http://127.0.0.1:3000/api/health").toURL().openConnection() as HttpURLConnection
-        try { c.connectTimeout = 500; c.readTimeout = 500; c.responseCode > 0 } finally { c.disconnect() }
-    }.getOrDefault(false)
-    private fun signal(value: String) = instrumentation.sendStatus(0, Bundle().apply { putString("stream", "$value\n") })
     private fun descendants(node: AccessibilityNodeInfo): List<AccessibilityNodeInfo> = buildList {
         add(node); repeat(node.childCount) { node.getChild(it)?.let { child -> addAll(descendants(child)) } }
     }

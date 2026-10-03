@@ -145,7 +145,7 @@ class MelodyAuthoringTest {
         val base = JSONObject(LeadSheetWriter.write(blank()))
         invalid { LeadSheetReader.read(JSONObject(base.toString()).put("keySignature", "G").toString()) }
         invalid { LeadSheetReader.read(JSONObject(base.toString()).put("timeSignature", JSONObject().put("numerator", 3).put("denominator", 4)).toString()) }
-        invalid { LeadSheetReader.read(JSONObject(base.toString()).put("schemaVersion", 3).toString()) }
+        invalid { LeadSheetReader.read(JSONObject(base.toString()).put("schemaVersion", 4).toString()) }
         listOf("H", "__proto__").forEach { key -> invalid { changeScoreSettings(blank(), key, ScoreTimeSignature()) } }
         listOf(ScoreTimeSignature(0, 4), ScoreTimeSignature(13, 4), ScoreTimeSignature(4, 16)).forEach { time -> invalid { changeScoreSettings(blank(), "C", time) } }
         invalid { LeadSheetReader.read(JSONObject(base.toString()).put("schemaVersion", 2).put("extra", true).toString()) }

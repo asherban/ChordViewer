@@ -178,12 +178,12 @@ test("tied fragments share selection, duration, pitch edits and deletion", async
   await expect(page.locator('.sheet-footer')).toContainText('2 measures');
   await page.locator('[data-note-id="later"]').click();
   await page.getByRole("button", { name: "Replace selected note with rest", exact: true }).click();
-  await expect(page.locator('.sheet-footer')).toContainText('1 measure');
-  await expect(page.locator('[data-note-id="later"]')).toHaveCount(0);
+  await expect(page.locator('.sheet-footer')).toContainText('2 measures');
+  await expect(page.locator('[data-note-id="later"]')).toHaveAttribute('aria-label', /^Rest, quarter, bar 2, beat 1$/);
   await expect(page.getByRole("button", { name: "Next note entry line", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Next note entry line", exact: true }).click({ position: { x: 20, y: 55 } });
   await expect(page.locator('.sheet-footer')).toContainText('2 measures');
-  await expect(page.locator('.editable-melody')).toHaveCount(2);
+  await expect(page.locator('.editable-melody')).toHaveCount(3);
 });
 
 test("dragging a chord onto a note uses the rendered beat after the stave signature", async ({ page }) => {

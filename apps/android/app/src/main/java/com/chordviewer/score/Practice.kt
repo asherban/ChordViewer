@@ -2,7 +2,7 @@ package com.chordviewer.score
 
 import org.json.JSONObject
 
-data class PracticeEvent(val id: String, val symbol: String, val bar: Int, val offsetTicks: Int)
+data class PracticeEvent(val id: String, val symbol: String, val bar: Int, val offsetTicks: Int, val definition: ChordDefinition? = null)
 data class PracticePosition(val bar: Int = 0, val eventIndex: Int = -1, val advanceOnMatch: Boolean = true,
     val complete: Boolean = false, val feedback: String? = null)
 
@@ -35,17 +35,23 @@ class PracticeRules(vocabularyJson: String) {
         }
         return qualities.find { it.suffix == suffix }?.let { Symbol(root, suffix, bass, it) }
     }
-    fun supported(symbol: String) = parse(symbol) != null
-    fun matches(symbol: String, notes: List<Int>): Boolean {
-        val target = parse(symbol) ?: return false
+    fun supported(symbol: String, definition: ChordDefinition? = null) = definition?.let { it.kind != "none" } ?: (parse(symbol) != null || ChordDefinition.parse(symbol)?.kind?.let { it != "none" } == true)
+    fun matches(symbol: String, notes: List<Int>, definition: ChordDefinition? = null): Boolean {
+        if (definition != null) {
+            if (definition.kind == "tonal" && definition.additions.isEmpty() && definition.alterations.isEmpty() && definition.omissions.isEmpty() && parse(definition.symbol) != null) return matches(definition.symbol, notes)
+            if (notes.isEmpty() || notes.any { it !in 0..127 }) return false
+            if (definition.bass != null && notes.min() % 12 != definition.bass.pitchClass) return false
+            return notes.map { it % 12 }.distinct().sorted() == definition.pitchClasses()
+        }
+        val target = parse(symbol) ?: return ChordDefinition.parse(symbol)?.let { matches(symbol,notes,it) } ?: false
         if (notes.isEmpty() || notes.any { it !in 0..127 }) return false
         if (target.bass != null && notes.min() % 12 != target.bass) return false
         val pitches = notes.map { it % 12 }.toSet()
         return pitches.all { it == target.bass || mod(it - target.root) in target.quality.intervals } &&
             target.quality.intervals.all { it in target.quality.optional || mod(target.root + it) in pitches }
     }
-    fun events(score: LeadSheet) = score.measures.flatMapIndexed { bar, measure -> measure.chords.map { PracticeEvent(it.id, it.symbol, bar, it.offsetTicks) } }
-    fun firstInBar(score: LeadSheet, bar: Int) = events(score).indexOfFirst { it.bar == bar }
+    fun events(score: LeadSheet) = ChordTimeline.groups(score).map { PracticeEvent(it.event.id, it.event.symbol, it.position.measureIndex, it.position.offsetTicks, it.event.definition) }
+    fun firstInBar(score: LeadSheet, bar: Int) = ChordTimeline.groups(score).indexOfFirst { group -> score.measures.getOrNull(bar)?.chords?.any { it.id in group.ids } == true }
     fun transpose(score: LeadSheet, shift: Int): LeadSheet {
         require(shift in -12..12) { "Choose a transposition from −12 to +12 semitones." }
         if (shift == 0) return score
@@ -56,6 +62,11 @@ class PracticeRules(vocabularyJson: String) {
         fun spell(pc: Int) = (if (key.contains("b") || key in listOf("F", "Dm", "Gm", "Cm", "Fm", "Bbm", "Ebm")) flat else sharp)[mod(pc)]
         val measures = score.measures.map { measure -> measure.copy(
             chords = measure.chords.map { chord ->
+                val definition = chord.definition ?: ChordDefinition.parse(chord.symbol)
+                if (definition != null) {
+                    val transposed = definition.transpose(shift, key.contains("b") || key in listOf("F","Dm","Gm","Cm","Fm","Bbm","Ebm"))
+                    return@map chord.copy(symbol = transposed.symbol, definition = if (chord.definition != null) transposed else null)
+                }
                 val symbol = parse(chord.symbol) ?: throw IllegalArgumentException("Cannot transpose unsupported chord “${chord.symbol}”.")
                 chord.copy(symbol = spell(symbol.root + shift) + symbol.suffix + (symbol.bass?.let { "/" + spell(it + shift) } ?: ""))
             },
@@ -65,7 +76,7 @@ class PracticeRules(vocabularyJson: String) {
                 midiToPitch(midi, key)
             }) },
         ) }
-        return score.copy(schemaVersion = 2, keySignature = key, measures = measures).also { LeadSheetWriter.write(it) }
+        return score.copy(schemaVersion = maxOf(2, score.schemaVersion), keySignature = key, measures = measures).also { LeadSheetWriter.write(it) }
     }
 }
 
@@ -101,8 +112,8 @@ class PracticeSession(private val rules: PracticeRules, score: LeadSheet) {
         if (!position.advanceOnMatch || position.complete) return
         val events = rules.events(score)
         val target = events.getOrNull(position.eventIndex) ?: return
-        if (!rules.supported(target.symbol)) { position = position.copy(feedback = "Chord matching is unavailable for this symbol. Edit it in Create."); return }
-        if (!rules.matches(target.symbol, notes)) { position = position.copy(feedback = "Last gesture did not match."); return }
+        if (!rules.supported(target.symbol, target.definition)) { position = position.copy(feedback = "Chord matching is unavailable for this symbol. Edit it in Create."); return }
+        if (!rules.matches(target.symbol, notes, target.definition)) { position = position.copy(feedback = "Last gesture did not match."); return }
         val next = events.getOrNull(position.eventIndex + 1)
         position = if (next == null) position.copy(complete = true, feedback = "Complete. Reopen this sheet to practice again.")
             else position.copy(bar = next.bar, eventIndex = position.eventIndex + 1, feedback = "Last gesture matched. Next target is shown.")

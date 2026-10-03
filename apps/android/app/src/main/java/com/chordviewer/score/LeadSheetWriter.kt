@@ -10,8 +10,10 @@ object LeadSheetWriter {
         val measures = JSONArray()
         score.measures.forEach { measure ->
             val chords = JSONArray()
-            measure.chords.forEach { chords.put(JSONObject().put("id", it.id).put("offsetTicks", it.offsetTicks)
-                .put("durationTicks", it.durationTicks).put("symbol", it.symbol)) }
+            measure.chords.forEach { event ->
+                val chord = JSONObject().put("id", event.id).put("offsetTicks", event.offsetTicks).put("durationTicks", event.durationTicks).put("symbol", event.symbol)
+                event.logicalId?.let { chord.put("logicalId", it) }; event.definition?.let { chord.put("definition", it.json()) }; chords.put(chord)
+            }
             val melody = JSONArray()
             measure.melody.forEach { event ->
                 val note = JSONObject().put("id", event.id).put("kind", if (event.pitch == null) "rest" else "note")
@@ -27,6 +29,7 @@ object LeadSheetWriter {
         val json = JSONObject().put("schemaVersion", score.schemaVersion).put("id", score.id).put("title", score.title).put("keySignature", score.keySignature)
             .put("timeSignature", JSONObject().put("numerator", score.timeSignature.numerator).put("denominator", score.timeSignature.denominator))
             .put("ticksPerQuarter", 480).put("measures", measures).toString()
+        require(json.toByteArray(Charsets.UTF_8).size <= 1_040_000) { "The score exceeds the 1,040,000-byte document limit. Shorten or simplify the sheet before applying this edit." }
         LeadSheetReader.read(json)
         return json
     }

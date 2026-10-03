@@ -14,9 +14,7 @@ data class ScorePosition(val measureIndex: Int = 0, val offsetTicks: Int = 0) {
 }
 data class ChordMutation(val score: LeadSheet, val position: ScorePosition, val eventId: String)
 object ChordEdits {
-    fun find(score: LeadSheet, id: String): Pair<ChordEvent, ScorePosition>? = score.measures.withIndex().firstNotNullOfOrNull { (index, measure) ->
-        measure.chords.firstOrNull { it.id == id }?.let { it to ScorePosition(index, it.offsetTicks) }
-    }
+    fun find(score: LeadSheet, id: String): Pair<ChordEvent, ScorePosition>? = ChordTimeline.find(score, id)?.let { it.event.copy(durationTicks = it.ticks) to it.position }
     fun insert(score: LeadSheet, position: ScorePosition, duration: Int, symbol: String): ChordMutation = write(score, position, duration, symbol, null)
     fun replace(score: LeadSheet, id: String, duration: Int, symbol: String): ChordMutation {
         val target = requireNotNull(find(score, id)) { "Select an existing chord to replace." }
@@ -31,6 +29,7 @@ object ChordEdits {
         LeadSheetWriter.write(score)
         val text = symbol.trim()
         require(text == symbol && text.codePointCount(0, text.length) in 1..32 && !Regex("[\\p{Cc}\\p{Cf}\\p{Cs}\\p{Zl}\\p{Zp}]").containsMatchIn(text)) { "Enter a chord symbol of 1–32 printable characters." }
+        require(ChordDefinition.parse(text) != null) { "Choose a supported chord symbol." }
         require(duration in CHORD_DURATIONS || duration == score.measureTicks) { "Choose a supported chord duration or the whole bar." }
         require(position.measureIndex in 0..score.measures.size && position.measureIndex < 256) { "This sheet has reached its 256-bar limit." }
         require(position.offsetTicks in 0 until score.measureTicks) { "Choose a position inside a bar." }

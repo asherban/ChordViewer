@@ -17,16 +17,16 @@ function play(model: ScoreDraft, notes: number[]) {
 }
 
 describe("two-pass score authoring", () => {
-  it("removes trailing bars after a duration reduction, replacement with a rest or deletion, with undo", () => {
+  it("protects rest tails and removes empty bars after duration reduction or deletion, with undo", () => {
     const model = draft(); model.setLane("melody");
     model.addMelody({ ...quarter, duration: { denominator: 2, dots: 1 } });
     model.addMelody(quarter);
     const twoBars = model.getSnapshot().score;
     const last = twoBars.measures[1].melody[0];
     model.selectMelody(last.id); model.enterRest();
-    expect(model.getSnapshot().score.measures).toHaveLength(1);
-    expect(model.getSnapshot().selectedId).toBeNull();
-    expect(model.getSnapshot().position).toEqual({ measureIndex: 1, offsetTicks: 0 });
+    expect(model.getSnapshot().score.measures).toHaveLength(2);
+    expect(model.getSnapshot().selectedId).toBe(last.id);
+    expect(model.getSnapshot().score.measures[1].melody[0].kind).toBe("rest");
     model.undo(); expect(model.getSnapshot().score).toEqual(twoBars);
     model.selectMelody(last.id); model.deleteSelected();
     expect(model.getSnapshot().score.measures).toHaveLength(1);
@@ -46,7 +46,8 @@ describe("two-pass score authoring", () => {
     model.addMelody(quarter);
     expect(model.getSnapshot().score.measures[1].melody.map(e => [e.kind, e.offsetTicks])).toEqual([["rest", 0], ["note", 480]]);
     model.setLane("chords"); model.addBar(); model.addChord("G");
-    expect(model.getSnapshot().score.measures[2].chords[0].symbol).toBe("G");
+    expect(model.getSnapshot().score.measures[0].chords[0].symbol).toBe("G");
+    expect(model.getSnapshot().score.measures).toHaveLength(2);
   });
   it("edits a selected note without changing the remembered entry duration", () => {
     const model = draft(); model.setLane("melody"); model.addMelody(quarter);

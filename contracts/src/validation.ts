@@ -1,10 +1,13 @@
 import { Ajv } from 'ajv';
 import schema from './lead-sheet-v1.schema.json' with { type: 'json' };
+import { chordDefinitionKey, chordSymbol, parseChordDefinition, validateChordDefinition } from './chord-definition.js';
+import schemaV3 from './lead-sheet-v3.schema.json' with { type: 'json' };
 import schemaV2 from './lead-sheet-v2.schema.json' with { type: 'json' };
 import { durationTicks, measureTicks, sameSpelledPitch, type LeadSheet, type MelodyEvent } from './score.js';
 
 export const scoreSchema = schema;
 export const scoreSchemaV2 = schemaV2;
+export const scoreSchemaV3 = schemaV3;
 
 export type ScoreIssueCode = 'schema' | 'duplicate-id' | 'event-order' | 'event-overlap' | 'event-out-of-bar' | 'invalid-tie';
 export interface ScoreIssue { code: ScoreIssueCode; path: string; message: string }
@@ -20,16 +23,19 @@ export class ScoreValidationError extends Error {
 // Validate rather than normalize: every client must see the same original score and spelling.
 const ajv = new Ajv({ strict: true, allErrors: false, coerceTypes: false, useDefaults: false, removeAdditional: false });
 const validateShape = ajv.compile<LeadSheet>(scoreSchema);
+const validateShapeV3 = ajv.compile<LeadSheet>(scoreSchemaV3);
 const validateShapeV2 = ajv.compile<LeadSheet>(scoreSchemaV2);
 
 /** Throws on invalid input; never coerces, reorders, strips fields or changes pitch spelling. */
 export function parseScore(value: unknown): LeadSheet {
-  const validate = typeof value === 'object' && value !== null && 'schemaVersion' in value && value.schemaVersion === 2 ? validateShapeV2 : validateShape;
+  const version = typeof value === 'object' && value !== null && 'schemaVersion' in value ? value.schemaVersion : 1;
+  const validate = version === 3 ? validateShapeV3 : typeof value === 'object' && value !== null && 'schemaVersion' in value && value.schemaVersion === 2 ? validateShapeV2 : validateShape;
   if (!validate(value)) {
     throw new ScoreValidationError((validate.errors ?? []).map(error => ({
       code: 'schema', path: error.instancePath || '/', message: error.message ?? 'Invalid score field.',
     })));
   }
+  if (new TextEncoder().encode(JSON.stringify(value)).length > 1_040_000) throw new ScoreValidationError([{ code: 'schema', path: '/', message: 'The score exceeds the 1,040,000-byte document limit. Shorten or simplify the sheet before applying this edit.' }]);
   const issues: ScoreIssue[] = [];
   const barTicks = measureTicks(value);
   const ids = new Set<string>();
@@ -59,6 +65,18 @@ export function parseScore(value: unknown): LeadSheet {
           end: measureIndex * barTicks + end, path });
       }
     }
+  }
+  const groups = new Map<string, { end: number; symbol: string; definition: string | undefined }>();
+  for (const [i, m] of value.measures.entries()) for (const e of m.chords) {
+    const path = `/measures/${i}/chords/${m.chords.indexOf(e)}`;
+    if (e.definition) { try { validateChordDefinition(e.definition); if (chordSymbol(e.definition) !== e.symbol) throw new Error('Symbol differs from definition.'); } catch (error) { issues.push({ code: 'schema', path, message: (error as Error).message }); } }
+    else if (!parseChordDefinition(e.symbol)) issues.push({ code: 'schema', path: `${path}/symbol`, message: 'Choose a supported chord symbol or a structured chord definition.' });
+    if (!e.logicalId) continue;
+    const start = i * barTicks + e.offsetTicks, previous = groups.get(e.logicalId);
+    const definition = chordDefinitionKey(e.definition);
+    if (!previous) { if (e.logicalId !== e.id) issues.push({ code: 'schema', path, message: 'Logical ID must reference the first chord fragment.' }); }
+    else if (previous.end !== start || previous.symbol !== e.symbol || previous.definition !== definition) issues.push({ code: 'schema', path, message: 'Logical chord fragments must be contiguous and identical.' });
+    groups.set(e.logicalId, { end: start + e.durationTicks, symbol: e.symbol, definition });
   }
   for (const [index, item] of voice.entries()) {
     if (item.event.kind !== 'note' || !item.event.tieToNext) continue;

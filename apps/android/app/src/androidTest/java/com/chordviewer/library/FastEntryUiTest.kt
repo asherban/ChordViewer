@@ -43,7 +43,7 @@ class FastEntryUiTest {
         val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         main {
-            model.addChord("C"); model.addChord("G")
+            model.setDuration(480); model.addChord("C"); model.addChord("G")
             model.setPosition(ScorePosition(0, 960)); model.addChord("Am")
             model.setLane(EntryLane.MELODY)
             activity.setContent {
@@ -110,7 +110,7 @@ class FastEntryUiTest {
             assertEquals(listOf(0, 480), model.state.value.editor!!.score.measures[0].melody.map { it.offsetTicks })
             main { model.undoChord() }
             assertEquals(beforeCancel, model.state.value.editor!!.score)
-            // Entry extends into a third bar; making that final note a rest removes it.
+            // Authored final rests stay in the score through save and reopen.
             main {
                 model.resumeMelodyEntry(); model.setMelodyDuration(ScoreDuration(1, 0))
                 model.applyMelody(ScorePitch("C", 0, 4)); model.applyMelody(ScorePitch("D", 0, 4))
@@ -118,18 +118,18 @@ class FastEntryUiTest {
             }
             assertEquals(3, model.state.value.editor!!.score.measures.size)
             click(nodes().first { it.text?.toString() == "Rest" })
-            assertEquals(2, model.state.value.editor!!.score.measures.size)
-            assertNull(model.state.value.editor!!.selectedMelodyId)
+            assertEquals(3, model.state.value.editor!!.score.measures.size)
+            assertNotNull(model.state.value.editor!!.selectedMelodyId)
             main { model.undoChord() }
             assertEquals(3, model.state.value.editor!!.score.measures.size)
             main { model.redoChord() }
-            assertEquals(2, model.state.value.editor!!.score.measures.size)
+            assertEquals(3, model.state.value.editor!!.score.measures.size)
             val scoreBounds = Rect().also { stave().getBoundsInScreen(it) }
             main { model.save() }
             await("save") { !model.state.value.busy && !model.state.value.hasUnsavedChanges }
             assertEquals(scoreBounds.top, Rect().also { stave().getBoundsInScreen(it) }.top)
             val saved = model.state.value.selected!!
-            assertEquals(listOf("C", "Am"), saved.score.measures[0].chords.map { it.symbol })
+            assertEquals(listOf("C", "G", "Am"), saved.score.measures[0].chords.map { it.symbol })
             main { model.open(saved.id) }
             await("reopen") { !model.state.value.busy && model.state.value.editor?.score == saved.score }
             main { model.setLane(EntryLane.MELODY) }

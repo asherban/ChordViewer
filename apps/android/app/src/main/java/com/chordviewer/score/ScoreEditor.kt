@@ -12,13 +12,16 @@ data class ScoreEditorState(
     val duration: Int = score.measureTicks,
     val lane: EntryLane = EntryLane.CHORDS,
     val melodyDuration: ScoreDuration = ScoreDuration(4, 0),
+    val chordDialogOpen: Boolean = false,
+    val chordDialogError: String? = null,
+    val chordAnchorId: String? = null,
+    val chordEntryDefinition: ChordDefinition = ChordDefinition(),
     val selectedId: String? = null,
     val selectedMelodyId: String? = null,
     val mode: EntryMode = EntryMode.PAUSED,
     val pending: PendingChord? = null,
     val pendingMelody: PendingMelody? = null,
     val alternatives: List<String> = emptyList(),
-    val pinnedChords: List<String> = emptyList(),
     val lastInsertedId: String? = null,
     val lastMelodyId: String? = null,
     val message: String? = null,
@@ -30,7 +33,7 @@ data class ScoreEditorState(
 class ScoreEditor(initial: LeadSheet, preserveTrailingSpace: Boolean = false) {
     var state = ScoreEditorState(if (preserveTrailingSpace) initial else FastEntry.trimTrailingSilentBars(initial)); private set
     private data class Checkpoint(val score: LeadSheet, val position: ScorePosition, val chordPosition: ScorePosition, val melodyPosition: ScorePosition,
-        val lane: EntryLane, val duration: Int, val melodyDuration: ScoreDuration)
+        val lane: EntryLane, val duration: Int, val melodyDuration: ScoreDuration, val selectedId: String?, val selectedMelodyId: String?)
     private val undo = ArrayDeque<Checkpoint>()
     private val redo = ArrayDeque<Checkpoint>()
     private fun synced(value: ScoreEditorState): ScoreEditorState {
@@ -55,16 +58,16 @@ class ScoreEditor(initial: LeadSheet, preserveTrailingSpace: Boolean = false) {
     fun commitScore(score: LeadSheet, position: ScorePosition = state.position, message: String? = null, minimumBars: Int = 1) {
         remember()
         state = synced(state.copy(score = FastEntry.trimTrailingSilentBars(score, minimumBars), position = position, selectedId = null, selectedMelodyId = null,
-            pending = null, pendingMelody = null, alternatives = emptyList(), message = message, canUndo = true, canRedo = false))
+            pending = null, pendingMelody = null, alternatives = emptyList(), message = message, chordDialogError = null, canUndo = true, canRedo = false))
     }
     fun delete(id: String) {
         val target = requireNotNull(ChordEdits.find(state.score, id))
-        commitScore(ChordEdits.delete(state.score, id), target.second, "Chord deleted. Melody and timing are preserved.")
+        commitScore(ChordTimeline.delete(state.score, id), target.second, "Chord deleted. Later chords shifted; melody is preserved.")
         state = state.copy(mode = EntryMode.PAUSED, lastInsertedId = null)
     }
     fun undo() = travel(undo, redo)
     fun redo() = travel(redo, undo)
-    private fun checkpoint() = Checkpoint(state.score, state.position, state.chordPosition, state.melodyPosition, state.lane, state.duration, state.melodyDuration)
+    private fun checkpoint() = Checkpoint(state.score, state.position, state.chordPosition, state.melodyPosition, state.lane, state.duration, state.melodyDuration, state.selectedId, state.selectedMelodyId)
     private fun remember() { undo.addLast(checkpoint()); if (undo.size > 100) undo.removeFirst(); redo.clear() }
     private fun travel(from: ArrayDeque<Checkpoint>, to: ArrayDeque<Checkpoint>) {
         if (from.isEmpty()) return
@@ -72,7 +75,7 @@ class ScoreEditor(initial: LeadSheet, preserveTrailingSpace: Boolean = false) {
         val checkpoint = from.removeLast()
         state = state.copy(score = checkpoint.score.copy(title = state.score.title), position = checkpoint.position, lane = checkpoint.lane,
             chordPosition = checkpoint.chordPosition, melodyPosition = checkpoint.melodyPosition, duration = checkpoint.duration, melodyDuration = checkpoint.melodyDuration,
-            selectedId = null, selectedMelodyId = null, mode = EntryMode.PAUSED, pending = null, pendingMelody = null,
+            selectedId = checkpoint.selectedId, selectedMelodyId = checkpoint.selectedMelodyId, chordDialogOpen = false, mode = EntryMode.PAUSED, pending = null, pendingMelody = null,
             alternatives = emptyList(), lastInsertedId = null, lastMelodyId = null, message = null, canUndo = undo.isNotEmpty(), canRedo = redo.isNotEmpty())
     }
 }

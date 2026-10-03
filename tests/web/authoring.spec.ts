@@ -67,7 +67,7 @@ test("real MIDI creates a sheet, corrects it, and persists the full score", asyn
   await page.getByRole("button", { name: "Replace from MIDI", exact: true }).click();
   await play("authoring-replacement");
   await expect(page.locator(".editable-chord").first()).toContainText("Dm");
-  await expect(page.locator(".editable-chord")).toHaveCount(5);
+  await expect(page.locator(".editable-chord")).toHaveCount(6);
   await page.locator(".editable-chord").nth(1).click();
   await page.getByRole("button", { name: "Delete chord", exact: true }).click();
   await expect(page.locator(".editable-chord")).toHaveCount(4);
@@ -78,13 +78,13 @@ test("real MIDI creates a sheet, corrects it, and persists the full score", asyn
   await expect(page.getByRole("button", { name: "Save sheet", exact: true })).toBeDisabled();
   const score = await savedScore(page, title);
   expect(score.measures.flatMap((bar: { chords: unknown[] }) => bar.chords)).toMatchObject([
-    { symbol: "Dm", offsetTicks: 0, durationTicks: 240 }, { symbol: "F", offsetTicks: 480, durationTicks: 480 },
-    { symbol: "Am", offsetTicks: 960, durationTicks: 480 }, { symbol: "Am", offsetTicks: 1440, durationTicks: 480 },
-    { symbol: "G", offsetTicks: 0, durationTicks: 480 },
+    { symbol: "Dm", offsetTicks: 0, durationTicks: 240 }, { symbol: "F", offsetTicks: 240, durationTicks: 480 },
+    { symbol: "Am", offsetTicks: 720, durationTicks: 480 }, { symbol: "Am", offsetTicks: 1200, durationTicks: 480 },
+    { symbol: "G", offsetTicks: 1680, durationTicks: 240 }, { symbol: "G", offsetTicks: 0, durationTicks: 240 },
   ]);
   await page.reload();
   await page.getByRole("button", { name: "Edit " + title, exact: true }).click();
-  await expect(page.locator(".editable-chord")).toHaveCount(5);
+  await expect(page.locator(".editable-chord")).toHaveCount(6);
   expect(await savedScore(page, title)).toEqual(score);
 });
 

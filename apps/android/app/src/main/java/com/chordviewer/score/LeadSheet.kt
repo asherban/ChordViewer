@@ -22,7 +22,7 @@ data class MelodyEvent(
     val tieToNext: Boolean = false,
 )
 
-data class ChordEvent(val id: String, val offsetTicks: Int, val durationTicks: Int, val symbol: String)
+data class ChordEvent(val id: String, val offsetTicks: Int, val durationTicks: Int, val symbol: String, val logicalId: String? = null, val definition: ChordDefinition? = null)
 data class ScoreMeasure(val id: String, val chords: List<ChordEvent>, val melody: List<MelodyEvent>)
 data class ScoreTimeSignature(val numerator: Int = 4, val denominator: Int = 4)
 data class LeadSheet(val id: String, val title: String, val measures: List<ScoreMeasure>,
@@ -30,15 +30,16 @@ data class LeadSheet(val id: String, val title: String, val measures: List<Score
     val measureTicks: Int get() = timeSignature.numerator * BAR_TICKS / timeSignature.denominator
 }
 
-/** Decodes v1 C/4-4 and v2 keyed/metered scores before layout or rendering. */
+/** Decodes v1/v2 notation and v3 structured harmony before layout or rendering. */
 object LeadSheetReader {
     fun read(json: String): LeadSheet {
         require(json.length <= 8 * 1024 * 1024) { "Score document is too large" }
         val root = JSONObject(json)
+        require(root.toString().toByteArray(Charsets.UTF_8).size <= 1_040_000) { "The score exceeds the 1,040,000-byte document limit." }
         root.fields("schemaVersion", "id", "title", "keySignature", "timeSignature", "ticksPerQuarter", "measures")
-        val version = root.integer("schemaVersion", 1..2)
+        val version = root.integer("schemaVersion", 1..3)
         val key = root.string("keySignature", 4)
-        require(key in KEY_SIGNATURES && (version == 2 || key == "C")) { "Unsupported key signature" }
+        require(key in KEY_SIGNATURES && (version >= 2 || key == "C")) { "Unsupported key signature" }
         require(root.integer("ticksPerQuarter", 480..480) == 480)
         val time = root.getJSONObject("timeSignature").let {
             with(it) {
@@ -46,7 +47,7 @@ object LeadSheetReader {
             ScoreTimeSignature(integer("numerator", 1..12), integer("denominator", 2..8))
             }
         }
-        require(time.denominator in listOf(2, 4, 8) && (version == 2 || time == ScoreTimeSignature())) { "Unsupported time signature" }
+        require(time.denominator in listOf(2, 4, 8) && (version >= 2 || time == ScoreTimeSignature())) { "Unsupported time signature" }
         val barTicks = time.numerator * BAR_TICKS / time.denominator
         val ids = mutableSetOf<String>()
         fun JSONObject.id(): String = string("id", 64).also {
@@ -65,9 +66,11 @@ object LeadSheetReader {
             require(chordsJson.length() <= 64 && melodyJson.length() <= 64) { "Too many measure events" }
             val chords = List(chordsJson.length()) { chordIndex ->
                 val chord = chordsJson.getJSONObject(chordIndex)
-                chord.fields("id", "offsetTicks", "durationTicks", "symbol")
+                chord.fields("id", "offsetTicks", "durationTicks", "symbol", optional = if (version >= 3) setOf("logicalId", "definition") else emptySet())
                 ChordEvent(chord.id(), chord.integer("offsetTicks", 0 until barTicks),
-                    chord.integer("durationTicks", 1..barTicks), chord.string("symbol", 32))
+                    chord.integer("durationTicks", 1..barTicks), chord.string("symbol", if (version >= 3) 512 else 32),
+                    if (chord.has("logicalId")) chord.string("logicalId", 64) else null,
+                    if (chord.has("definition")) ChordDefinition.read(chord.getJSONObject("definition")) else null)
             }
             val melody = List(melodyJson.length()) { noteIndex ->
                 val event = melodyJson.getJSONObject(noteIndex)
@@ -96,6 +99,18 @@ object LeadSheetReader {
             validateLane(melody.map { it.offsetTicks to it.duration.ticks }, barTicks)
             ScoreMeasure(barId, chords, melody)
         }
+        val logical = mutableMapOf<String, Pair<Int, ChordEvent>>()
+        measures.forEachIndexed { i, m -> m.chords.forEach { e ->
+            if (e.definition != null) require(e.definition.symbol == e.symbol) { "Chord symbol differs from definition." }
+            else require(ChordDefinition.parse(e.symbol) != null) { "Choose a supported chord symbol or a structured chord definition." }
+            e.logicalId?.let { id ->
+                require(id.matches(Regex("[A-Za-z0-9_-]{1,64}")))
+                val previous = logical[id]; val start = i * barTicks + e.offsetTicks
+                if (previous == null) require(id == e.id) { "Logical ID must reference the first fragment." }
+                else require(previous.first == start && previous.second.symbol == e.symbol && previous.second.definition?.semanticKey() == e.definition?.semanticKey()) { "Logical fragments must be contiguous and identical." }
+                logical[id] = (start + e.durationTicks) to e
+            }
+        } }
         val timedMelody = measures.flatMapIndexed { index, bar -> bar.melody.map { (index * barTicks + it.offsetTicks) to it } }
         timedMelody.forEachIndexed { index, (time, event) ->
             if (event.tieToNext) {

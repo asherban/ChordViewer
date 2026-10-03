@@ -11,11 +11,11 @@ class FastEntryTest {
         val trailing = ScoreMeasure("trailing", emptyList(), listOf(MelodyEvent("tail-rest", 0, ScoreDuration(1, 0), null)))
         val score = original.copy(measures = original.measures + listOf(silent, chordOnly, trailing, ScoreMeasure("empty", emptyList(), emptyList())))
         val trimmed = FastEntry.trimTrailingSilentBars(score)
-        assertEquals(score.measures.take(3), trimmed.measures)
+        assertEquals(score.measures.take(4), trimmed.measures)
         assertEquals(5, score.measures.size)
         assertSame(trimmed, FastEntry.trimTrailingSilentBars(trimmed))
         assertEquals(4, FastEntry.trimTrailingSilentBars(score, 4).measures.size)
-        assertEquals(listOf(silent), FastEntry.trimTrailingSilentBars(score.copy(measures = listOf(silent, trailing))).measures)
+        assertEquals(listOf(silent, trailing), FastEntry.trimTrailingSilentBars(score.copy(measures = listOf(silent, trailing))).measures)
     }
 
     @Test fun changingDeletingAndShorteningTheLastNoteTrimsBarsAndUndoRestoresThem() {
@@ -26,9 +26,9 @@ class FastEntryTest {
         val editor = ScoreEditor(score)
         editor.commit(FastEntry.changeMelodyAndShift(score, "quarter", MelodySpec(ScoreDuration(4, 0))))
         editor.update { it.copy(selectedMelodyId = "quarter") }
-        assertEquals(listOf(first), editor.state.score.measures)
-        assertNull(editor.state.selectedMelodyId)
-        assertNull(editor.state.lastMelodyId)
+        assertEquals(2, editor.state.score.measures.size)
+        assertEquals("quarter", editor.state.selectedMelodyId)
+        assertEquals("quarter", editor.state.lastMelodyId)
         editor.undo(); assertEquals(score, editor.state.score)
         editor.commitScore(FastEntry.deleteMelodyAndShift(score, "quarter"), ScorePosition(2))
         assertEquals(1, editor.state.score.measures.size)

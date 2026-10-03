@@ -16,7 +16,7 @@ describe('continuous score entry', () => {
       { id: 'silent', chords: [], melody: [{ id: 'last-rest', kind: 'rest', offsetTicks: 0, duration: { denominator: 1, dots: 0 } }] },
       { id: 'empty', chords: [], melody: [] });
     const trimmed = trimTrailingSilentBars(score);
-    expect(trimmed.measures).toEqual(score.measures.slice(0, 3));
+    expect(trimmed.measures).toEqual(score.measures.slice(0, 4));
     expect(score.measures).toHaveLength(5);
     expect(trimTrailingSilentBars(trimmed)).toBe(trimmed);
     expect(trimTrailingSilentBars(score, 4).measures).toHaveLength(4);

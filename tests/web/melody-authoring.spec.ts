@@ -124,7 +124,7 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   await expect(page.locator(".editable-melody").first()).toHaveAccessibleName(/^D♭4, dotted eighth/);
   await save(page);
   const stored = await savedSheet(page, title);
-  expect(stored.score.schemaVersion).toBe(2);
+  expect(stored.score.schemaVersion).toBe(3);
   expect(stored.score.keySignature).toBe("G");
   expect(stored.score.timeSignature).toEqual({ numerator: 3, denominator: 4 });
   expect(stored.score.measures.map(bar => bar.chords)).toEqual(initial.score.measures.map(bar => bar.chords));
@@ -257,7 +257,7 @@ test.describe("physical LoopBe melody acceptance", () => {
       { step: "C", alter: 0, octave: 4 }, { step: "D", alter: 0, octave: 4 }, { step: "F", alter: 1, octave: 4 },
       { step: "F", alter: 1, octave: 4 }, { step: "G", alter: 0, octave: 4 }, { step: "A", alter: 0, octave: 4 },
     ]);
-    expect(captured.score.measures.map(bar => bar.melody.map(event => event.offsetTicks))).toEqual([[0, 480, 960], [0, 480, 960], [], []]);
+    expect(captured.score.measures.map(bar => bar.melody.map(event => event.offsetTicks))).toEqual([[0, 480, 960], [0, 480, 960]]);
     expect(captured.score.measures.flatMap(bar => bar.melody.map(event => event.duration))).toEqual(Array(6).fill({ denominator: 4, dots: 0 }));
     expect(captured.score.measures.map(bar => bar.chords)).toEqual(initial.score.measures.map(bar => bar.chords));
 

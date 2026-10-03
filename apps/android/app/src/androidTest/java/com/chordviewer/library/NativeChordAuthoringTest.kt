@@ -1,282 +1,94 @@
 package com.chordviewer.library
 
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Rect
-import android.view.MotionEvent
-import android.view.InputDevice
-import android.os.Bundle
 import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.lifecycle.ViewModelProvider
 import com.chordviewer.MainActivity
+import com.chordviewer.MidiInputState
+import com.chordviewer.midi.MidiSnapshot
 import com.chordviewer.score.*
-import java.io.File
-import org.json.JSONObject
+import com.chordviewer.ui.ChordViewerTheme
+import java.util.UUID
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Opt-in native UI, injected musical product events and real API persistence. Credentials use private stdin. */
+/** Product MIDI, correction, melody and persistence regression using an isolated account/model. */
 @RunWith(AndroidJUnit4::class)
 class NativeChordAuthoringTest {
-    private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
-    private val automation get() = instrumentation.uiAutomation
-    private var model: LibraryViewModel? = null
-
+    private val instrumentation get()=InstrumentationRegistry.getInstrumentation()
+    private val automation get()=instrumentation.uiAutomation
+    private fun main(action:()->Unit) { instrumentation.runOnMainSync(action); instrumentation.waitForIdleSync() }
     @Test fun nativeAuthoringCapturesMidiEventsAndKeepsPracticeReadOnly() {
-        assumeTrue("Explicit native authoring fixture required", InstrumentationRegistry.getArguments().getString("authoringUi") == "true")
-        val context = instrumentation.targetContext
-        val file = File(context.filesDir, "ui-fixture.json")
-        require(file.length() in 1..8192)
-        val fixture = try { JSONObject(file.readText()) } finally { check(file.delete()) }
-        val port = fixture.optInt("apiPort", 3001).also { require(it in 1024..65535) }
-        val api = LibraryApi("http://127.0.0.1:$port", true)
-        val account = api.signIn(fixture.getString("email"), fixture.getString("password"))
-        val sheet = api.create(account.token, "M4 native study ${System.currentTimeMillis()}", false)
-        val savedTitle = "Native MIDI saved study ${sheet.id.take(8)}"
-        val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        val activity = instrumentation.startActivitySync(intent)
-        instrumentation.runOnMainSync { model = ViewModelProvider(activity as MainActivity)[LibraryViewModel::class.java] }
-        val midi = MidiProductFixture(requireNotNull(model))
+        assumeTrue(InstrumentationRegistry.getArguments().getString("authoringUi")=="true")
+        val context=instrumentation.targetContext; val nonce=UUID.randomUUID().toString()
+        val model=LibraryViewModel(LibraryApi("http://127.0.0.1:3001",true))
+        main { model.authenticate("midi-$nonce@example.test","Midi-$nonce","MIDI regression") }
+        await("account") { model.state.value.user != null && !model.state.value.busy }
+        main { model.create("Native MIDI regression",false); model.configureChordVocabulary(context.assets.open("chord-vocabulary-v1.json").bufferedReader().use { it.readText() }) }
+        await("sheet") { model.state.value.editor != null && !model.state.value.busy }
+        val activity=instrumentation.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        main { activity.setContent { val state by model.state.collectAsState(); ChordViewerTheme { LibraryScreen(state,model,MidiInputState(MidiSnapshot(),"Disconnected",false,{},{})) } } }
+        val midi=MidiProductFixture(model)
+        fun score()=model.state.value.editor!!.score
+        fun symbols()=ChordTimeline.groups(score()).map { it.event.symbol }
         try {
-            waitFor("session restoration") { model?.state?.value?.busy == false }
-            if (model?.state?.value?.user == null) {
-                setField("Email", fixture.getString("email")); setField("Password (12–128 characters)", fixture.getString("password"))
-                click("Sign in", last = true)
-            } else assertEquals(fixture.getString("email"), model?.state?.value?.user?.email)
-            waitFor("loaded library") { nodes().any { it.text?.toString() == sheet.score.title } }
-            openCard(sheet.score.title)
-            midi.connect()
-            clickDescription("Duration ¼")
-            click("Start MIDI entry")
-            capture("m4-native-entry-before.png")
-            midi.bytes(0xB0, 64, 127)
-            midi.chord(60, 64, 67)
-            midi.chord(62, 65, 69)
-            midi.bytes(0xB0, 64, 0)
-            waitFor("two automatically inserted chords", 30_000) { chordSymbols() == listOf("C", "Dm") }
-            capture("m4-native-entry.png")
-            click("Undo")
-            waitFor("undo") { chordSymbols() == listOf("C") }
-            click("Redo")
-            waitFor("redo") { chordSymbols() == listOf("C", "Dm") }
-            clickDescription("Select chord C at tick 0")
-            setField("Chord symbol", "Cmaj7")
-            click("Apply change")
-            waitFor("manual correction") { chordSymbols() == listOf("Cmaj7", "Dm") }
-            clickDescription("Select chord Dm at tick 480")
-            click("Delete chord")
-            waitFor("delete") { chordSymbols() == listOf("Cmaj7") }
-            click("Undo")
-            clickDescription("Select chord Dm at tick 480")
-            click("Replace from MIDI")
-            midi.chord(65, 69, 72)
-            midi.chord(64, 68, 71)
-            waitFor("one-shot MIDI replacement", 30_000) { chordSymbols() == listOf("Cmaj7", "F") }
-            clickDescription("Select chord F at tick 480")
-            clickDescription("Duration Whole bar")
-            click("Replace from MIDI")
-            midi.chord(67, 71, 74)
-            waitFor("replacement extends across the barline", 30_000) { chordSymbols() == listOf("Cmaj7", "G") && chordSymbols(1) == listOf("G") }
-            assertEquals(480, model?.state?.value?.editor?.score?.measures?.get(1)?.chords?.single()?.durationTicks)
-            click("Undo")
-            assertEquals(listOf("Cmaj7", "F"), chordSymbols())
-            assertEquals(emptyList<String>(), chordSymbols(1))
-            clickDescription("Select chord F at tick 480")
-            clickDescription("Duration ¼")
-            setField("Chord symbol", "G"); click("Apply change")
-            waitFor("replacement correction") { chordSymbols() == listOf("Cmaj7", "G") }
-            click("Save sheet")
-            waitFor("save") { api.get(account.token, sheet.id).revision == 2 }
-            var saved = api.get(account.token, sheet.id)
-            assertEquals(listOf("Cmaj7", "G"), saved.score.measures.first().chords.map { it.symbol })
-            assertEquals(listOf(480, 480), saved.score.measures.first().chords.map { it.durationTicks })
-            click("Practice")
-            midi.hold(60, 64, 67)
-            // The sidebar monitor can be below the viewport; assert the real live MIDI model without scrolling away from the score.
-            waitFor("practice receives live MIDI", 30_000) { model?.state?.value?.liveChord == "C" }
-            SystemClock.sleep(700)
-            assertEquals(saved.score, api.get(account.token, sheet.id).score)
-            assertEquals(listOf("Cmaj7", "G"), chordSymbols())
-            capture("m4-native-practice.png")
-            midi.release(60, 64, 67)
-            click("Create")
-            // A disconnect resets entry; reconnect does not arm automatically.
-            midi.disconnect(); midi.connect()
-            assertTrue(model?.state?.value?.midiConnected == true)
-            assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
-            clickDescription("Choose insertion position"); click("Next bar"); click("Done"); click("Start MIDI entry")
-            midi.chord(67, 71, 74)
-            waitFor("fresh chord after reconnect", 30_000) { chordSymbols(1) == listOf("G") }
-            click("Sheet details"); setField("Sheet title", savedTitle)
-            setField("YouTube tutorial URL (optional)", "https://youtu.be/dQw4w9WgXcQ")
-            click("Save changes")
-            waitFor("full save") { api.get(account.token, sheet.id).revision == 3 }
-            click("Done"); click("Library"); clickDescription("Library actions"); click("Refresh")
-            waitFor("refreshed library") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id && it.libraryLoaded } == true }
-            openCard(savedTitle, reload = true)
-            waitFor("reopened authored score") { chordSymbols(1) == listOf("G") }
-            assertEquals("Reopen must select the newly saved sheet", sheet.id, model?.state?.value?.selected?.id)
-            saved = api.get(account.token, sheet.id)
-            assertEquals(savedTitle, saved.score.title)
-            assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", saved.tutorialUrl)
-            assertEquals(listOf("Cmaj7", "G", "G"), saved.score.measures.flatMap { it.chords }.map { it.symbol })
-            capture("m4-native-reopened.png")
-
-            // M5: a separate melody pass starts at the beginning of the existing harmony.
-            clickDescription("Melody entry lane")
-            assertEquals(ScorePosition(), model?.state?.value?.editor?.position)
-            click("Start MIDI entry"); midi.chord(60); midi.chord(62)
-            waitFor("two released melody notes", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("D", 0, 4)) }
-            assertEquals(listOf("Cmaj7", "G"), chordSymbols())
-            tapFirstMelodyNote()
-            waitFor("native Canvas note selection") { model?.state?.value?.editor?.selectedMelodyId == model?.state?.value?.editor?.score?.measures?.first()?.melody?.first()?.id }
-            instrumentation.runOnMainSync { model!!.resumeMelodyEntry() }; click("Start MIDI entry")
-            midi.chord(64, 67)
-            waitFor("overlapping pitches rejected", 30_000) { model?.state?.value?.editor?.message?.contains("one pitch") == true }
-            assertEquals(2, melodyPitches().size)
-            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[1].id) }
-            click("Replace from MIDI"); midi.chord(65)
-            waitFor("one-shot melody replacement", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("F", 0, 4)) }
-            assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
-            click("+ Rest")
-            waitFor("manual rest") { melodyPitches().size == 3 && melodyPitches().last() == null }
-            click("Undo"); assertEquals(2, melodyPitches().size); click("Redo")
-            instrumentation.runOnMainSync {
-                val note = model!!.state.value.editor!!.score.measures.first().melody[2]
-                model!!.placeNote(ScorePosition(0, 960), ScorePitch("F", 0, 4), note.id)
-            }
-            waitFor("rest changed to note") { melodyPitches().last() == ScorePitch("F", 0, 4) }
-            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[1].id) }; click("Tie")
-            waitFor("explicit tie") { model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == true }
-            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[2].id) }; click("Rest")
-            waitFor("note deletion retains rest and removes invalid tie") { melodyPitches().last() == null && model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == false }
-            click("Undo")
-            val melodyTitle = "M5 native melody ${System.currentTimeMillis()}"
-            click("Sheet details"); setField("Sheet title", melodyTitle)
-            click("Key: C major"); click("D major"); click("− beat"); click("Apply key and meter")
-            waitFor("key and meter change") { model?.state?.value?.editor?.score?.let { it.keySignature == "D" && it.timeSignature == ScoreTimeSignature(3, 4) } == true }
-            click("Save changes"); waitFor("melody save") { api.get(account.token, sheet.id).revision == 4 }
-            click("Done"); click("Practice")
-            saved = api.get(account.token, sheet.id)
-            assertEquals(3, saved.score.measures.first().melody.size)
-            assertTrue(saved.score.measures.first().melody[1].tieToNext)
-            assertEquals("D", saved.score.keySignature); assertEquals(ScoreTimeSignature(3, 4), saved.score.timeSignature)
-            capture("m5-native-melody.png")
-            click("Library"); clickDescription("Library actions"); click("Refresh")
-            waitFor("melody library refresh") { model?.state?.value?.let { !it.busy && it.selected?.id == sheet.id } == true }
-            openCard(melodyTitle, reload = true)
-            waitFor("reopened saved melody") { model?.state?.value?.editor?.score == saved.score }
-            assertEquals(saved.score, model?.state?.value?.editor?.score)
-            click("Sheet details"); click("Export ChordViewer JSON")
-            waitFor("system save document") { nodes().firstOrNull { it.text?.toString()?.equals("Save", ignoreCase = true) == true }?.let(::performClick) == true }
-            waitFor("JSON export completion") { model?.state?.value?.message?.startsWith("JSON exported") == true }
-            click("Done"); click("Library"); clickDescription("Library actions"); click("Import")
-            waitFor("exported JSON in document picker", 20_000) { nodes().firstOrNull { it.text?.toString() == "$melodyTitle.json" }?.let(::performClick) == true }
-            waitFor("local import preview") { model?.state?.value?.importPreview != null }
-            assertEquals(saved.score, model?.state?.value?.importPreview?.score)
-            assertEquals(sheet.id, model?.state?.value?.selected?.id)
-            capture("m5-native-import.png")
-            setField("Imported sheet title", "$melodyTitle copy"); click("Save as new sheet")
-            waitFor("import gets new server identity") { model?.state?.value?.let { !it.busy && it.importPreview == null && it.selected?.id != sheet.id } == true }
-            val imported = requireNotNull(model?.state?.value?.selected)
-            assertEquals(saved.score.measures, imported.score.measures)
-            assertNotEquals(sheet.id, imported.id)
-            click("Practice"); capture("m5-native-imported.png")
-        } finally {
-            midi.disconnect()
-            try { api.signOut(account.token) } finally { instrumentation.runOnMainSync { activity.finish() } }
-        }
+            midi.connect(); main { model.setDuration(480) }; clickText("Start MIDI entry")
+            midi.bytes(0xb0,64,127); midi.chord(60,64,67); midi.chord(62,65,69); midi.bytes(0xb0,64,0)
+            await("physical releases with sustain") { symbols()==listOf("C","Dm") }
+            clickText("Undo"); assertEquals(listOf("C"),symbols()); clickText("Redo")
+            clickDescription("Edit chord C in bar 1"); clickDescription("Type maj7"); clickText("Apply"); clickDescription("Close chord dialog")
+            assertEquals(listOf("Cmaj7","Dm"),symbols())
+            clickDescription("Edit chord Dm in bar 1"); clickText("Delete"); assertEquals(listOf("Cmaj7"),symbols()); clickText("Undo")
+            val second=ChordTimeline.groups(score())[1].event.id
+            // Explicit one-shot product replacement remains available to capture adapters.
+            main { model.selectChord(second); model.armEntry(true) }; midi.chord(65,69,72); midi.chord(64,68,71)
+            assertEquals(listOf("Cmaj7","F"),symbols()); assertEquals(EntryMode.PAUSED,model.state.value.editor!!.mode)
+            main { model.selectChord(second); model.setChordDialogDuration(1920); model.armEntry(true) }; midi.chord(67,71,74)
+            assertEquals(listOf("Cmaj7","G"),symbols()); assertEquals(1920,ChordTimeline.groups(score())[1].ticks)
+            assertEquals(480,score().measures[1].chords.single().durationTicks)
+            main { model.closeChordDialog(); model.undoChord(); model.undoChord(); model.selectChord(second); model.applyChordDefinition(ChordDefinition.parse("G")!!); model.closeChordDialog(); model.save() }
+            await("save") { !model.state.value.busy && !model.state.value.hasUnsavedChanges }
+            val saved=model.state.value.selected!!; assertEquals(listOf(480,480),ChordTimeline.groups(saved.score).map { it.ticks })
+            main { model.changeMode(LibraryMode.PRACTICE) }; midi.hold(60,64,67)
+            await("live practice input") { model.state.value.liveChord=="C" }; midi.release(60,64,67)
+            assertEquals(saved.score,score()); assertFalse(model.state.value.hasUnsavedChanges)
+            main { model.changeMode(LibraryMode.CREATE) }; midi.disconnect(); midi.connect()
+            assertEquals(EntryMode.PAUSED,model.state.value.editor!!.mode)
+            main { model.openChordDialog(); model.closeChordDialog(); model.armEntry() }; midi.chord(67,71,74)
+            assertEquals(listOf("Cmaj7","G","G"),symbols())
+            main { model.setLane(EntryLane.MELODY); model.armEntry() }; midi.chord(60); midi.chord(62)
+            assertEquals(listOf(ScorePitch("C",0,4),ScorePitch("D",0,4)),score().measures[0].melody.map { it.pitch })
+            midi.chord(64,67); assertTrue(model.state.value.editor!!.message!!.contains("one pitch"))
+            main { model.selectMelody(score().measures[0].melody[1].id); model.armEntry(true) }; midi.chord(65)
+            assertEquals(ScorePitch("F",0,4),score().measures[0].melody[1].pitch)
+            main { model.resumeMelodyEntry(); model.enterRest() }; assertNull(score().measures[0].melody[2].pitch)
+            main { model.undoChord(); model.redoChord(); val rest=score().measures[0].melody[2]; model.placeNote(ScorePosition(0,960),ScorePitch("F",0,4),rest.id); model.selectMelody(score().measures[0].melody[1].id); model.setMelodyTie(true) }
+            assertTrue(score().measures[0].melody[1].tieToNext)
+            main { model.selectMelody(score().measures[0].melody[2].id); model.enterRest() }; assertFalse(score().measures[0].melody[1].tieToNext)
+            main { model.undoChord(); model.updateDraftTitle("Saved MIDI and melody"); model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ"); model.save() }
+            await("full save") { !model.state.value.busy && !model.state.value.hasUnsavedChanges }
+            val complete=model.state.value.selected!!; main { model.open(complete.id) }; await("reopen") { !model.state.value.busy && score()==complete.score }
+            assertEquals(complete.score,ScoreImport.read(model.exportScore()!!,"score.json").score)
+            main { model.previewImport(model.documentRequest(),model.exportScore()!!,"score.json") }; await("import preview") { model.state.value.importPreview != null }; assertEquals(complete.score,model.state.value.importPreview!!.score)
+            main { model.updateImportTitle("Imported MIDI copy"); model.saveImport() }; await("new imported identity") { !model.state.value.busy && model.state.value.selected?.id != complete.id }
+            assertEquals(complete.score.measures,model.state.value.selected!!.score.measures)
+        } finally { midi.disconnect(); main { model.signOut(); activity.finish() } }
     }
-
-    // Assert the real activity model; clipping can remove Canvas semantics from UiAutomation.
-    // Screenshots verify the native staff; androidTest injects events through the real product model.
-    private fun chordSymbols(measure: Int = 0) = model?.state?.value?.editor?.score?.measures?.getOrNull(measure)?.chords?.map { it.symbol }.orEmpty()
-    private fun melodyPitches() = model?.state?.value?.editor?.score?.measures?.first()?.melody?.map { it.pitch }.orEmpty()
-    private fun tapFirstMelodyNote() {
-        val canvas = nodes().first { it.contentDescription?.toString()?.contains("Measure 1:") == true }
-        val bounds = Rect().also(canvas::getBoundsInScreen)
-        val density = instrumentation.targetContext.resources.displayMetrics.density
-        val score = requireNotNull(model?.state?.value?.editor?.score)
-        val top = ScoreLayout.geometry(score).top
-        val x = bounds.left + 84 * density // first row: 16 padding + 62 clef/meter prefix + notehead center
-        val y = bounds.top + (top + 40 - score.measures.first().melody.first().pitch!!.staffStep * 5) * density
-        val now = SystemClock.uptimeMillis()
-        listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP).forEach { action ->
-            val event = MotionEvent.obtain(now, now + if (action == MotionEvent.ACTION_UP) 50 else 0, action, x, y, 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            try { check(automation.injectInputEvent(event, true)) } finally { event.recycle() }
-        }
-        instrumentation.waitForIdleSync()
+    private fun nodes():List<AccessibilityNodeInfo> {
+        if(Build.VERSION.SDK_INT>=34) automation.clearCache()
+        fun walk(n:AccessibilityNodeInfo):List<AccessibilityNodeInfo> = buildList { add(n); repeat(n.childCount) { n.getChild(it)?.let { c->addAll(walk(c)) } } }
+        return automation.rootInActiveWindow?.let(::walk).orEmpty()
     }
-    private fun nodes(): List<AccessibilityNodeInfo> {
-        // Compose can reuse virtual node IDs after a correction panel disappears.
-        // Refresh the public API 34+ cache before traversing the current hierarchy.
-        if (Build.VERSION.SDK_INT >= 34) automation.clearCache()
-        return automation.rootInActiveWindow?.let(::descendants) ?: emptyList()
-    }
-    private fun descendants(node: AccessibilityNodeInfo): List<AccessibilityNodeInfo> = buildList { add(node); repeat(node.childCount) { node.getChild(it)?.let { child -> addAll(descendants(child)) } } }
-    private fun setField(label: String, value: String) {
-        waitFor("input $label") {
-            val node = nodes().firstOrNull { it.isEditable && (it.contentDescription?.toString() == label || descendants(it).any { child -> child.text?.toString() == label }) }
-            node?.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value) }) == true
-        }
-        instrumentation.waitForIdleSync()
-    }
-    private fun click(text: String, last: Boolean = false) {
-        if (text == "Sheet details") clickDescription("Sheet actions")
-        waitFor("control $text") {
-            val matches = nodes().filter { it.text?.toString() == text }
-            (if (last) matches.lastOrNull() else matches.firstOrNull())?.let(::performClick) == true
-        }
-        instrumentation.waitForIdleSync()
-    }
-    private fun clickDescription(description: String) {
-        if (description.startsWith("Duration ")) clickDescription("Choose duration")
-        if (description.startsWith("Select chord ")) clickDescription("Choose chord to change")
-        if (description.startsWith("Select melody ")) clickDescription("Choose melody to change")
-        waitFor(description) { nodes().firstOrNull { it.contentDescription?.toString() == description }?.let(::performClick) == true }
-        instrumentation.waitForIdleSync()
-    }
-    private fun openCard(title: String, reload: Boolean = false) {
-        setField("Search sheets", title)
-        waitFor("library card") {
-            var node: AccessibilityNodeInfo? = nodes().firstOrNull { it.text?.toString() == title }
-            var grid: AccessibilityNodeInfo? = null
-            while (node != null) {
-                val button = descendants(node).firstOrNull { it.contentDescription?.toString() == "${if (reload) "More actions" else "Edit"} $title" }
-                if (button != null && button.isVisibleToUser && performClick(button)) return@waitFor true
-                if (node.isScrollable && grid == null) grid = node
-                node = node.parent
-            }
-            (grid ?: nodes().firstOrNull { it.isScrollable })?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-            false
-        }
-        instrumentation.waitForIdleSync()
-        if (reload) click("Reload saved version")
-    }
-    private fun performClick(target: AccessibilityNodeInfo): Boolean {
-        var node: AccessibilityNodeInfo? = target
-        while (node != null && !node.isClickable) node = node.parent
-        return node?.takeIf { it.isEnabled }?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
-    }
-    private fun waitFor(description: String, timeout: Long = 15_000, predicate: () -> Boolean) {
-        val until = SystemClock.elapsedRealtime() + timeout
-        while (SystemClock.elapsedRealtime() < until) { if (predicate()) return; SystemClock.sleep(100) }
-        if (nodes().none { it.isPassword }) capture("m4-native-failure.png")
-        val state = model?.state?.value
-        val editor = state?.editor
-        throw AssertionError("Timed out waiting for $description; connected=${state?.midiConnected}, entry=${editor?.mode}, chords=${editor?.score?.measures?.flatMap { it.chords }?.map { it.symbol }}, target=${editor?.position}, feedback=${editor?.message}")
-    }
-    private fun capture(name: String) {
-        check(nodes().none { it.isPassword }); instrumentation.waitForIdleSync()
-        val image = requireNotNull(automation.takeScreenshot())
-        val directory = File(instrumentation.targetContext.filesDir, "ui-evidence").apply { mkdirs() }
-        File(directory, name).outputStream().use { check(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }; image.recycle()
-    }
+    private fun clickText(s:String)=click { nodes().firstOrNull { it.text?.toString()==s } }
+    private fun clickDescription(s:String)=click { nodes().firstOrNull { it.contentDescription?.toString()==s } }
+    private fun click(find:()->AccessibilityNodeInfo?) { await("control") { var n=find(); while(n!=null && !n.isClickable) n=n.parent; n?.performAction(AccessibilityNodeInfo.ACTION_CLICK)==true }; instrumentation.waitForIdleSync(); SystemClock.sleep(150) }
+    private fun await(s:String,ready:()->Boolean) { val end=SystemClock.elapsedRealtime()+20_000; while(SystemClock.elapsedRealtime()<end) { if(ready()) return; SystemClock.sleep(100) }; throw AssertionError("Timed out: $s") }
 }

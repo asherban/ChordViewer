@@ -1,0 +1,899 @@
+{
+  "version": 3,
+  "cases": [
+    {
+      "name": "major",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major"
+      },
+      "symbol": "C",
+      "pitchClasses": [
+        0,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "minor",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "minor"
+      },
+      "symbol": "Cm",
+      "pitchClasses": [
+        0,
+        3,
+        7
+      ]
+    },
+    {
+      "name": "power",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power"
+      },
+      "symbol": "C5",
+      "pitchClasses": [
+        0,
+        7
+      ]
+    },
+    {
+      "name": "diminished",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "diminished"
+      },
+      "symbol": "Cdim",
+      "pitchClasses": [
+        0,
+        3,
+        6
+      ]
+    },
+    {
+      "name": "augmented",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "augmented"
+      },
+      "symbol": "Caug",
+      "pitchClasses": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "name": "sus2",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "sus2"
+      },
+      "symbol": "Csus2",
+      "pitchClasses": [
+        0,
+        2,
+        7
+      ]
+    },
+    {
+      "name": "sus4",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "sus4"
+      },
+      "symbol": "Csus4",
+      "pitchClasses": [
+        0,
+        5,
+        7
+      ]
+    },
+    {
+      "name": "dominant",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant"
+      },
+      "symbol": "C7",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "major7",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "major"
+      },
+      "symbol": "Cmaj7",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        11
+      ]
+    },
+    {
+      "name": "minor7",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "minor",
+        "seventh": "dominant"
+      },
+      "symbol": "Cm7",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "dim7",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "diminished",
+        "seventh": "diminished"
+      },
+      "symbol": "Cdim7",
+      "pitchClasses": [
+        0,
+        3,
+        6,
+        9
+      ]
+    },
+    {
+      "name": "half-dim",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "diminished",
+        "seventh": "dominant"
+      },
+      "symbol": "Cm7b5",
+      "pitchClasses": [
+        0,
+        3,
+        6,
+        10
+      ]
+    },
+    {
+      "name": "minor-major",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "minor",
+        "seventh": "major"
+      },
+      "symbol": "Cm(maj7)",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        11
+      ]
+    },
+    {
+      "name": "dominant-sus",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "sus4",
+        "seventh": "dominant"
+      },
+      "symbol": "C7sus4",
+      "pitchClasses": [
+        0,
+        5,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "sixth",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "extension": "6"
+      },
+      "symbol": "C6",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "minor-sixth",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "minor",
+        "extension": "6"
+      },
+      "symbol": "Cm6",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "six-nine-bass",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "extension": "6/9",
+        "bass": {
+          "step": "E",
+          "alter": 0
+        }
+      },
+      "symbol": "C6/9/E",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "nine",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "extension": "9"
+      },
+      "symbol": "C9",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "eleven",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "extension": "11"
+      },
+      "symbol": "C11",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "thirteen",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "extension": "13"
+      },
+      "symbol": "C13",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "added-nine",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "additions": [
+          {
+            "degree": 9,
+            "alter": 0
+          }
+        ]
+      },
+      "symbol": "Cadd9",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "multi-altered",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "alterations": [
+          {
+            "degree": 11,
+            "alter": 1
+          },
+          {
+            "degree": 9,
+            "alter": -1
+          }
+        ],
+        "bass": {
+          "step": "G",
+          "alter": 0
+        }
+      },
+      "symbol": "C7(b9,#11)/G",
+      "pitchClasses": [
+        0,
+        1,
+        4,
+        6,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "five-nine",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "alterations": [
+          {
+            "degree": 5,
+            "alter": 1
+          },
+          {
+            "degree": 9,
+            "alter": 1
+          }
+        ]
+      },
+      "symbol": "C7(#5,#9)",
+      "pitchClasses": [
+        0,
+        3,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "name": "thirteen-flat-nine",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "extension": "13",
+        "alterations": [
+          {
+            "degree": 9,
+            "alter": -1
+          }
+        ]
+      },
+      "symbol": "C13(b9)",
+      "pitchClasses": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "omit",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "seventh": "dominant",
+        "omissions": [
+          3
+        ]
+      },
+      "symbol": "C7(no3)",
+      "pitchClasses": [
+        0,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "nonchord-bass",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "major",
+        "bass": {
+          "step": "F",
+          "alter": 1
+        }
+      },
+      "symbol": "C/F#",
+      "pitchClasses": [
+        0,
+        4,
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Am/C",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "A",
+          "alter": 0
+        },
+        "family": "minor",
+        "bass": {
+          "step": "C",
+          "alter": 0
+        }
+      },
+      "symbol": "Am/C",
+      "pitchClasses": [
+        0,
+        4,
+        9
+      ]
+    },
+    {
+      "name": "F sharp minor-major",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "F",
+          "alter": 1
+        },
+        "family": "minor",
+        "seventh": "major",
+        "bass": {
+          "step": "A",
+          "alter": 1
+        }
+      },
+      "symbol": "F#m(maj7)/A#",
+      "pitchClasses": [
+        1,
+        5,
+        6,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "double-spelled",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "D",
+          "alter": -2
+        },
+        "family": "major",
+        "bass": {
+          "step": "F",
+          "alter": 2
+        }
+      },
+      "symbol": "Dbb/F##",
+      "pitchClasses": [
+        0,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "custom",
+      "definition": {
+        "kind": "custom",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "tones": [
+          11,
+          0,
+          6,
+          1
+        ]
+      },
+      "symbol": "C{0,1,6,11}",
+      "pitchClasses": [
+        0,
+        1,
+        6,
+        11
+      ]
+    },
+    {
+      "name": "stacked",
+      "definition": {
+        "kind": "polychord",
+        "components": [
+          {
+            "kind": "tonal",
+            "root": {
+              "step": "D",
+              "alter": 0
+            },
+            "family": "major",
+            "bass": {
+              "step": "E",
+              "alter": 0
+            }
+          },
+          {
+            "kind": "tonal",
+            "root": {
+              "step": "C",
+              "alter": 0
+            },
+            "family": "minor"
+          }
+        ],
+        "bass": {
+          "step": "F",
+          "alter": 1
+        }
+      },
+      "symbol": "[D/E | Cm]/F#",
+      "pitchClasses": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "no-chord",
+      "definition": {
+        "kind": "none"
+      },
+      "symbol": "N.C.",
+      "pitchClasses": []
+    },
+    {
+      "name": "power no seventh no extension",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power"
+      },
+      "symbol": "C5",
+      "pitchClasses": [
+        0,
+        7
+      ]
+    },
+    {
+      "name": "power no seventh 6",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "extension": "6"
+      },
+      "symbol": "C5(add6)",
+      "pitchClasses": [
+        0,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "power no seventh 6/9",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "extension": "6/9"
+      },
+      "symbol": "C5(add6,add9)",
+      "pitchClasses": [
+        0,
+        2,
+        7,
+        9
+      ]
+    },
+    {
+      "name": "power dominant no extension",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "dominant"
+      },
+      "symbol": "C5(addb7)",
+      "pitchClasses": [
+        0,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "power dominant 9",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "dominant",
+        "extension": "9"
+      },
+      "symbol": "C5(addb7,add9)",
+      "pitchClasses": [
+        0,
+        2,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "power dominant 11",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "dominant",
+        "extension": "11"
+      },
+      "symbol": "C5(addb7,add9,add11)",
+      "pitchClasses": [
+        0,
+        2,
+        5,
+        7,
+        10
+      ]
+    },
+    {
+      "name": "power dominant 13",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "dominant",
+        "extension": "13"
+      },
+      "symbol": "C5(addb7,add9,add11,add13)",
+      "pitchClasses": [
+        0,
+        2,
+        5,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "power major no extension",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "major"
+      },
+      "symbol": "C5(add7)",
+      "pitchClasses": [
+        0,
+        7,
+        11
+      ]
+    },
+    {
+      "name": "power major 9",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "major",
+        "extension": "9"
+      },
+      "symbol": "C5(add7,add9)",
+      "pitchClasses": [
+        0,
+        2,
+        7,
+        11
+      ]
+    },
+    {
+      "name": "power major 11",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "major",
+        "extension": "11"
+      },
+      "symbol": "C5(add7,add9,add11)",
+      "pitchClasses": [
+        0,
+        2,
+        5,
+        7,
+        11
+      ]
+    },
+    {
+      "name": "power major 13",
+      "definition": {
+        "kind": "tonal",
+        "root": {
+          "step": "C",
+          "alter": 0
+        },
+        "family": "power",
+        "seventh": "major",
+        "extension": "13"
+      },
+      "symbol": "C5(add7,add9,add11,add13)",
+      "pitchClasses": [
+        0,
+        2,
+        5,
+        7,
+        9,
+        11
+      ]
+    }
+  ]
+}

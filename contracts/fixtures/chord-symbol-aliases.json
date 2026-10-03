@@ -1,0 +1,416 @@
+{
+  "description": "Supported textual aliases and every existing MusicXML harmony kind; no arbitrary text fallback.",
+  "aliases": [
+    {
+      "symbol": "C+",
+      "canonical": "Caug",
+      "pitchClasses": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "symbol": "Cm(add9)",
+      "canonical": "Cmadd9",
+      "pitchClasses": [
+        0,
+        2,
+        3,
+        7
+      ]
+    },
+    {
+      "symbol": "CmMaj7",
+      "canonical": "Cm(maj7)",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        11
+      ]
+    },
+    {
+      "symbol": "Caug7",
+      "canonical": "Caug7",
+      "pitchClasses": [
+        0,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "symbol": "Cmaj11",
+      "canonical": "Cmaj11",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        11
+      ]
+    },
+    {
+      "symbol": "Cmaj13",
+      "canonical": "Cmaj13",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ]
+    },
+    {
+      "symbol": "C7b5",
+      "canonical": "C7(b5)",
+      "pitchClasses": [
+        0,
+        4,
+        6,
+        10
+      ]
+    },
+    {
+      "symbol": "C7#5",
+      "canonical": "C7(#5)",
+      "pitchClasses": [
+        0,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "symbol": "C7(b9)",
+      "canonical": "C7(b9)",
+      "pitchClasses": [
+        0,
+        1,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "symbol": "C7(#9)",
+      "canonical": "C7(#9)",
+      "pitchClasses": [
+        0,
+        3,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "symbol": "F\u266fm7",
+      "canonical": "F#m7",
+      "pitchClasses": [
+        1,
+        4,
+        6,
+        9
+      ]
+    },
+    {
+      "symbol": "C\u03947",
+      "canonical": "Cmaj7",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        11
+      ]
+    },
+    {
+      "symbol": "F\u266fm7/C\u266f",
+      "canonical": "F#m7/C#",
+      "pitchClasses": [
+        1,
+        4,
+        6,
+        9
+      ]
+    }
+  ],
+  "musicXmlKinds": [
+    {
+      "kind": "major",
+      "symbol": "C",
+      "pitchClasses": [
+        0,
+        4,
+        7
+      ]
+    },
+    {
+      "kind": "minor",
+      "symbol": "Cm",
+      "pitchClasses": [
+        0,
+        3,
+        7
+      ]
+    },
+    {
+      "kind": "augmented",
+      "symbol": "Caug",
+      "pitchClasses": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "kind": "diminished",
+      "symbol": "Cdim",
+      "pitchClasses": [
+        0,
+        3,
+        6
+      ]
+    },
+    {
+      "kind": "dominant",
+      "symbol": "C7",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "major-seventh",
+      "symbol": "Cmaj7",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        11
+      ]
+    },
+    {
+      "kind": "minor-seventh",
+      "symbol": "Cm7",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "diminished-seventh",
+      "symbol": "Cdim7",
+      "pitchClasses": [
+        0,
+        3,
+        6,
+        9
+      ]
+    },
+    {
+      "kind": "augmented-seventh",
+      "symbol": "Caug7",
+      "pitchClasses": [
+        0,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "kind": "half-diminished",
+      "symbol": "Cm7b5",
+      "pitchClasses": [
+        0,
+        3,
+        6,
+        10
+      ]
+    },
+    {
+      "kind": "major-minor",
+      "symbol": "CmMaj7",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        11
+      ]
+    },
+    {
+      "kind": "major-sixth",
+      "symbol": "C6",
+      "pitchClasses": [
+        0,
+        4,
+        7,
+        9
+      ]
+    },
+    {
+      "kind": "minor-sixth",
+      "symbol": "Cm6",
+      "pitchClasses": [
+        0,
+        3,
+        7,
+        9
+      ]
+    },
+    {
+      "kind": "dominant-ninth",
+      "symbol": "C9",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "major-ninth",
+      "symbol": "Cmaj9",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        7,
+        11
+      ]
+    },
+    {
+      "kind": "minor-ninth",
+      "symbol": "Cm9",
+      "pitchClasses": [
+        0,
+        2,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "dominant-11th",
+      "symbol": "C11",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "major-11th",
+      "symbol": "Cmaj11",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        11
+      ]
+    },
+    {
+      "kind": "minor-11th",
+      "symbol": "Cm11",
+      "pitchClasses": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        10
+      ]
+    },
+    {
+      "kind": "dominant-13th",
+      "symbol": "C13",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "kind": "major-13th",
+      "symbol": "Cmaj13",
+      "pitchClasses": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ]
+    },
+    {
+      "kind": "minor-13th",
+      "symbol": "Cm13",
+      "pitchClasses": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "kind": "suspended-second",
+      "symbol": "Csus2",
+      "pitchClasses": [
+        0,
+        2,
+        7
+      ]
+    },
+    {
+      "kind": "suspended-fourth",
+      "symbol": "Csus4",
+      "pitchClasses": [
+        0,
+        5,
+        7
+      ]
+    },
+    {
+      "kind": "power",
+      "symbol": "C5",
+      "pitchClasses": [
+        0,
+        7
+      ]
+    }
+  ],
+  "invalidSymbols": [
+    "Calt",
+    "Mystery(alt)",
+    " C ",
+    "Cconstructor",
+    "CtoString",
+    "C\n",
+    "C\r",
+    "C\u2028",
+    "C/G\n",
+    "C/G\r",
+    "C/G\u2028"
+  ]
+}

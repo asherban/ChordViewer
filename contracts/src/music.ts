@@ -55,7 +55,7 @@ export function changeScoreSettings(score: LeadSheet, keySignature: KeySignature
   if (!Number.isInteger(timeSignature.numerator) || timeSignature.numerator < 1 || timeSignature.numerator > 12 || ![2, 4, 8].includes(timeSignature.denominator)) {
     throw new RangeError('Choose a time signature with 1–12 beats and a denominator of 2, 4 or 8.');
   }
-  const changed: LeadSheet = { ...score, schemaVersion: 2, keySignature, timeSignature: { ...timeSignature } };
+  const changed: LeadSheet = { ...score, schemaVersion: Math.max(2, score.schemaVersion) as LeadSheet['schemaVersion'], keySignature, timeSignature: { ...timeSignature } };
   const ticks = measureTicks(changed);
   if (score.measures.some(measure => measure.chords.some(event => event.offsetTicks + event.durationTicks > ticks)
     || measure.melody.some(event => event.offsetTicks + durationTicks(event.duration) > ticks))) {

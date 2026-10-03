@@ -205,7 +205,7 @@ class LibraryViewModel(
     private val practiceBlocked get() = practiceUiBlocked || practiceApiBusy
     private val capture = ChordGestureCapture(::captureGesture).apply { onGestureStarted = {
         editor?.state?.let { value ->
-            gestureChordDuration = if (value.duration == value.score.measureTicks) value.score.measureTicks - value.position.offsetTicks else value.duration
+            gestureChordDuration = if (value.mode == EntryMode.REPLACE) value.selectedId?.let { ChordTimeline.find(value.score, it)?.ticks } ?: value.duration else value.duration
             gestureMelodyDuration = if (value.mode == EntryMode.REPLACE) value.selectedMelodyId?.let { MelodyEdits.find(value.score, it)?.first?.duration } ?: value.melodyDuration else value.melodyDuration
         }
     } }
@@ -266,18 +266,12 @@ class LibraryViewModel(
     fun setLane(lane: EntryLane) = edit {
         pauseEntry()
         require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry before changing lanes." }
-        it.update { value -> value.copy(lane = lane, position = if (lane == EntryLane.CHORDS) value.chordPosition else FastEntry.nextMelodyPosition(value.score),
+        it.update { value -> value.copy(chordDialogOpen = false, lane = lane, position = if (lane == EntryLane.CHORDS) ChordTimeline.next(value.score) else FastEntry.nextMelodyPosition(value.score),
             selectedId = null, selectedMelodyId = null, alternatives = emptyList(), message = null) }
     }
 
-    fun togglePinnedChord(symbol: String) = edit {
-        val chord = symbol.trim()
-        require(chord.isNotEmpty() && chord.codePointCount(0, chord.length) <= 32) { "Enter a chord of 1 to 32 characters." }
-        it.update { value -> value.copy(pinnedChords = if (chord in value.pinnedChords) value.pinnedChords - chord else (listOf(chord) + value.pinnedChords).take(8)) }
-    }
-
     fun setDuration(duration: Int) = edit {
-        require(duration in CHORD_DURATIONS || duration == it.state.score.measureTicks) { "Choose a supported duration." }
+        require(duration in ChordTimeline.durations(it.state.score) || duration in CHORD_DURATIONS) { "Choose a supported duration." }
         it.update { value -> value.copy(duration = duration, pending = value.pending?.copy(duration = duration), message = null) }
     }
 
@@ -311,15 +305,39 @@ class LibraryViewModel(
         require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry before selecting another event." }
         val target = requireNotNull(ChordEdits.find(it.state.score, id)) { "Select an existing chord." }
         pauseEntry()
-        it.update { value -> value.copy(lane = EntryLane.CHORDS, selectedId = id, selectedMelodyId = null, position = target.second, duration = target.first.durationTicks, pending = null, pendingMelody = null,
-            alternatives = if (id == value.lastInsertedId) value.alternatives else emptyList(), message = "Entry paused while changing this chord.") }
+        it.update { value -> value.copy(lane = EntryLane.CHORDS, selectedId = target.first.id, chordAnchorId = id, chordDialogOpen = true, selectedMelodyId = null, position = target.second, pending = null, pendingMelody = null,
+            alternatives = if (id == value.lastInsertedId) value.alternatives else emptyList(), chordDialogError = null, message = "Entry paused while changing this chord.") }
     }
 
     fun addChord(symbol: String) = edit {
         pauseEntry()
-        it.commit(FastEntry.chord(it.state.score, it.state.position, symbol.trim(), if (it.state.duration == it.state.score.measureTicks) it.state.score.measureTicks - it.state.position.offsetTicks else it.state.duration))
+        it.commit(ChordTimeline.append(it.state.score, symbol.trim(), it.state.duration))
     }
 
+    fun openChordDialog() = edit {
+        pauseEntry()
+        it.update { value -> value.copy(lane = EntryLane.CHORDS, selectedId = null, chordAnchorId = null, selectedMelodyId = null, chordDialogOpen = true, chordDialogError = null, position = ChordTimeline.next(value.score), message = null) }
+    }
+    fun closeChordDialog() = edit { it.update { value -> value.copy(chordDialogOpen = false, chordAnchorId = null, selectedId = null, position = ChordTimeline.next(value.score)) } }
+    fun applyChordDefinition(definition: ChordDefinition) = edit {
+        pauseEntry(); definition.validate(); val value = it.state
+        val selected = value.pending?.replaceId ?: value.selectedId
+        val result = if (selected != null) ChordTimeline.change(value.score, selected, definition.symbol, value.pending?.duration ?: ChordTimeline.find(value.score, selected)!!.ticks, definition)
+            else ChordTimeline.append(value.score, definition.symbol, value.pending?.duration ?: value.duration, definition)
+        it.commit(result)
+        it.update { next -> next.copy(chordEntryDefinition = if (selected == null) definition else next.chordEntryDefinition, chordAnchorId = if (selected == null) null else next.chordAnchorId, chordDialogOpen = true, selectedId = if (selected != null) result.eventId else null, position = if (selected != null) result.position else ChordTimeline.next(next.score), message = null) }
+    }
+    fun setChordDialogDuration(ticks: Int, targetId: String? = state.value.editor?.selectedId) = edit {
+        pauseEntry(); val value = it.state
+        val selected = if (value.pending == null) targetId?.let { id -> requireNotNull(ChordTimeline.find(value.score, id)) { "This chord no longer exists." } } else null
+        if (selected == null) {
+            require(ticks in ChordTimeline.durations(value.score)) { "Choose a supported duration." }
+            it.update { next -> next.copy(duration = ticks, pending = next.pending?.copy(duration = ticks), message = null) }
+        } else if (ticks != selected.ticks) {
+            val result = ChordTimeline.change(value.score, selected.event.id, selected.event.symbol, ticks, selected.event.definition)
+            it.commit(result); it.update { next -> next.copy(selectedId = selected.event.id, chordDialogOpen = true, position = result.position, message = null) }
+        }
+    }
     fun selectMelody(id: String) = edit {
         require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry before selecting another event." }
         val target = requireNotNull(FastEntry.melodyGroup(it.state.score, id)) { "Select an existing note or rest." }
@@ -398,14 +416,14 @@ class LibraryViewModel(
     fun changeChord(symbol: String, duration: Int) = edit {
         pauseEntry()
         val selected = requireNotNull(it.state.selectedId) { "Select a chord to change." }
-        it.commit(FastEntry.chord(it.state.score, it.state.position, symbol.trim(), duration, selected))
+        it.commit(ChordTimeline.change(it.state.score, selected, symbol.trim(), duration))
         it.update { value -> value.copy(mode = EntryMode.PAUSED, message = "Chord changed.") }
     }
 
     fun applyPending(symbol: String) = edit {
         pauseEntry()
         val pending = requireNotNull(it.state.pending) { "There is no pending chord." }
-        val mutation = FastEntry.chord(it.state.score, pending.position, symbol.trim(), pending.duration, pending.replaceId)
+        val mutation = if (pending.replaceId != null) ChordTimeline.change(it.state.score, pending.replaceId, symbol.trim(), pending.duration) else ChordTimeline.append(it.state.score, symbol.trim(), pending.duration)
         it.commit(mutation)
         it.update { value -> value.copy(mode = EntryMode.PAUSED) }
     }
@@ -444,10 +462,10 @@ class LibraryViewModel(
         val pending = PendingChord(notes, value.position, gestureChordDuration ?: value.duration, replacing)
         if (candidates.isEmpty()) {
             pauseEntry()
-            current.update { it.copy(pending = pending, alternatives = emptyList(), message = "Chord not recognized. Enter its symbol to keep this gesture, or discard it.") }
+            current.update { it.copy(pending = pending, chordDialogOpen = true, selectedId = replacing, alternatives = emptyList(), message = "Chord not recognized. Assign its tones with the builder, or discard it.") }
         } else {
             try {
-                val mutation = FastEntry.chord(value.score, value.position, candidates.first(), pending.duration, replacing)
+                val mutation = if (replacing != null) ChordTimeline.change(value.score, replacing, candidates.first(), pending.duration) else ChordTimeline.append(value.score, candidates.first(), pending.duration)
                 current.commit(mutation, candidates)
                 if (replacing != null) { pauseEntry(); current.update { it.copy(message = "Chord replaced. Entry paused.") } }
             } catch (error: IllegalArgumentException) {
@@ -462,7 +480,7 @@ class LibraryViewModel(
         val current = editor ?: return
         if (mutableState.value.mode != LibraryMode.CREATE || mutableState.value.busy) return
         try { action(current) } catch (error: IllegalArgumentException) {
-            pauseEntry(); current.update { it.copy(message = error.message ?: "The score could not be changed.") }
+            pauseEntry(); current.update { it.copy(message = error.message ?: "The score could not be changed.", chordDialogError = if(it.chordDialogOpen) error.message ?: "The score could not be changed." else null) }
         }
         publishEditor()
     }
@@ -473,8 +491,8 @@ class LibraryViewModel(
         mutableState.value = mutableState.value.copy(editor = editor?.state, midiConnected = midiConnected,
             liveChord = recognizer?.recognize(held)?.candidates?.firstOrNull()?.symbol,
             practice = practiceSession?.position ?: mutableState.value.practice,
-            practiceLiveMatch = if (target != null && held.isNotEmpty()) practiceRules?.matches(target.symbol, held) else null,
-            practiceTargetSupported = target?.let { practiceRules?.supported(it.symbol) } ?: true,
+            practiceLiveMatch = if (target != null && held.isNotEmpty()) practiceRules?.matches(target.symbol, held, target.definition) else null,
+            practiceTargetSupported = target?.let { practiceRules?.supported(it.symbol, it.definition) } ?: true,
             message = message)
         retainRecovery()
     }
@@ -533,7 +551,7 @@ class LibraryViewModel(
         publishEditor()
     }
     fun practiceChord(id: String) {
-        val index = practiceRules?.events(practiceSession?.score ?: return)?.indexOfFirst { it.id == id } ?: -1
+        val index = practiceRules?.events(practiceSession?.score ?: return)?.indexOfFirst { it.id == (ChordTimeline.find(practiceSession!!.score, id)?.event?.id ?: id) } ?: -1
         if (index >= 0) practiceEvent(index)
     }
     fun setPracticeBlocked(blocked: Boolean) {
@@ -882,7 +900,7 @@ class LibraryViewModel(
         favorite, draft, trashedAt, openedAt, score.keySignature,
         "${score.timeSignature.numerator}/${score.timeSignature.denominator}",
         score.measures.any { it.chords.isNotEmpty() }, score.measures.any { it.melody.isNotEmpty() },
-        score.measures.firstOrNull()?.chords?.take(4)?.map { it.symbol } ?: emptyList())
+        score.measures.firstOrNull()?.chords?.take(4)?.map { chordPreviewSymbol(it.symbol) } ?: emptyList())
     override fun onCleared() { invalidate(); session = null; super.onCleared() }
 }
 

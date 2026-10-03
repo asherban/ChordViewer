@@ -37,7 +37,7 @@ fun changeScoreSettings(score: LeadSheet, keySignature: String, timeSignature: S
     LeadSheetWriter.write(score)
     require(keySignature in KEY_SIGNATURES) { "Choose a supported major or minor key." }
     require(timeSignature.numerator in 1..12 && timeSignature.denominator in listOf(2, 4, 8)) { "Choose 1–12 beats and a denominator of 2, 4 or 8." }
-    val changed = score.copy(schemaVersion = 2, keySignature = keySignature, timeSignature = timeSignature)
+    val changed = score.copy(schemaVersion = maxOf(2, score.schemaVersion), keySignature = keySignature, timeSignature = timeSignature)
     require(changed.measures.none { bar -> bar.chords.any { it.offsetTicks + it.durationTicks > changed.measureTicks } ||
         bar.melody.any { it.offsetTicks + it.duration.ticks > changed.measureTicks } }) {
         "Existing notes or chords would cross the new barline. Shorten or move them before changing the time signature."

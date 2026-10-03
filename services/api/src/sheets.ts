@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, QueryResultRow } from 'pg';
-import { parseScore, type LeadSheet } from '@chordviewer/contracts';
+import { chordPreviewSymbol, parseScore, type LeadSheet } from '@chordviewer/contracts';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
 import type { createInput, importInput, updateInput } from './input.js';
 
@@ -31,7 +31,7 @@ export async function listSheets(pool: Pool, owner: string) {
   return rows.rows.map(row => ({ id: row.id, title: row.title, tutorialUrl: row.tutorial_url, revision: row.revision,
     createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(), ...metadata(row),
     keySignature: row.key_signature, timeSignature: row.meter, hasChords: row.has_chords, hasMelody: row.has_melody,
-    previewChords: (row.preview_chords ?? []).slice(0, 4).map(chord => chord.symbol) }));
+    previewChords: (row.preview_chords ?? []).slice(0, 4).map(chord => chordPreviewSymbol(chord.symbol)) }));
 }
 export async function getSheet(pool: Pool, owner: string, id: string) {
   const result = await pool.query<SheetRow>('SELECT * FROM lead_sheets WHERE id=$1 AND owner_id=$2 AND trashed_at IS NULL', [id, owner]);

@@ -59,7 +59,7 @@ class DraftRecoveryTest {
         assertTrue(store.list("account-a").copies.isEmpty())
     }
 
-    @Test fun recoveryPreservesTheVirtualNextBarAndItsInitialGap() = runTest(dispatcher) {
+    @Test fun recoveryPreservesBookmarkWhileChordAppendUsesHarmonyEnd() = runTest(dispatcher) {
         val api = Gateway(); val store = MemoryStore(); val first = model(api, store)
         first.authenticate("a", "long-password-value", null); advanceUntilIdle(); first.open(api.sheet.id); advanceUntilIdle()
         val original = api.sheet.score
@@ -73,9 +73,9 @@ class DraftRecoveryTest {
         assertEquals(nextBar, restarted.state.value.editor!!.position)
         restarted.setDuration(480); restarted.addChord("Dm")
         val score = restarted.state.value.editor!!.score
-        assertEquals(original.measures, score.measures.take(original.measures.size))
+        assertEquals(original.measures.map { it.copy(chords=it.chords.map { c -> c.copy(logicalId=c.id) }) }, score.measures.take(original.measures.size))
         assertEquals(original.measures.size + 1, score.measures.size)
-        assertEquals(480, score.measures.last().chords.single().offsetTicks)
+        assertEquals(0, score.measures.last().chords.single().offsetTicks)
     }
 
     @Test fun accountBoundaryAndStorageFailureRemainVisible() = runTest(dispatcher) {

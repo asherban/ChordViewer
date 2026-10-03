@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import example from '@chordviewer/contracts/fixtures/lead-sheet-v1.json' with { type: 'json' };
+import { appendChord, chordSymbol, logicalChords, type ChordDefinition } from '@chordviewer/contracts';
 import { configuration } from './config.js';
 import { createInput, importInput, metadataInput, revisionInput, tutorialUrl, updateInput } from './input.js';
 
 describe('storage request boundary', () => {
+  it('rejects malformed chord text in save/import while accepting legal aliases', () => {
+    for(const schemaVersion of [1,2,3] as const) for(const symbol of ['Gbm13!','C\n','C/G\r','Calt']) {
+      const score={...structuredClone(example),schemaVersion}; score.measures[0]!.chords[0]!.symbol=symbol;
+      expect(()=>updateInput({score,tutorialUrl:null,expectedRevision:1},score.id)).toThrow(); expect(()=>importInput({score,title:'Demo'})).toThrow();
+    }
+    for(const symbol of ['Cm(add9)','C7b5','CmMaj7','Caug7','Cmaj11','Cmaj13']) {
+      const score=structuredClone(example); score.measures[0]!.chords[0]!.symbol=symbol;
+      expect(updateInput({score,tutorialUrl:null,expectedRevision:1},score.id).score.measures[0]!.chords[0]!.symbol).toBe(symbol);
+    }
+  });
+  it('accepts complete structured v3 harmony in guarded save and import envelopes', () => {
+    const definition:ChordDefinition={kind:'polychord',components:[{kind:'tonal',root:{step:'C',alter:0},family:'major',seventh:'dominant',alterations:[{degree:9,alter:-1}],bass:{step:'G',alter:0}},{kind:'custom',root:{step:'D',alter:0},tones:[0,1,6]}],bass:{step:'F',alter:1}};
+    let id=0; const base={...example,measures:[{...example.measures[0]!,chords:[],melody:[]}]};
+    const score=appendChord(base,chordSymbol(definition),2400,()=>`v3-${++id}`,definition).score;
+    expect(updateInput({score,tutorialUrl:null,expectedRevision:1},score.id).score).toEqual(score);
+    expect(logicalChords(importInput({score,title:'Structured import'}).score)).toHaveLength(1);
+  });
   it('normalizes supported tutorials without requesting any remote resource', () => {
     expect(tutorialUrl('https://youtu.be/dQw4w9WgXcQ?t=12')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     expect(tutorialUrl('https://m.youtube.com/watch?v=dQw4w9WgXcQ&list=ignored')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');

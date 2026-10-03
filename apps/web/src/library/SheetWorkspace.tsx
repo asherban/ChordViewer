@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { PracticeSession, matchesPracticeChord, parseScore, practiceEvents, supportsPracticeMatch, transposePracticeScore, trimTrailingSilentBars, type LeadSheet } from "@chordviewer/contracts";
+import { PracticeSession, chordGroup, matchesPracticeChord, parseScore, practiceEvents, supportsPracticeMatch, transposePracticeScore, trimTrailingSilentBars, type LeadSheet } from "@chordviewer/contracts";
 import { MidiMonitor } from "../midi/MidiMonitor";
 import type { MidiInputModel } from "../midi/useMidiInput";
 import { ScorePreview } from "../score/ScorePreview";
@@ -53,7 +53,7 @@ export function SheetWorkspace({
   const practiceState = useSyncExternalStore(practice.subscribe, practice.getSnapshot);
   const events = practiceEvents(practiceScore);
   const target = events[practiceState.eventIndex];
-  const liveMatch = target && midi.snapshot.held.length > 0 ? matchesPracticeChord(target.symbol, midi.snapshot.held.map(id => id % 128)) : null;
+  const liveMatch = target && midi.snapshot.held.length > 0 ? matchesPracticeChord(target.symbol, midi.snapshot.held.map(id => id % 128), target.definition) : null;
   useEffect(() => {
     if (initialBookmark.current || !bookmarkKey) return;
     initialBookmark.current = true;
@@ -196,7 +196,7 @@ export function SheetWorkspace({
             <h2>Current chart chord</h2>
             <strong>{target?.symbol ?? "No chord in this bar"}</strong>
             <p>{practiceState.complete ? "Complete. Choose Restart or another bar." :
-              target && !supportsPracticeMatch(target.symbol) ? "This symbol needs manual advance." :
+              target && !supportsPracticeMatch(target.symbol, target.definition) ? "This symbol needs manual advance." :
               practiceState.lastGesture === "matched" ? "Last gesture matched. Next target is shown above." :
               practiceState.lastGesture === "different" ? "Last gesture did not match." :
               "Play a chord or move manually."}</p>
@@ -245,7 +245,7 @@ export function SheetWorkspace({
             <ScorePreview score={mode === "Practice" ? practiceScore : displayedScore} melody={showMelody} practice={mode === "Practice" ? {
               bar: practiceState.bar, chordId: target?.id ?? null,
               selectBar: bar => { practice.selectBar(bar); },
-              selectChord: id => { const index = events.findIndex(event => event.id === id); practice.selectEvent(index); },
+              selectChord: id => { const index = events.findIndex(event => event.id === (chordGroup(practiceScore, id)?.event.id ?? id)); practice.selectEvent(index); },
             } : undefined} editing={saved && mode === "Create" ? {
               position: view.position, selectedId: view.selectedId, writable: view.writable, lane: view.lane,
               selectChord: id => model.selectChord(id), selectMelody: id => model.selectMelody(id), selectPosition: position => model.selectPosition(position),

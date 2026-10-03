@@ -21,6 +21,18 @@ class LibraryViewModelTest {
     @Before fun setup() { Dispatchers.setMain(dispatcher) }
     @After fun teardown() { Dispatchers.resetMain() }
 
+    @Test fun longLegalChordSavesIntactWithBoundedLibraryPreview() = runTest(dispatcher) {
+        val gateway=FakeGateway(); val model=LibraryViewModel(gateway,dispatcher)
+        model.authenticate("one@example.test","a-long-password",null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
+        val d=ChordDefinition(seventh="dominant",additions=(1..13).map { ChordDegree(it) }); assertTrue(d.symbol.length>64)
+        val id=model.state.value.editor!!.score.measures[0].chords[0].id
+        model.selectChord(id); model.applyChordDefinition(d); model.closeChordDialog(); model.save(); advanceUntilIdle()
+        assertEquals(d.symbol,gateway.saved!!.score.measures[0].chords[0].symbol)
+        val preview=model.state.value.sheets.single { it.id==gateway.sheet.id }.previewChords[0]
+        assertEquals(64,preview.codePointCount(0,preview.length)); assertTrue(preview.endsWith("…")); assertEquals(chordPreviewSymbol(d.symbol),preview)
+        assertEquals(d.symbol,LeadSheetReader.read(gateway.saved!!.scoreJson).measures[0].chords[0].symbol)
+    }
+
     @Test fun savedSessionRestoresWithoutAnotherPasswordAndRotationDoesNotReloadIt() = runTest(dispatcher) {
         val gateway = FakeGateway(); val store = MemorySessionStore()
         val first = LibraryViewModel(gateway, dispatcher)
@@ -196,14 +208,16 @@ class LibraryViewModelTest {
         assertNotNull(model.state.value.editor!!.pending)
         assertEquals(initial, model.state.value.editor!!.score)
         model.applyPending("Cluster")
-        assertEquals("Cluster", model.state.value.editor!!.score.measures.last().chords.single().symbol)
+        assertEquals(initial,model.state.value.editor!!.score); assertNotNull(model.state.value.editor!!.pending)
+        model.applyChordDefinition(ChordDefinition(kind="custom",family=null,tones=listOf(0,1,2))); model.closeChordDialog()
+        assertEquals("C{0,1,2}", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.setPosition(ScorePosition(initial.measures.size, 1440)); model.armEntry(); play(model, 60, 64, 67)
         assertNull(model.state.value.editor!!.pending)
-        assertEquals(listOf("Cluster", "C"), model.state.value.editor!!.score.measures.last().chords.map { it.symbol })
-        assertEquals(480, model.state.value.editor!!.score.measures.last().chords.last().durationTicks)
-        assertEquals(1440, model.state.value.editor!!.score.measures.last().chords.last().offsetTicks)
+        assertEquals(listOf("C{0,1,2}", "C"), ChordTimeline.groups(model.state.value.editor!!.score).takeLast(2).map { it.event.symbol })
+        assertEquals(1920, model.state.value.editor!!.score.measures.last().chords.last().durationTicks)
+        assertEquals(0, model.state.value.editor!!.score.measures.last().chords.last().offsetTicks)
         model.setDuration(480); play(model, 60, 64, 67)
-        assertEquals(initial.measures.size + 2, model.state.value.editor!!.score.measures.size)
+        assertEquals(initial.measures.size + 3, model.state.value.editor!!.score.measures.size)
         assertNull(model.state.value.editor!!.pending)
     }
 
@@ -217,7 +231,7 @@ class LibraryViewModelTest {
         assertEquals(nextBar, model.state.value.editor!!.position)
         model.setDuration(480); model.addChord("C")
         assertEquals(gateway.sheet.score.measures.size + 1, model.state.value.editor!!.score.measures.size)
-        assertEquals(480, model.state.value.editor!!.score.measures.last().chords.single().offsetTicks)
+        assertEquals(0, model.state.value.editor!!.score.measures.last().chords.single().offsetTicks)
     }
 
     @Test fun backgroundingImmediatelyPausesDisplayedEntryAndCancelsTheHeldGesture() = runTest(dispatcher) {
@@ -247,11 +261,12 @@ class LibraryViewModelTest {
         assertEquals("C", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.setDuration(480); model.armEntry(true); play(model, 62, 65, 69); play(model, 64, 68, 71)
         val replaced = model.state.value.editor!!.score.measures.last().chords.single()
-        assertEquals(ChordEvent(chordId, 0, 480, "Dm"), replaced)
+        assertEquals(ChordEvent(chordId, 0, 1920, "Dm", chordId, ChordDefinition.parse("Dm")), replaced)
         assertEquals(EntryMode.PAUSED, model.state.value.editor!!.mode)
         model.undoChord(); assertEquals("C", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.redoChord(); model.selectChord(chordId); model.deleteChord()
-        assertEquals(initial, model.state.value.editor!!.score)
+        assertEquals(initial.measures.map { it.melody }, model.state.value.editor!!.score.measures.map { it.melody })
+        assertEquals(initial.measures.flatMap { it.chords }.map { Triple(it.symbol,it.offsetTicks,it.durationTicks) }, model.state.value.editor!!.score.measures.flatMap { it.chords }.map { Triple(it.symbol,it.offsetTicks,it.durationTicks) })
         model.undoChord()
         assertEquals(replaced, model.state.value.editor!!.score.measures.last().chords.single())
     }
@@ -271,7 +286,7 @@ class LibraryViewModelTest {
         assertEquals(initial, gateway.saved!!.score)
         assertFalse(model.state.value.hasUnsavedChanges)
         model.addChord("G")
-        assertEquals(initial.measures.size + 1, model.state.value.editor!!.score.measures.size)
+        assertEquals(initial.measures.size, model.state.value.editor!!.score.measures.size)
         assertEquals("G", model.state.value.editor!!.score.measures.last().chords.single().symbol)
     }
 
