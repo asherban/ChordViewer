@@ -13,4 +13,6 @@ export { MELODY_DURATIONS, MelodyEntryError, midiToPitch, insertMelody, replaceM
 export { practiceEvents, practiceBar, firstPracticeEventInBar, supportsPracticeMatch,
   matchesPracticeChord, transposePracticeScore } from './practice.js';
 export { PracticeSession } from './practice.js';
+export { writeChord, writeMelody, insertBar, splitDuration, nextMelodyPosition, changeMelodyAndShift, deleteMelodyAndShift, melodyGroup, trimTrailingSilentBars } from './fast-entry.js';
+export { notationRests } from './notation-rests.js';
 export type { MelodyPosition, MelodySpec, MelodyEdit, LocatedMelody, MelodyEntryIssue } from './melody-entry.js';

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { chordSegments, positionChordSegments, scoreSystems, type Measure } from "./layout";
+import { chordSegments, positionChordSegments, scoreSystems, scoreTickAtX, type Measure } from "./layout";
 
 describe("readable score systems", () => {
+  it("maps pointer positions to rendered beats rather than the full bar width", () => {
+    const points = [{ tick: 0, x: 120 }, { tick: 480, x: 260 }, { tick: 1440, x: 320 }, { tick: 1920, x: 400 }];
+    expect(scoreTickAtX(points, 20, 1920)).toBe(0);
+    expect(scoreTickAtX(points, 120, 1920)).toBe(0);
+    expect(scoreTickAtX(points, 260, 1920)).toBe(480);
+    expect(scoreTickAtX(points, 290, 1920)).toBe(960);
+    expect(scoreTickAtX(points, 420, 1920)).toBe(1860);
+  });
   it("reflows four, two and one bars without reducing their readable width", () => {
     for (const [width, columns] of [[900, 4], [450, 2], [280, 1]]) {
       const rows = scoreSystems(Array(8).fill(180), width, 64);

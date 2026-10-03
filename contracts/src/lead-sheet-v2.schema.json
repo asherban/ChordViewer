@@ -130,7 +130,8 @@
             2,
             4,
             8,
-            16
+            16,
+            32
           ]
         },
         "dots": {
@@ -140,7 +141,25 @@
             1
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "denominator": {
+                "const": 32
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dots": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "pitch": {
       "type": "object",

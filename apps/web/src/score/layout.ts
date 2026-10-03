@@ -3,6 +3,15 @@ import type { LeadSheet } from "@chordviewer/contracts";
 export type Measure = LeadSheet["measures"][number];
 export type ScoreSystem = { start: number; count: number; columns: number; barWidth: number; width: number };
 
+/** Hit testing follows rendered spacing, including signature padding and wide chord labels. */
+export function scoreTickAtX(points: readonly { tick: number; x: number }[], x: number, barTicks: number): number {
+  const after = points.find(point => point.x >= x) ?? points[points.length - 1];
+  const before = points.filter(point => point.x <= x).at(-1) ?? after;
+  const tick = after.x === before.x ? before.tick
+    : before.tick + (after.tick - before.tick) * (x - before.x) / (after.x - before.x);
+  return Math.max(0, Math.min(barTicks - 60, Math.round(tick / 60) * 60));
+}
+
 /** Reflow systems instead of shrinking notation. Oversized bars retain horizontal scrolling. */
 export function scoreSystems(minimums: number[], available: number, leading = 0): ScoreSystem[] {
   const systems: ScoreSystem[] = [];

@@ -292,3 +292,46 @@ button.score-chord:hover { background: #176f5b10; }
 .recovery-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid #dce5dd; }
 .recovery-row > div { flex: 1 1 240px; overflow-wrap: anywhere; }
 .recovery-status { padding: 8px 12px; margin: 0 0 8px; color: #416358; }
+/* Create uses one rhythm control and a stave that stays still during a gesture. */
+.duration-heading, .duration-stops { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.duration-heading { color: #18332f; font-weight: 600; }
+.duration-stops { color: #546960; font-size: .8rem; }
+.melody-duration input[type="range"] { display: block; width: 100%; height: 44px; accent-color: #176f5b; background: transparent; border: 0; padding: 0; }
+.melody-duration input[type="range"] { appearance: none; }
+.melody-duration input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: #e0e8e1; border-radius: 8px; }
+.melody-duration input[type="range"]::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; margin-top: -8px; border: 4px solid #fffefb; border-radius: 50%; background: #176f5b; box-shadow: 0 0 0 1px #b9c6be; }
+.melody-duration input[type="range"]::-moz-range-track { height: 6px; background: #e0e8e1; border-radius: 8px; }
+.melody-duration input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 4px solid #fffefb; border-radius: 50%; background: #176f5b; }
+.chord-keyboard { display: grid; gap: .5rem; margin-bottom: .75rem; }
+.chord-keys { display: flex; gap: .4rem; flex-wrap: wrap; }
+.chord-keys button { min-width: 44px; min-height: 44px; }
+.root-keys { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.root-keys button { min-width: 0; }
+.editable-chord { touch-action: none; }
+.score-scroll { position: relative; }
+.drop-position { position: absolute; top: 0; right: 0; z-index: 3; pointer-events: none; background: #e6eee7; color: #18332f; padding: .4rem .75rem; }
+.workspace aside .entry-controls { display: block; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.workspace aside .entry-control-row { flex-wrap: wrap; }
+.workspace aside .entry-target-row { margin-top: 12px; grid-template-columns: 1fr 1fr; }
+.workspace aside .entry-target-row > button, .workspace aside .entry-target-row > label:has(select[aria-label="New chord duration"]) { grid-column: 1 / -1; }
+.workspace aside .correction-fields { display: block; }
+.workspace aside .chord-keys { gap: 3px; }
+.workspace aside .chord-keys button { padding: 8px; }
+.workspace aside .root-keys button { padding: 4px; }
+.melody-duration { padding: 4px 8px 0; width: 100%; }
+.workspace-toast { position: fixed; z-index: 20; top: 82px; left: 50%; transform: translateX(-50%); max-width: min(90vw, 560px); padding: 12px 20px; border-radius: 12px; background: #18332f; color: white; box-shadow: 0 5px 20px #18332f22; pointer-events: none; }
+.melody-duration input[type="range"] { width: 100%; accent-color: #176f5b; min-height: 32px; }
+.melody-entry-cursor { position: absolute; width: 40px; height: 84px; padding: 0; border: 0; border-radius: 8px; background: linear-gradient(to right, transparent 18px, #176f5b 18px, #176f5b 21px, transparent 21px); touch-action: none; z-index: 2; }
+.melody-entry-cursor:hover, .melody-entry-cursor:focus-visible { background-color: #176f5b18; }
+.melody-entry-cursor::after { content: ""; position: absolute; left: 15px; top: 0; width: 10px; height: 5px; border-radius: 3px; background: #176f5b; }
+.inline-note-tools { position: absolute; z-index: 3; width: 320px; max-width: calc(100% - 8px); padding: 6px; border: 1px solid #d8e3db; border-radius: 14px; background: #fffefb; box-shadow: 0 3px 12px #17372c12; }
+.inline-note-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.inline-note-tools button { min-height: 40px; min-width: 36px; padding: 4px 8px; border-radius: 20px; color: #176f5b; background: #e7f0e9; border: 1px solid #b7cec0; }
+.inline-note-tools .inline-rest { min-width: 76px; }
+.editable-melody { touch-action: none; }
+.melody-ghost { position: absolute; z-index: 4; width: 14px; height: 10px; border-radius: 50%; background: #176f5b; transform: translate(-50%, -50%) rotate(-15deg); pointer-events: none; }
+.melody-ghost span { position: absolute; bottom: 28px; left: -15px; padding: 5px 10px; border-radius: 8px; background: #176f5b; color: white; transform: rotate(15deg); }
+@media (max-width: 700px) {
+  .sheet-panel:has(.melody-duration) { height: auto; }
+  .sheet-panel:has(.melody-duration) .sheet-body { overflow: visible; flex: none; }
+}

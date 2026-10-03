@@ -198,14 +198,14 @@ object ScoreImport {
                             element.allowed("pitch", "rest", "duration", "tie", "voice", "type", "dot", "accidental", "stem", "staff", "beam", "notations", "lyric")
                             if (listOf("attack", "release", "time-only").any { element.hasAttribute(it) }) fail("Performance timing changes are not supported.")
                             val type = element.text("type", "")
-                            val denominator = mapOf("whole" to 1, "half" to 2, "quarter" to 4, "eighth" to 8, "16th" to 16)[type]
+                            val denominator = mapOf("whole" to 1, "half" to 2, "quarter" to 4, "eighth" to 8, "16th" to 16, "32nd" to 32)[type]
                             val dots = element.children().count { it.tag == "dot" }
                             val measureRest = element.one("rest")?.attribute("measure") == "yes"
                             if (measureRest && (cursor != 0 || ticks != time.numerator * 1920 / time.denominator)) fail("A full-measure rest must fill its measure.")
-                            val duration = if (measureRest || (type.isEmpty() && dots == 0)) listOf(1, 2, 4, 8, 16).flatMap { denominator -> listOf(0, 1).map { ScoreDuration(denominator, it) } }.find { it.ticks == ticks }
+                            val duration = if (measureRest || (type.isEmpty() && dots == 0)) listOf(1, 2, 4, 8, 16, 32).flatMap { denominator -> listOf(0, 1).map { ScoreDuration(denominator, it) } }.find { it.ticks == ticks }
                                 else if (denominator != null && dots <= 1) ScoreDuration(denominator, dots)
                                 else null
-                            if (duration == null || duration.ticks != ticks) fail("Only whole through sixteenth notes with at most one dot are supported; tuplets are not supported.")
+                            if (duration == null || duration.ticks != ticks) fail("Only whole through thirty-second notes with at most one dot are supported; tuplets are not supported.")
                             val pitchNode = element.one("pitch"); val rest = element.one("rest")
                             if ((pitchNode != null) == (rest != null)) fail("Each note must contain one pitch or rest.")
                             val pitch = pitchNode?.let {

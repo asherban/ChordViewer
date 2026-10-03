@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { PracticeSession, matchesPracticeChord, parseScore, practiceEvents, supportsPracticeMatch, transposePracticeScore, type LeadSheet } from "@chordviewer/contracts";
+import { PracticeSession, matchesPracticeChord, parseScore, practiceEvents, supportsPracticeMatch, transposePracticeScore, trimTrailingSilentBars, type LeadSheet } from "@chordviewer/contracts";
 import { MidiMonitor } from "../midi/MidiMonitor";
 import type { MidiInputModel } from "../midi/useMidiInput";
 import { ScorePreview } from "../score/ScorePreview";
@@ -7,6 +7,7 @@ import type { SelectedSheet } from "./selection";
 import { SheetDetails } from "./SheetDetails";
 import { useScoreDraft } from "../editor/useScoreDraft";
 import { ScoreEntryControls } from "../editor/ScoreEditor";
+import { MelodyDurationControl } from "../editor/MelodyDurationControl";
 import { settingsLabel } from "../score/labels";
 import { MAX_IMPORT_BYTES } from "../import/score-import";
 import type { RecoveryDraft } from "./recovery";
@@ -109,7 +110,7 @@ export function SheetWorkspace({
   const showMelody = melody || mode === "Create" && view.lane === "melody";
   function exportScore() {
     model.pause();
-    const current = parseScore({ ...view.score, title: view.title.trim() });
+    const current = trimTrailingSilentBars(parseScore({ ...view.score, title: view.title.trim() }));
     const blob = new Blob([JSON.stringify(current)], { type: "application/json" });
     if (blob.size > MAX_IMPORT_BYTES) { setExportError("The exported score exceeds the 1 MiB import limit."); return; }
     setExportError("");
@@ -170,11 +171,11 @@ export function SheetWorkspace({
           onSettings={(key, time) => model.settings(key, time) ? null : model.getSnapshot().notice}
           onChange={(title, tutorial) => model.details(title, tutorial)} onSave={save} />
       </div>}
-      {recoveryStatus && <p className="recovery-status" role="status">{recoveryStatus}</p>}
+      {recoveryStatus && <WorkspaceNotice key={recoveryStatus} message={recoveryStatus} />}
       {conflict && <div className="conflict-notice" role="status"><p>The saved sheet changed or is unavailable. Your draft is still here. Save a new sheet to keep both versions, or reload after confirmation.</p>
         <button className="secondary" disabled={busy} onClick={() => void onReload()}>Reload latest version</button>
         {onSaveCopy && <button className="primary" disabled={busy || !canCreate || !view.title.trim()} onClick={async () => {
-          model.pause(); if (await onSaveCopy(view.title.trim(), view.tutorial.trim() || null, view.score)) await clearRecovery();
+          model.pause(); if (await onSaveCopy(view.title.trim(), view.tutorial.trim() || null, trimTrailingSilentBars(view.score))) await clearRecovery();
         }}>Save as new sheet</button>}
       </div>}
       {!saved && <div className="preview-notice">
@@ -183,7 +184,7 @@ export function SheetWorkspace({
       </div>}
       <div className={`workspace${mode === "Practice" && !showTutorial ? " tutorial-hidden" : ""}`}>
         <aside aria-label="Tutorial and MIDI">
-          {(mode !== "Practice" || showTutorial) && 
+          {(mode === "Create" || showTutorial) &&
           <section className="tutorial-card">
             <div className="panel-heading"><h2>Tutorial</h2><span className="small">{saved?.tutorialUrl ? "Linked" : "No video"}</span></div>
             {active && !blocked && !busy ? <TutorialEmbed key={saved?.id ?? "example"} url={saved?.tutorialUrl ?? null} title={view.title} /> :
@@ -201,6 +202,7 @@ export function SheetWorkspace({
               "Play a chord or move manually."}</p>
             <p aria-live="polite">{liveMatch === null ? "Play notes to compare with this chord." : liveMatch ? "Held notes match this chord." : "Held notes differ from this chord."}</p>
           </section>}
+          {saved && mode === "Create" && <ScoreEntryControls model={model} view={view} />}
           <MidiMonitor midi={midi} />
         </aside>
         <section className={`sheet-panel${mode === "Practice" ? " practice-sheet-panel" : ""}`} aria-label="Score preview">
@@ -212,6 +214,7 @@ export function SheetWorkspace({
               <button aria-pressed={!showMelody} onClick={() => setMelody(false)}>Chords only</button>
             </div>
             <button className="text-button" disabled={busy || !view.title.trim()} onClick={exportScore}>Export score JSON</button>
+            
             {saved && mode === "Practice" && <button className="secondary" onClick={() => {
               model.restorePosition(target?.position ?? { measureIndex: practiceState.bar, offsetTicks: 0 });
               onEdit();
@@ -238,7 +241,6 @@ export function SheetWorkspace({
                 <button key={event.id} aria-pressed={practiceState.eventIndex === index} onClick={() => { practice.selectEvent(index); }}>
                   {event.symbol} · beat {event.position.offsetTicks * practiceScore.timeSignature.denominator / 1920 + 1}</button>)}</div>}
           <div className="sheet-body" tabIndex={0} aria-label="Scrollable lead sheet">
-            {saved && mode === "Create" && <ScoreEntryControls model={model} view={view} />}
             <div style={mode === "Practice" ? { zoom: size / 100 } : undefined}>
             <ScorePreview score={mode === "Practice" ? practiceScore : displayedScore} melody={showMelody} practice={mode === "Practice" ? {
               bar: practiceState.bar, chordId: target?.id ?? null,
@@ -247,14 +249,22 @@ export function SheetWorkspace({
             } : undefined} editing={saved && mode === "Create" ? {
               position: view.position, selectedId: view.selectedId, writable: view.writable, lane: view.lane,
               selectChord: id => model.selectChord(id), selectMelody: id => model.selectMelody(id), selectPosition: position => model.selectPosition(position),
+              moveChord: (id, position) => model.moveChord(id, position), pause: model.pause,
+              placeNote: (position, pitch, id) => model.placeNote(position, pitch, id), enterRest: () => model.enterRest(), durationControl: <MelodyDurationControl model={model} view={view} />, deleteNote: model.deleteSelected, setTie: enabled => model.setTie(enabled),
             } : undefined} />
             </div>
           </div>
-          <footer className="sheet-footer"><span>{view.score.measures.length} measures</span><span>{saved && mode === "Create" ? "Ctrl+Z undo · Delete selection · Esc pause" : "Single melody voice · treble clef"}</span></footer>
+          <footer className="sheet-footer"><span>{view.score.measures.length} {view.score.measures.length === 1 ? "measure" : "measures"}</span><span>{saved && mode === "Create" ? "Ctrl+Z undo · Delete selection · Esc pause" : "Single melody voice · treble clef"}</span></footer>
         </section>
       </div>
     </div>
   );
+}
+
+function WorkspaceNotice({ message }: { message: string }) {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => { const timer = window.setTimeout(() => setVisible(false), 4000); return () => window.clearTimeout(timer); }, []);
+  return visible ? <div className="workspace-toast" role="status">{message}</div> : null;
 }
 
 function TutorialEmbed({ url, title }: { url: string | null; title: string }) {

@@ -145,10 +145,22 @@ private fun ScorePaper(state: LibraryState, score: LeadSheet, sample: Boolean, m
         Column(content.padding(4.dp)) {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density * if (state.mode == LibraryMode.PRACTICE) state.practiceSize / 100f else 1f, density.fontScale)) {
-                NativeScore(score, melody, if (state.mode == LibraryMode.CREATE) state.editor?.selectedMelodyId else null,
+                NativeScore(score, melody || (state.mode == LibraryMode.CREATE && state.editor?.lane == com.chordviewer.score.EntryLane.MELODY), if (state.mode == LibraryMode.CREATE) state.editor?.selectedMelodyId else null,
                     if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::selectMelody else null,
                     practiceBar = if (state.mode == LibraryMode.PRACTICE) state.practice.bar else null,
-                    practiceChordId = if (state.mode == LibraryMode.PRACTICE) score.measures.flatMap { it.chords }.getOrNull(state.practice.eventIndex)?.id else null)
+                    practiceChordId = if (state.mode == LibraryMode.PRACTICE) score.measures.flatMap { it.chords }.getOrNull(state.practice.eventIndex)?.id else null,
+                    entryPosition = if (state.mode == LibraryMode.CREATE) state.editor?.position else null,
+                    selectPosition = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::setPosition else null,
+                    selectChord = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::selectChord else null,
+                    moveChord = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::moveChord else null,
+                    melodyEntry = !sample && state.mode == LibraryMode.CREATE && state.editor?.lane == com.chordviewer.score.EntryLane.MELODY,
+                    entryDuration = state.editor?.melodyDuration ?: com.chordviewer.score.ScoreDuration(4, 0),
+                    placeNote = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::placeNote else null,
+                    enterRest = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::enterRest else null,
+                    durationControl = { MelodyDurationControl(state, model) },
+                    deleteNote = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::deleteMelody else null,
+                    setTie = if (!sample && state.mode == LibraryMode.CREATE && !state.busy) model::setMelodyTie else null,
+                    pauseEntry = if (state.mode == LibraryMode.CREATE) model::pauseEntry else null)
             }
         }
     }

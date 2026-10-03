@@ -166,14 +166,14 @@ function readMusicXml(xml: string): LeadSheet {
         allowed(element, ['pitch', 'rest', 'duration', 'tie', 'voice', 'type', 'dot', 'accidental', 'stem', 'staff', 'beam', 'notations', 'lyric']);
         if (['attack', 'release', 'time-only'].some(attribute => element.hasAttribute(attribute))) fail('Performance timing changes are not supported.');
         const type = text(element, 'type', '');
-        const denominator = ({ whole: 1, half: 2, quarter: 4, eighth: 8, '16th': 16 } as Record<string, number>)[type];
+        const denominator = ({ whole: 1, half: 2, quarter: 4, eighth: 8, '16th': 16, '32nd': 32 } as Record<string, number>)[type];
         const dots = children(element).filter(child => child.localName === 'dot').length;
         const measureRest = one(element, 'rest')?.getAttribute('measure') === 'yes';
         if (measureRest && (cursor !== 0 || ticks !== measureTicks({ timeSignature: time }))) fail('A full-measure rest must fill its measure.');
         let duration: NoteDuration | undefined;
-        if (measureRest || (!type && dots === 0)) duration = ([1, 2, 4, 8, 16] as const).flatMap(denominator => ([0, 1] as const).map(dots => ({ denominator, dots }))).find(candidate => durationTicks(candidate) === ticks);
+        if (measureRest || (!type && dots === 0)) duration = ([1, 2, 4, 8, 16, 32] as const).flatMap(denominator => ([0, 1] as const).map(dots => ({ denominator, dots }))).find(candidate => durationTicks(candidate) === ticks);
         else if (denominator && dots <= 1) duration = { denominator: denominator as NoteDuration['denominator'], dots: dots as 0 | 1 };
-        if (!duration || durationTicks(duration) !== ticks) fail('Only whole through sixteenth notes with at most one dot are supported; tuplets are not supported.');
+        if (!duration || durationTicks(duration) !== ticks) fail('Only whole through thirty-second notes with at most one dot are supported; tuplets are not supported.');
         const pitchNode = one(element, 'pitch'); const rest = one(element, 'rest');
         if (!!pitchNode === !!rest) fail('Each note must contain one pitch or rest.');
         let pitch: Pitch | undefined;

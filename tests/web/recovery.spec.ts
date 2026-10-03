@@ -2,6 +2,19 @@ import { randomUUID } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
 
 test.use({ trace: "off", screenshot: "off", viewport: { width: 1280, height: 800 } });
+async function waitRecovery(page: Page, title: string) {
+  await expect.poll(() => page.evaluate(expected => new Promise<boolean>((resolve, reject) => {
+    const opening = indexedDB.open("chordviewer-recovery", 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result, tx = db.transaction("drafts", "readonly"), request = tx.objectStore("drafts").getAll();
+      request.onsuccess = () => resolve(request.result.some(row => row.title === expected));
+      request.onerror = () => reject(request.error);
+      tx.oncomplete = () => db.close();
+    };
+  }), title)).toBe(true);
+  await expect(page.getByText(/Local recovery copy updated|Writing local recovery copy/)).toHaveCount(0);
+}
 async function account(page: Page) {
   const email = `recovery-${randomUUID()}@example.test`, password = `M7-${randomUUID()}`;
   await page.goto("/");
@@ -25,20 +38,18 @@ async function details(page: Page, title: string) {
   await page.getByRole("button", { name: "Sheet details", exact: true }).click();
   await page.getByLabel("Sheet title", { exact: true }).fill(title);
   await page.getByLabel("YouTube tutorial link").fill("https://youtu.be/M7lc1UVf-VE");
-  await expect(page.getByText("Local recovery copy updated. Save to update your Library.", { exact: true })).toBeVisible();
+  await waitRecovery(page, title);
 }
 
 test("music and details recover after an offline save and reload, then save explicitly", async ({ page }) => {
   test.setTimeout(90_000); page.on("dialog", dialog => void dialog.accept());
   await account(page); const id = await create(page);
-  await page.getByRole("button", { name: "Add chord by hand", exact: true }).click();
+  if (!await page.getByRole("form", { name: "Add chord", exact: true }).isVisible())
+    await page.getByRole("button", { name: "Add chord by hand", exact: true }).click();
   await page.getByLabel("Chord symbol", { exact: true }).fill("C");
   await page.getByRole("button", { name: "Add chord", exact: true }).click();
   await page.getByRole("button", { name: "Melody entry", exact: true }).click();
-  await page.getByRole("button", { name: "Add note by hand", exact: true }).click();
-  const melody = page.getByRole("form", { name: "Add melody", exact: true });
-  await melody.getByLabel("Note pitch", { exact: true }).selectOption("D");
-  await melody.getByRole("button", { name: "Add melody event", exact: true }).click();
+  await page.getByRole("button", { name: "Next note entry line", exact: true }).click({ position: { x: 20, y: 60 } });
   await details(page, "Recovered piano study");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await expect(page.getByText("Read only", { exact: false })).toBeVisible();
@@ -85,7 +96,7 @@ test("two tabs preserve separate recovery copies and an old revision can save as
   await copies.getByRole("button", { name: "Restore draft" }).click();
   await expect(page.getByRole("button", { name: "Save sheet", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Save as new sheet", exact: true })).toBeEnabled();
-  await expect(page.getByText("Local recovery copy updated. Save to update your Library.", { exact: true })).toBeVisible();
+  await waitRecovery(page, "My recovered version");
   if (process.env.CHORDVIEWER_CAPTURE_EVIDENCE === "1") await page.screenshot({ path: "docs/architecture/evidence/m7-web-conflict.png", fullPage: true });
   await page.getByRole("button", { name: "Save as new sheet", exact: true }).click();
   await expect(page.getByText("Sheet created and saved.", { exact: true })).toBeVisible();

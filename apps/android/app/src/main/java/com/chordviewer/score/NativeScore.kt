@@ -6,6 +6,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -13,6 +18,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -31,12 +41,39 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.TextButton
 import com.chordviewer.R
 
 @Composable
 fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String? = null, selectMelody: ((String) -> Unit)? = null,
     practiceBar: Int? = null, selectPracticeBar: ((Int) -> Unit)? = null,
-    practiceChordId: String? = null, selectPracticeChord: ((String) -> Unit)? = null) {
+    practiceChordId: String? = null, selectPracticeChord: ((String) -> Unit)? = null,
+    entryPosition: ScorePosition? = null, selectPosition: ((ScorePosition) -> Unit)? = null,
+    selectChord: ((String) -> Unit)? = null, moveChord: ((String, ScorePosition) -> Unit)? = null,
+    pauseEntry: (() -> Unit)? = null, melodyEntry: Boolean = false, entryDuration: ScoreDuration = ScoreDuration(4, 0),
+    placeNote: ((ScorePosition, ScorePitch, String?) -> Unit)? = null, enterRest: (() -> Unit)? = null, setTie: ((Boolean) -> Unit)? = null,
+    deleteNote: (() -> Unit)? = null, durationControl: @Composable () -> Unit = {}) {
+    val cursor = if (melodyEntry) FastEntry.nextMelodyPosition(sheet) else entryPosition
+    val editableIds = remember(sheet) { sheet.measures.flatMap { it.melody }.map { it.id }.toSet() }
+    val displayed = remember(sheet, cursor, showMelody) {
+        val complete = if (showMelody) ScoreLayout.withRests(sheet) else sheet
+        // The next-bar entry target is temporary space, not a bar of written rests.
+        if (cursor?.measureIndex == sheet.measures.size && sheet.measures.size < 256)
+            complete.copy(measures = complete.measures + ScoreMeasure("next-bar-preview", emptyList(), emptyList())) else complete
+    }
+    EditableNativeScore(displayed, showMelody, selectedMelodyId, selectMelody, practiceBar, selectPracticeBar,
+        practiceChordId, selectPracticeChord, cursor, selectPosition, selectChord, moveChord, pauseEntry, melodyEntry, entryDuration, placeNote, enterRest, setTie, deleteNote, durationControl, editableIds)
+}
+
+@Composable
+private fun EditableNativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?, selectMelody: ((String) -> Unit)?,
+    practiceBar: Int?, selectPracticeBar: ((Int) -> Unit)?, practiceChordId: String?, selectPracticeChord: ((String) -> Unit)?,
+    entryPosition: ScorePosition?, selectPosition: ((ScorePosition) -> Unit)?, selectChord: ((String) -> Unit)?,
+    moveChord: ((String, ScorePosition) -> Unit)?, pauseEntry: (() -> Unit)?, melodyEntry: Boolean,
+    entryDuration: ScoreDuration, placeNote: ((ScorePosition, ScorePitch, String?) -> Unit)?, enterRest: (() -> Unit)?, setTie: ((Boolean) -> Unit)?,
+    deleteNote: (() -> Unit)?, durationControl: @Composable () -> Unit, editableIds: Set<String>) {
     val context = LocalContext.current
     val musicFont = remember { context.resources.getFont(R.font.bravura) }
     val chordSize = if (showMelody) 26f else 44f
@@ -46,13 +83,21 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?
     val marks = remember(sheet) { ScoreLayout.marks(sheet) }
     val timelines = remember(sheet, showMelody) { sheet.measures.map { ScoreLayout.timeline(it, showMelody, measureText::measureText, sheet.measureTicks, sheet.keySignature) } }
     val density = LocalDensity.current.density
+    var drop by remember(sheet) { mutableStateOf<ScorePosition?>(null) }
+    var ghost by remember(sheet) { mutableStateOf<Pair<Int, MelodyEvent>?>(null) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val viewportWidth = maxWidth.value
-        val systems = remember(sheet, timelines, maxWidth, showMelody) { ScoreLayout.systems(sheet, timelines, maxWidth.value, showMelody) }
+        val systems = remember(sheet, timelines, maxWidth, showMelody, melodyEntry) { ScoreLayout.systems(sheet, timelines, maxWidth.value, showMelody).map {
+            if (melodyEntry) it.copy(geometry = it.geometry.copy(rowHeight = it.geometry.rowHeight + 124)) else it
+        } }
         Column {
             systems.forEach { system ->
                 val requester = remember(system.first) { BringIntoViewRequester() }
                 val horizontal = rememberScrollState()
+                val focused = selectedMelodyId?.let { MelodyEdits.find(sheet, it)?.second } ?: entryPosition
+                LaunchedEffect(focused, system.first) {
+                    if (melodyEntry && focused?.measureIndex in system.first until system.first + system.count) requester.bringIntoView()
+                }
                 LaunchedEffect(practiceBar, practiceChordId, system.first, system.width, system.measureWidth, viewportWidth, horizontal.maxValue) {
                     if (practiceBar != null && practiceBar in system.first until system.first + system.count) {
                         requester.bringIntoView()
@@ -69,6 +114,7 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?
                 }
                 // Only an unusually dense system scrolls; ordinary rows retain the viewport width.
                 Column(Modifier.bringIntoViewRequester(requester).horizontalScroll(horizontal)) {
+                  Box {
                     Canvas(Modifier.width(system.width.dp).height(system.geometry.rowHeight.dp)
                         .then(if (selectPracticeBar != null) Modifier.pointerInput(sheet, system, density, selectPracticeBar) {
                             detectTapGestures { point ->
@@ -84,17 +130,100 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?
                                     selectPracticeChord(nearest.id)
                                 else selectPracticeBar(index)
                             }
+                        } else if (selectPosition != null) Modifier.pointerInput(sheet, system, density, showMelody, melodyEntry, entryDuration) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val point = down.position / density
+                                val index = system.first + (point.x / system.measureWidth).toInt().coerceIn(0, system.count - 1)
+                                fun chordCenter(event: ChordEvent) = if (showMelody) scoreEventX(system, timelines, index, event.offsetTicks) + measureText.measureText(event.symbol) / 2
+                                        else (scoreEventX(system, timelines, index, event.offsetTicks) + scoreEventX(system, timelines, index, event.offsetTicks + event.durationTicks)) / 2
+                                val chord = sheet.measures[index].chords.minByOrNull { kotlin.math.abs(chordCenter(it) - point.x) }
+                                    ?.takeIf { point.y in (if (showMelody) 10f..58f else 30f..98f) &&
+                                        kotlin.math.abs(chordCenter(it) - point.x) <= maxOf(24f, measureText.measureText(it.symbol) / 2 + 8) }
+                                val cursorX = entryPosition?.takeIf { it.measureIndex in system.first until system.first + system.count }
+                                    ?.let { scoreEventX(system, timelines, it.measureIndex, it.offsetTicks) }
+                                val onCursor = melodyEntry && cursorX != null && kotlin.math.abs(point.x - cursorX) <= 10
+                                val note = if (showMelody && chord == null && !onCursor) melodyAt(sheet, system, timelines, point.x, point.y) else null
+                                val editableNote = note?.takeIf { it in editableIds }
+                                val located = editableNote?.let { MelodyEdits.find(sheet, it) }
+                                val original = located?.first
+                                val newNote = melodyEntry && chord == null && editableNote == null && cursorX != null &&
+                                    kotlin.math.abs(point.x - cursorX) <= 22 && point.y in (system.geometry.top - 30)..(system.geometry.top + 70)
+                                fun pitch(step: Int): ScorePitch {
+                                    val absolute = (step + 30).coerceIn(21, 48)
+                                    val name = "CDEFGAB"[absolute % 7].toString()
+                                    return ScorePitch(name, keyAccidentals(sheet.keySignature).getValue(name), absolute / 7)
+                                }
+                                val noteGesture = melodyEntry && placeNote != null && (original != null || newNote)
+                                val notePosition = located?.second ?: entryPosition
+                                val initial = if (noteGesture) original ?: MelodyEvent("entry-ghost", entryPosition!!.offsetTicks, entryDuration,
+                                    pitch(((system.geometry.top + 40 - point.y) / 5).roundToInt())) else null
+                                var candidate = initial
+                                fun destination(x: Float, y: Float): ScorePosition? {
+                                    val origin = systems.takeWhile { it.first != system.first }.sumOf { it.geometry.rowHeight.toDouble() }.toFloat()
+                                    var top = 0f
+                                    val target = systems.firstOrNull { row ->
+                                        val within = y + origin >= top && y + origin < top + row.geometry.rowHeight
+                                        top += row.geometry.rowHeight
+                                        within
+                                    } ?: return null
+                                    if (x < 0 || x >= target.width) return null
+                                    val bar = target.first + (x / target.measureWidth).toInt().coerceIn(0, target.count - 1)
+                                    val tick = (0 until sheet.measureTicks step 60).minBy { kotlin.math.abs(scoreEventX(target, timelines, bar, it) - x) }
+                                    return ScorePosition(bar, tick)
+                                }
+                                var target = destination(point.x, point.y)
+                                var moved = false
+                                var cancelled = false
+                                if (chord != null || noteGesture) { down.consume(); pauseEntry?.invoke() }
+                                if (noteGesture) ghost = notePosition!!.measureIndex to initial!!
+                                try {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                        if (change == null || change.isConsumed || event.changes.count { it.pressed } > 1) { cancelled = true; break }
+                                        val pos = change.position / density
+                                        moved = moved || (pos - point).getDistance() > 6
+                                        if (noteGesture) {
+                                            if (pos.x !in 0f..system.width || pos.y !in 0f..system.geometry.rowHeight) { cancelled = true; break }
+                                            val shift = ((point.y - pos.y) / 5).roundToInt()
+                                            moved = moved || shift != 0
+                                            candidate = initial!!.copy(pitch = if (shift == 0) initial.pitch else pitch((initial.pitch?.staffStep ?: 4) + shift))
+                                            ghost = notePosition!!.measureIndex to candidate!!
+                                            change.consume()
+                                        }
+                                        if (chord != null && moved) { target = destination(pos.x, pos.y); drop = target; change.consume() }
+                                        if (!change.pressed) break
+                                    }
+                                    if (!cancelled) {
+                                        if (chord != null) { if (moved) target?.let { moveChord?.invoke(chord.id, it) } else selectChord?.invoke(chord.id) }
+                                        else if (noteGesture) {
+                                            if (original != null && !moved) selectMelody?.invoke(original.id)
+                                            else candidate?.pitch?.let { placeNote?.invoke(notePosition!!, it, original?.id) }
+                                        }
+                                        else if (!moved) { if (editableNote != null) selectMelody?.invoke(editableNote) else (if (melodyEntry) entryPosition else target)?.let(selectPosition) }
+                                    }
+                                } finally { drop = null; ghost = null }
+                            }
                         } else if (showMelody && selectMelody != null) Modifier.pointerInput(sheet, system, density, selectMelody) {
-                            detectTapGestures { point -> melodyAt(sheet, system, timelines, point.x / density, point.y / density)?.let(selectMelody) }
+                            detectTapGestures { point -> melodyAt(sheet, system, timelines, point.x / density, point.y / density)?.takeIf { it in editableIds }?.let(selectMelody) }
                         } else Modifier)
-                        .semantics { contentDescription = description(sheet, system, showMelody) }) {
+                        .semantics { contentDescription = description(sheet, system, showMelody) + if (melodyEntry) " Tap the entry line or drag a note to change its pitch." else "" }) {
                         if (practiceBar != null && practiceBar in system.first until system.first + system.count)
                             drawRect(Color(0xFFE6EEE7), topLeft = Offset((practiceBar - system.first) * system.measureWidth * density, 0f),
                                 size = androidx.compose.ui.geometry.Size(system.measureWidth * density, size.height))
-                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody, sheet.keySignature, sheet.timeSignature, selectedMelodyId, practiceChordId)
+                        val target = drop ?: entryPosition
+                        if (target != null && target.measureIndex in system.first until system.first + system.count) {
+                            val x = scoreEventX(system, timelines, target.measureIndex, target.offsetTicks)
+                            if (melodyEntry) drawLine(Color(0x33176F5B), Offset(x * density, (system.geometry.top - 12) * density), Offset(x * density, (system.geometry.top + 52) * density), 18 * density)
+                            drawLine(Color(0xFF176F5B), Offset(x * density, (if (melodyEntry) system.geometry.top - 12 else 22f) * density), Offset(x * density, (if (melodyEntry) system.geometry.top + 52 else system.geometry.rowHeight - 16) * density), 2 * density)
+                        }
+                        val painter = StaffPainter(this, musicFont, system, timelines, showMelody, sheet.keySignature, sheet.timeSignature, selectedMelodyId?.let { FastEntry.melodyGroup(sheet, it)?.ids } ?: emptySet(), practiceChordId)
                         painter.system()
                         (system.first until system.first + system.count).forEach { index ->
-                            painter.measure(sheet.measures[index], marks[index], index)
+                            val preview = ghost?.takeIf { it.first == index }?.second
+                            val displayedMarks = if (preview == null) marks[index] else marks[index].filter { it.event.id != preview.id } + NotationMark(preview, preview.pitch?.alter, false)
+                            painter.measure(sheet.measures[index], displayedMarks, index)
                         }
                         if (showMelody) (maxOf(0, system.first - 1) until system.first + system.count).forEach { index ->
                             val measure = sheet.measures[index]
@@ -106,6 +235,33 @@ fun NativeScore(sheet: LeadSheet, showMelody: Boolean, selectedMelodyId: String?
                             }
                         }
                     }
+                    if (melodyEntry && enterRest != null) {
+                        val selected = selectedMelodyId?.let { MelodyEdits.find(sheet, it) }
+                        val at = selected?.second ?: entryPosition
+                        if (at != null && at.measureIndex in system.first until system.first + system.count) {
+                            val pitch = selected?.first?.pitch
+                            val x = scoreEventX(system, timelines, at.measureIndex, at.offsetTicks).coerceIn(8f, maxOf(8f, system.width - 320))
+                            Column(Modifier.offset(x.dp, (system.geometry.rowHeight - 124).dp).width(minOf(320f, system.width - 16).dp)) {
+                              durationControl()
+                              Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                FilledTonalButton(onClick = enterRest, modifier = Modifier.height(44.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+                                    Text(if (selected != null) "Rest" else "+ Rest")
+                                }
+                                if (pitch != null) {
+                                    listOf(-1 to "♭", 0 to "♮", 1 to "♯").forEach { (alter, label) ->
+                                        TextButton(onClick = { placeNote?.invoke(at, pitch.copy(alter = alter), selected.first.id) },
+                                            contentPadding = PaddingValues(0.dp), modifier = Modifier.width(40.dp).height(44.dp)
+                                                .semantics { contentDescription = when (alter) { -1 -> "Flat"; 1 -> "Sharp"; else -> "Natural" } }) { Text(label) }
+                                    }
+                                    TextButton(onClick = { setTie?.invoke(!selected.first.tieToNext) }, contentPadding = PaddingValues(4.dp),
+                                        modifier = Modifier.height(44.dp)) { Text("Tie") }
+                                }
+                                if (selected != null) TextButton(onClick = { deleteNote?.invoke() }, modifier = Modifier.height(44.dp).semantics { contentDescription = "Delete selected note" }, contentPadding = PaddingValues(4.dp)) { Text("Delete") }
+                              }
+                            }
+                        }
+                    }
+                  }
                 }
             }
         }
@@ -124,9 +280,9 @@ private fun description(sheet: LeadSheet, system: ScoreSystem, melody: Boolean) 
     }
 }
 
-private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout: ScoreSystem,
+internal class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout: ScoreSystem,
     val timelines: List<MeasureTimeline>, val melody: Boolean, val keySignature: String, val time: ScoreTimeSignature,
-    val selectedId: String?, val practiceChordId: String?) {
+    val selectedIds: Set<String>, val practiceChordId: String?) {
     private val scale = scope.density
     private val ink = Color(0xFF34453D)
     private val muted = Color(0xFF697A73)
@@ -191,10 +347,10 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
             val event = mark.event
             val noteX = x(index, event.offsetTicks)
             val pitch = event.pitch
-            if (event.id == selectedId) scope.drawCircle(Color(0xFFDDE9DD), 18 * scale,
+            if (event.id in selectedIds) scope.drawCircle(Color(0xFFDDE9DD), 18 * scale,
                 Offset((noteX + 6) * scale, (pitch?.let(::y) ?: (layout.geometry.top + 20)) * scale))
             if (pitch == null) {
-                val rest = when (event.duration.denominator) { 1 -> '\uE4E3'; 2 -> '\uE4E4'; 4 -> '\uE4E5'; 8 -> '\uE4E6'; else -> '\uE4E7' }
+                val rest = when (event.duration.denominator) { 1 -> '\uE4E3'; 2 -> '\uE4E4'; 4 -> '\uE4E5'; 8 -> '\uE4E6'; 16 -> '\uE4E7'; else -> '\uE4E8' }
                 val restY = layout.geometry.top + (if (event.duration.denominator == 1) 1 else 2) * gap
                 glyph(rest, noteX, restY)
                 if (event.duration.dots == 1) glyph('\uE1E7', noteX + 16, restY - gap / 2)
@@ -214,7 +370,8 @@ private class StaffPainter(val scope: DrawScope, musicFont: Typeface, val layout
                     line(stemX, noteY, stemX, stemEnd, 1.1f)
                     if (event.duration.denominator >= 8) {
                         val flag = if (event.duration.denominator == 8) { if (up) '\uE240' else '\uE241' }
-                            else { if (up) '\uE242' else '\uE243' }
+                            else if (event.duration.denominator == 16) { if (up) '\uE242' else '\uE243' }
+                            else { if (up) '\uE244' else '\uE245' }
                         glyph(flag, stemX, stemEnd)
                     }
                 }

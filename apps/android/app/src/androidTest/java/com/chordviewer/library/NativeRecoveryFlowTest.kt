@@ -59,14 +59,16 @@ class NativeRecoveryFlowTest {
             setField("Search sheets", original.score.title); hideKeyboard(activity); clickDescription("Edit ${original.score.title}")
             waitFor("open sheet") { model(activity).state.value.selected?.id == original.id }
             click("Add chord"); setField("Chord symbol", "C"); click("Insert chord")
-            clickDescription("Melody entry lane"); click("Add note / rest"); click("D"); click("Insert note")
+            clickDescription("Melody entry lane")
+            // Gesture behavior is covered by FastEntryUiTest; this suite exercises durable recovery.
+            instrumentation.runOnMainSync { model(activity).placeNote(com.chordviewer.score.ScorePosition(), com.chordviewer.score.ScorePitch("D", 0, 4)) }
             waitFor("authored notation") {
                 model(activity).state.value.editor?.score?.measures?.first()?.let { it.chords.size == 1 && it.melody.size == 1 } == true
             }
             click("Practice"); click("Create"); click("Sheet details")
             setField("Sheet title", "M7 native saved study")
             setField("YouTube tutorial URL (optional)", "https://youtu.be/M7lc1UVf-VE"); click("Done")
-            waitFor("confirmed recovery") { model(activity).state.value.recoveryStatus?.startsWith("Local recovery copy updated") == true }
+            waitFor("confirmed recovery") { model(activity).state.value.recoveryCopies.isNotEmpty() }
             signal("M7_NATIVE_OFFLINE_READY")
             waitFor("disconnected app route", 30_000) { !appReachable() }
             click("Save sheet")

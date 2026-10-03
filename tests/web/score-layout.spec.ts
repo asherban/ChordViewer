@@ -33,8 +33,10 @@ test("practice uses readable chord systems and connected melody without losing n
   await openStudy(page, study);
   await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
   await expect(page.locator(".notation .vf-stavenote")).toHaveCount(48);
-  const firstRowNumbers = await page.locator(".notation svg text").evaluateAll(nodes => ["1", "2", "3", "4"].map(number => nodes.find(node => node.textContent === number)!.getBoundingClientRect().top));
-  expect(new Set(firstRowNumbers).size).toBe(1);
+  await expect.poll(async () => {
+    const firstRowNumbers = await page.locator(".notation svg text").evaluateAll(nodes => ["1", "2", "3", "4"].map(number => nodes.find(node => node.textContent === number)?.getBoundingClientRect().top));
+    return firstRowNumbers.every(top => top !== undefined) ? new Set(firstRowNumbers).size : 0;
+  }).toBe(1);
   await capture(page, "melody");
   await page.getByRole("button", { name: "Chords only", exact: true }).click();
   await expect(page.locator(".score-chord")).toHaveCount(12);
@@ -133,12 +135,69 @@ test("v2 key and meter retain accidentals while dense melody selection targets s
   await disjointTargets();
   for (const index of [0, 1, 3, 23]) {
     await page.locator(".editable-melody").nth(index).click();
-    await expect(page.getByLabel("Melody event in selected bar", { exact: true })).toHaveValue(`dense-note-${index}`);
-    await expect(page.getByLabel("Note accidental", { exact: true })).toHaveValue(index === 1 ? "0" : "1");
+    await expect(page.getByRole("slider", { name: "Selected note duration", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: index === 1 ? "Natural" : "Sharp", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".editable-melody").nth(index)).toHaveAttribute("aria-pressed", "true");
   }
   await page.setViewportSize({ width: 1280, height: 800 });
+  // The temporary next-entry space contains no rest glyphs.
   await expect(page.locator(".notation .vf-stavenote")).toHaveCount(24);
+  await expect(page.locator(".editable-melody")).toHaveCount(24);
   await disjointTargets();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+
+test("tied fragments share selection, duration, pitch edits and deletion", async ({ page }) => {
+  const pitch = { step: "C", alter: 0, octave: 4 };
+  const score = parseScore({ ...study, id: "tied-edit-study", title: "Tied editing", measures: [
+    { id: "b1", chords: [], melody: [{ id: "head", kind: "note", pitch, offsetTicks: 1440, duration: { denominator: 4, dots: 0 }, tieToNext: true }] },
+    { id: "b2", chords: [], melody: [{ id: "tail", kind: "note", pitch, offsetTicks: 0, duration: { denominator: 4, dots: 0 } },
+      { id: "later", kind: "note", pitch: { ...pitch, step: "G" }, offsetTicks: 480, duration: { denominator: 4, dots: 0 } }] },
+  ] });
+  await openStudy(page, score, "Create");
+  await page.getByRole("button", { name: "Melody entry", exact: true }).click();
+  await page.locator('[data-note-id="tail"]').click();
+  await expect(page.locator('.editable-melody.selected')).toHaveCount(2);
+  const slider = page.getByRole("slider", { name: "Selected note duration", exact: true });
+  await expect(slider).toHaveAttribute("aria-valuetext", "half");
+  await page.getByRole("button", { name: "Flat", exact: true }).click();
+  await expect(page.locator('.editable-melody.selected')).toHaveCount(2);
+  await expect(page.locator('.editable-melody.selected').first()).toHaveAttribute("aria-label", /♭/);
+  await expect(page.locator('.editable-melody.selected').last()).toHaveAttribute("aria-label", /♭/);
+  await slider.press("ArrowLeft"); await slider.press("ArrowLeft");
+  await expect(slider).toHaveAttribute("aria-valuetext", "quarter");
+  await expect(page.locator('.editable-melody')).toHaveCount(2);
+  await expect(page.locator('[data-note-id="later"]')).toHaveAttribute("aria-label", /bar 2, beat 1/);
+  await page.getByRole("button", { name: "Delete selected note", exact: true }).click();
+  await expect(page.locator('.editable-melody')).toHaveCount(1);
+  await expect(page.locator('[data-note-id="later"]')).toHaveAttribute("aria-label", /bar 1, beat 4/);
+  await expect(page.locator('.sheet-footer')).toContainText('1 measure');
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.locator('.editable-melody')).toHaveCount(2);
+  await expect(page.locator('.sheet-footer')).toContainText('2 measures');
+  await page.locator('[data-note-id="later"]').click();
+  await page.getByRole("button", { name: "Replace selected note with rest", exact: true }).click();
+  await expect(page.locator('.sheet-footer')).toContainText('1 measure');
+  await expect(page.locator('[data-note-id="later"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next note entry line", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Next note entry line", exact: true }).click({ position: { x: 20, y: 55 } });
+  await expect(page.locator('.sheet-footer')).toContainText('2 measures');
+  await expect(page.locator('.editable-melody')).toHaveCount(2);
+});
+
+test("dragging a chord onto a note uses the rendered beat after the stave signature", async ({ page }) => {
+  const score = parseScore({ ...study, id: "chord-drop-study", title: "Chord drop timing",
+    measures: study.measures.slice(0, 2).map((bar, index) => ({ ...bar, chords: index === 0 ? [] : bar.chords })) });
+  await openStudy(page, score, "Create");
+  const chord = page.locator('[data-chord-id="chord-1"]');
+  await expect(chord).toBeEnabled();
+  await chord.hover();
+  const source = (await chord.boundingBox())!;
+  const note = (await page.locator('.notation .vf-notehead').first().boundingBox())!;
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(note.x + note.width / 2, note.y + note.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await expect(chord).toHaveAttribute('aria-label', 'G7, bar 1, beat 1, 4 beats');
 });

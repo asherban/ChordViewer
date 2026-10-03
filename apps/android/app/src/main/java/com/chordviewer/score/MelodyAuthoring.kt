@@ -3,7 +3,7 @@ package com.chordviewer.score
 import java.util.UUID
 
 val MELODY_DURATIONS = listOf(ScoreDuration(1, 0), ScoreDuration(1, 1), ScoreDuration(2, 0), ScoreDuration(2, 1),
-    ScoreDuration(4, 0), ScoreDuration(4, 1), ScoreDuration(8, 0), ScoreDuration(8, 1), ScoreDuration(16, 0), ScoreDuration(16, 1))
+    ScoreDuration(4, 0), ScoreDuration(4, 1), ScoreDuration(8, 0), ScoreDuration(8, 1), ScoreDuration(16, 0), ScoreDuration(16, 1), ScoreDuration(32, 0))
 data class MelodySpec(val duration: ScoreDuration, val pitch: ScorePitch? = null)
 data class MelodyMutation(val score: LeadSheet, val position: ScorePosition, val eventId: String)
 class MelodyEntryException(val code: String, message: String) : IllegalArgumentException(message)
@@ -30,8 +30,8 @@ object MelodyEdits {
     private fun target(score: LeadSheet, id: String) = find(score, id)
         ?: throw MelodyEntryException("missing", "This melody note or rest no longer exists. Select another position.")
     private fun validate(spec: MelodySpec) {
-        if (spec.duration.denominator !in listOf(1, 2, 4, 8, 16) || spec.duration.dots !in 0..1)
-            throw MelodyEntryException("duration", "Choose a whole, half, quarter, eighth or sixteenth note, with at most one dot.")
+        if (spec.duration.denominator !in listOf(1, 2, 4, 8, 16, 32) || spec.duration.dots !in 0..1 || (spec.duration.denominator == 32 && spec.duration.dots != 0))
+            throw MelodyEntryException("duration", "Choose a whole, half, quarter, eighth, sixteenth or thirty-second note, with at most one dot.")
         spec.pitch?.let {
             if (it.step !in listOf("C", "D", "E", "F", "G", "A", "B") || it.alter !in -1..1 || it.octave !in 3..6)
                 throw MelodyEntryException("pitch", "Choose a pitch from C3 through B6, with a natural, sharp or flat.")

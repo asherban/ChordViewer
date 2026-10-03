@@ -3,7 +3,7 @@ package com.chordviewer.score
 enum class EntryMode { PAUSED, INSERT, REPLACE }
 enum class EntryLane { CHORDS, MELODY }
 data class PendingChord(val notes: List<Int>, val position: ScorePosition, val duration: Int, val replaceId: String?)
-data class PendingMelody(val pitch: ScorePitch?, val position: ScorePosition, val duration: ScoreDuration, val replaceId: String?)
+data class PendingMelody(val pitch: ScorePitch?, val position: ScorePosition, val duration: ScoreDuration, val replaceId: String?, val ticks: Int = duration.ticks)
 data class ScoreEditorState(
     val score: LeadSheet,
     val position: ScorePosition = ScorePosition(),
@@ -18,6 +18,7 @@ data class ScoreEditorState(
     val pending: PendingChord? = null,
     val pendingMelody: PendingMelody? = null,
     val alternatives: List<String> = emptyList(),
+    val pinnedChords: List<String> = emptyList(),
     val lastInsertedId: String? = null,
     val lastMelodyId: String? = null,
     val message: String? = null,
@@ -26,25 +27,34 @@ data class ScoreEditorState(
 )
 
 /** One bounded history spans both score lanes; transport/UI own entry arming separately. */
-class ScoreEditor(initial: LeadSheet) {
-    var state = ScoreEditorState(initial); private set
+class ScoreEditor(initial: LeadSheet, preserveTrailingSpace: Boolean = false) {
+    var state = ScoreEditorState(if (preserveTrailingSpace) initial else FastEntry.trimTrailingSilentBars(initial)); private set
     private data class Checkpoint(val score: LeadSheet, val position: ScorePosition, val chordPosition: ScorePosition, val melodyPosition: ScorePosition,
         val lane: EntryLane, val duration: Int, val melodyDuration: ScoreDuration)
     private val undo = ArrayDeque<Checkpoint>()
     private val redo = ArrayDeque<Checkpoint>()
-    private fun synced(value: ScoreEditorState) = if (value.lane == EntryLane.CHORDS) value.copy(chordPosition = value.position) else value.copy(melodyPosition = value.position)
+    private fun synced(value: ScoreEditorState): ScoreEditorState {
+        fun clamp(position: ScorePosition) = if (position.measureIndex > value.score.measures.size) ScorePosition(value.score.measures.size) else position
+        val clean = value.copy(position = clamp(value.position), chordPosition = clamp(value.chordPosition), melodyPosition = clamp(value.melodyPosition),
+            selectedId = value.selectedId?.takeIf { ChordEdits.find(value.score, it) != null },
+            selectedMelodyId = value.selectedMelodyId?.takeIf { MelodyEdits.find(value.score, it) != null },
+            lastInsertedId = value.lastInsertedId?.takeIf { ChordEdits.find(value.score, it) != null },
+            lastMelodyId = value.lastMelodyId?.takeIf { MelodyEdits.find(value.score, it) != null })
+        return if (clean.lane == EntryLane.CHORDS) clean.copy(chordPosition = clean.position) else clean.copy(melodyPosition = clean.position)
+    }
     fun update(transform: (ScoreEditorState) -> ScoreEditorState) { state = synced(transform(state)) }
     fun commit(mutation: ChordMutation, alternatives: List<String> = emptyList()) {
         commitScore(mutation.score, mutation.position, "Inserted ${ChordEdits.find(mutation.score, mutation.eventId)?.first?.symbol}.")
         state = state.copy(alternatives = alternatives, lastInsertedId = mutation.eventId)
     }
-    fun commit(mutation: MelodyMutation) {
-        commitScore(mutation.score, mutation.position, "Melody updated.")
-        state = state.copy(lastMelodyId = mutation.eventId)
+    fun commit(mutation: MelodyMutation, preserveTrailingRests: Boolean = false) {
+        val minimumBars = if (preserveTrailingRests) mutation.position.measureIndex + (if (mutation.position.offsetTicks > 0) 1 else 0) else 1
+        commitScore(mutation.score, mutation.position, "Melody updated.", minimumBars)
+        state = synced(state.copy(lastMelodyId = mutation.eventId))
     }
-    fun commitScore(score: LeadSheet, position: ScorePosition = state.position, message: String? = null) {
+    fun commitScore(score: LeadSheet, position: ScorePosition = state.position, message: String? = null, minimumBars: Int = 1) {
         remember()
-        state = synced(state.copy(score = score, position = position, selectedId = null, selectedMelodyId = null,
+        state = synced(state.copy(score = FastEntry.trimTrailingSilentBars(score, minimumBars), position = position, selectedId = null, selectedMelodyId = null,
             pending = null, pendingMelody = null, alternatives = emptyList(), message = message, canUndo = true, canRedo = false))
     }
     fun delete(id: String) {

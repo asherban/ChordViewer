@@ -115,7 +115,7 @@ class DraftRecoveryTest {
         first.open(api.sheet.id); advanceUntilIdle(); first.updateDraftTitle("Healthy copy"); advanceUntilIdle()
         assertEquals(1, first.state.value.recoveryCopies.size)
         assertEquals(2, first.state.value.recoveryUnreadableCount)
-        assertTrue(first.state.value.recoveryStatus!!.contains("updated"))
+        assertNull(first.state.value.recoveryStatus)
 
         val restarted = model(api, store)
         restarted.authenticate("a", "long-password-value", null); advanceUntilIdle()

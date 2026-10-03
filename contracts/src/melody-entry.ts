@@ -6,7 +6,7 @@ import type { ChordPosition } from './chord-entry.js';
 export const MELODY_DURATIONS: readonly NoteDuration[] = [
   { denominator: 1, dots: 0 }, { denominator: 1, dots: 1 }, { denominator: 2, dots: 0 }, { denominator: 2, dots: 1 },
   { denominator: 4, dots: 0 }, { denominator: 4, dots: 1 }, { denominator: 8, dots: 0 },
-  { denominator: 8, dots: 1 }, { denominator: 16, dots: 0 }, { denominator: 16, dots: 1 },
+  { denominator: 8, dots: 1 }, { denominator: 16, dots: 0 }, { denominator: 16, dots: 1 }, { denominator: 32, dots: 0 },
 ];
 export type MelodyPosition = ChordPosition;
 export type MelodySpec = { kind: 'note'; pitch: Pitch; duration: NoteDuration } | { kind: 'rest'; duration: NoteDuration };
@@ -26,8 +26,8 @@ function validateSpec(spec: MelodySpec): void {
     || !hasKeys(spec, spec.kind === 'note' ? ['kind', 'duration', 'pitch'] : ['kind', 'duration'])) {
     throw new MelodyEntryError('kind', 'Choose a single melody note or a rest.');
   }
-  if (!hasKeys(spec.duration, ['denominator', 'dots']) || ![1, 2, 4, 8, 16].includes(spec.duration.denominator)
-    || ![0, 1].includes(spec.duration.dots)) throw new MelodyEntryError('duration', 'Choose a whole, half, quarter, eighth or sixteenth note, with at most one dot.');
+  if (!hasKeys(spec.duration, ['denominator', 'dots']) || ![1, 2, 4, 8, 16, 32].includes(spec.duration.denominator)
+    || ![0, 1].includes(spec.duration.dots) || (spec.duration.denominator === 32 && spec.duration.dots !== 0)) throw new MelodyEntryError('duration', 'Choose a whole, half, quarter, eighth, sixteenth or thirty-second note, with at most one dot.');
   if (spec.kind === 'note' && (!hasKeys(spec.pitch, ['step', 'alter', 'octave']) || !['C', 'D', 'E', 'F', 'G', 'A', 'B'].includes(spec.pitch.step)
     || ![-1, 0, 1].includes(spec.pitch.alter) || ![3, 4, 5, 6].includes(spec.pitch.octave))) {
     throw new MelodyEntryError('pitch', 'Choose a pitch from C3 through B6, with a natural, sharp or flat.');

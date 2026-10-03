@@ -20,6 +20,24 @@ data class ScoreSystem(val first: Int, val count: Int, val columns: Int, val wid
 }
 
 object ScoreLayout {
+    /** Silent time is visible notation, never an entered event or an advance of the entry cursor. */
+    fun withRests(sheet: LeadSheet): LeadSheet = sheet.copy(measures = sheet.measures.mapIndexed { index, measure ->
+        val events = mutableListOf<MelodyEvent>()
+        val choices = MELODY_DURATIONS.sortedByDescending { it.ticks }
+        var cursor = 0
+        fun gap(until: Int) {
+            while (cursor < until) {
+                val duration = choices.firstOrNull { it.ticks <= until - cursor } ?: break
+                // The prefix cannot collide with a persisted ID.
+                events += MelodyEvent("!silence_${index}_${cursor}", cursor, duration, null)
+                cursor += duration.ticks
+            }
+        }
+        measure.melody.forEach { gap(it.offsetTicks); events += it; cursor = it.offsetTicks + it.duration.ticks }
+        gap(sheet.measureTicks)
+        measure.copy(melody = events)
+    })
+
     fun geometry(sheet: LeadSheet): StaffGeometry {
         val steps = sheet.measures.flatMap { it.melody }.mapNotNull { it.pitch?.staffStep }
         val keyTop = if (KEY_SIGNATURES.getValue(sheet.keySignature).fifths >= 3) 70f else 66f
@@ -33,7 +51,7 @@ object ScoreLayout {
     fun timeline(measure: ScoreMeasure, melody: Boolean, symbolWidth: (String) -> Float): MeasureTimeline = timeline(measure, melody, symbolWidth, BAR_TICKS, "C")
     fun timeline(measure: ScoreMeasure, melody: Boolean, symbolWidth: (String) -> Float, barTicks: Int, keySignature: String): MeasureTimeline {
         val ticks = (listOf(0, barTicks) + measure.chords.flatMap { listOf(it.offsetTicks, it.offsetTicks + it.durationTicks) } +
-            if (melody) measure.melody.map { it.offsetTicks } else emptyList()).distinct().sorted()
+            if (melody) measure.melody.flatMap { listOf(it.offsetTicks, it.offsetTicks + it.duration.ticks) } else emptyList()).distinct().sorted()
         val gaps = MutableList(ticks.size - 1) { if (melody) 30f else 18f }
         fun reserve(from: Int, to: Int, width: Float) {
             val start = ticks.indexOf(from)

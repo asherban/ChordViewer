@@ -29,11 +29,11 @@ export function useLocalRecovery(model: ScoreDraft, accountId: string | null, re
         updatedAt: Math.max(Date.now(), (written.current?.updatedAt ?? 0) + 1), base, score: view.score,
         title: view.title, tutorial: view.tutorial, position: view.position } : null;
       written.current = record;
-      setStatus(record ? "Writing local recovery copy…" : "");
+      setStatus("");
       queue.current = queue.current.catch(() => {}).then(async () => {
         if (record) await recoveryStore.put(record);
         else { if (remove) await recoveryStore.remove(remove); if (oldSource) await recoveryStore.remove(oldSource); }
-        if (alive.current && request === sequence.current) setStatus(record ? "Local recovery copy updated. Save to update your Library." : "");
+        if (alive.current && request === sequence.current) setStatus("");
       }).catch(error => {
         if (alive.current && request === sequence.current) { previous.current = ""; setStatus(error instanceof Error ? error.message : "Local recovery is unavailable. Keep this sheet open or export it."); }
       });

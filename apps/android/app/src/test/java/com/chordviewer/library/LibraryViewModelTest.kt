@@ -118,6 +118,20 @@ class LibraryViewModelTest {
         notes.forEach { model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, it, 0))) }
     }
 
+    @Test fun durationChangesDuringFragmentedMidiApplyOnlyToTheNextGesture() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        model.setLane(EntryLane.MELODY); model.setPosition(ScorePosition(gateway.sheet.score.measures.size)); model.armEntry()
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144)))
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(60, 90)))
+        model.setMelodyDuration(ScoreDuration(2, 0))
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 60, 0)))
+        play(model, 62)
+        assertEquals(listOf(ScoreDuration(4, 0), ScoreDuration(2, 0)), model.state.value.editor!!.score.measures.last().melody.map { it.duration })
+        assertEquals(EntryMode.INSERT, model.state.value.editor!!.mode)
+    }
+
     @Test fun automaticChordEntrySustainUndoSaveAndReopenPreserveAllScoreLanes() = runTest(dispatcher) {
         val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
@@ -184,10 +198,12 @@ class LibraryViewModelTest {
         model.applyPending("Cluster")
         assertEquals("Cluster", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.setPosition(ScorePosition(initial.measures.size, 1440)); model.armEntry(); play(model, 60, 64, 67)
-        assertNotNull(model.state.value.editor!!.pending)
-        model.setDuration(480); model.setPosition(ScorePosition(initial.measures.size + 1, 1440)); model.applyPending(" C ")
-        assertEquals(480, model.state.value.editor!!.score.measures.last().chords.single().durationTicks)
-        assertEquals(1440, model.state.value.editor!!.score.measures.last().chords.single().offsetTicks)
+        assertNull(model.state.value.editor!!.pending)
+        assertEquals(listOf("Cluster", "C"), model.state.value.editor!!.score.measures.last().chords.map { it.symbol })
+        assertEquals(480, model.state.value.editor!!.score.measures.last().chords.last().durationTicks)
+        assertEquals(1440, model.state.value.editor!!.score.measures.last().chords.last().offsetTicks)
+        model.setDuration(480); play(model, 60, 64, 67)
+        assertEquals(initial.measures.size + 2, model.state.value.editor!!.score.measures.size)
         assertNull(model.state.value.editor!!.pending)
     }
 
@@ -235,9 +251,28 @@ class LibraryViewModelTest {
         assertEquals(EntryMode.PAUSED, model.state.value.editor!!.mode)
         model.undoChord(); assertEquals("C", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.redoChord(); model.selectChord(chordId); model.deleteChord()
-        assertTrue(model.state.value.editor!!.score.measures.last().chords.isEmpty())
+        assertEquals(initial, model.state.value.editor!!.score)
+        model.undoChord()
+        assertEquals(replaced, model.state.value.editor!!.score.measures.last().chords.single())
+    }
+
+    @Test fun savingRemovesUnusedEntryBarsAndKeepsTheNextCursorUsable() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher)
+        val blank = gateway.sheet.score.copy(measures = gateway.sheet.score.measures.map { it.copy(chords = emptyList(), melody = emptyList()) })
+        gateway.saved = gateway.sheet.copy(score = blank, scoreJson = LeadSheetWriter.write(blank))
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        model.open(gateway.sheet.id); advanceUntilIdle()
+        val initial = model.state.value.editor!!.score
+        assertEquals(1, initial.measures.size)
+        assertFalse(model.state.value.hasUnsavedChanges)
+        model.addBar()
         assertEquals(initial.measures.size + 1, model.state.value.editor!!.score.measures.size)
-        assertEquals(initial.measures.map { it.melody }, model.state.value.editor!!.score.measures.take(initial.measures.size).map { it.melody })
+        model.save(); advanceUntilIdle()
+        assertEquals(initial, gateway.saved!!.score)
+        assertFalse(model.state.value.hasUnsavedChanges)
+        model.addChord("G")
+        assertEquals(initial.measures.size + 1, model.state.value.editor!!.score.measures.size)
+        assertEquals("G", model.state.value.editor!!.score.measures.last().chords.single().symbol)
     }
 
     @Test fun saveConflictKeepsChordDraftAndExpectedRevision() = runTest(dispatcher) {
@@ -460,11 +495,13 @@ class LibraryViewModelTest {
         assertEquals(original.measures.map { it.chords }, beforeRejected.measures.take(original.measures.size).map { it.chords })
     }
 
-    @Test fun failedMelodyCaptureCanBeShortenedRetargetedAndAppliedWithoutReplay() = runTest(dispatcher) {
+    @Test fun failedMelodyCaptureAtSheetLimitCanBeShortenedAndAppliedWithoutReplay() = runTest(dispatcher) {
         val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        val limited = gateway.sheet.score.copy(measures = List(256) { i -> ScoreMeasure("bar$i", emptyList(), if (i == 255) listOf(
+            MelodyEvent("last", 0, ScoreDuration(2, 1), ScorePitch("C", 0, 4)), MelodyEvent("tail", 1440, ScoreDuration(8, 0), null)) else emptyList()) })
+        gateway.saved = gateway.sheet.copy(score = limited, scoreJson = LeadSheetWriter.write(limited))
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
-        val count = gateway.sheet.score.measures.size
-        model.setLane(EntryLane.MELODY); model.setPosition(ScorePosition(count, 1800)); model.armEntry(); play(model, 66)
+        model.setLane(EntryLane.MELODY); model.armEntry(); play(model, 66)
         assertNotNull(model.state.value.editor!!.pendingMelody)
         assertEquals(ScorePitch("F", 1, 4), model.state.value.editor!!.pendingMelody!!.pitch)
         model.setLane(EntryLane.CHORDS); assertEquals(EntryLane.MELODY, model.state.value.editor!!.lane)
@@ -474,14 +511,16 @@ class LibraryViewModelTest {
         assertNotNull(model.state.value.editor!!.pendingMelody)
         assertEquals("C", model.state.value.editor!!.score.keySignature)
         assertNull(model.state.value.editor!!.selectedId); assertNull(model.state.value.editor!!.selectedMelodyId)
-        model.setMelodyDuration(ScoreDuration(16, 0)); model.setPosition(ScorePosition(count, 1200))
+        model.setMelodyDuration(ScoreDuration(16, 0))
         model.applyMelody(model.state.value.editor!!.pendingMelody!!.pitch)
-        val note = model.state.value.editor!!.score.measures.last().melody.single()
-        assertEquals(1200, note.offsetTicks); assertEquals(120, note.duration.ticks); assertNull(model.state.value.editor!!.pendingMelody)
-        model.setPosition(ScorePosition(count, 1200)); model.armEntry(); play(model, 67)
+        val note = model.state.value.editor!!.score.measures.last().melody.last()
+        assertEquals(1680, note.offsetTicks); assertEquals(120, note.duration.ticks); assertNull(model.state.value.editor!!.pendingMelody)
+        model.setPosition(ScorePosition(0)); model.armEntry(); play(model, 67)
+        assertNull(model.state.value.editor!!.pendingMelody)
+        assertEquals(ScorePitch("G", 0, 4), model.state.value.editor!!.score.measures.last().melody.last().pitch)
+        play(model, 69)
         assertNotNull(model.state.value.editor!!.pendingMelody)
-        model.setPosition(ScorePosition(count, 1320)); model.applyMelody(ScorePitch("G", 0, 4))
-        assertEquals(2, model.state.value.editor!!.score.measures.last().melody.size)
+        assertEquals(4, model.state.value.editor!!.score.measures.last().melody.size)
     }
 
     @Test fun manualLanesShareUndoAndMelodyTieDeletionSaveRoundTrip() = runTest(dispatcher) {
@@ -493,11 +532,11 @@ class LibraryViewModelTest {
         model.applyMelody(ScorePitch("F", 0, 4)); model.selectMelody(first); model.setMelodyTie(true)
         assertTrue(MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.tieToNext)
         model.selectMelody(first); model.applyMelody(ScorePitch("G", 0, 4))
-        assertFalse(MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.tieToNext)
+        assertEquals(960, FastEntry.melodyGroup(model.state.value.editor!!.score, first)!!.ticks)
+        assertEquals(ScorePitch("G", 0, 4), MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.pitch)
         model.undoChord(); assertTrue(MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.tieToNext)
         model.selectMelody(first); model.deleteMelody()
-        assertNull(MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.pitch)
-        assertEquals(480, MelodyEdits.find(model.state.value.editor!!.score, first)!!.first.duration.ticks)
+        assertNull(MelodyEdits.find(model.state.value.editor!!.score, first))
         model.undoChord(); model.redoChord()
         assertEquals("Dm7", model.state.value.editor!!.score.measures.last().chords.single().symbol)
         model.updateDraftTitle("Melody saved"); model.updateDraftTutorial("https://youtu.be/dQw4w9WgXcQ"); model.save(); advanceUntilIdle()
@@ -611,7 +650,7 @@ class LibraryViewModelTest {
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
         val next = ScorePosition(gateway.sheet.score.measures.size)
         model.setPosition(next); model.setDuration(480); model.addChord("C")
-        model.setLane(EntryLane.MELODY); assertEquals(ScorePosition(), model.state.value.editor!!.position)
+        model.setLane(EntryLane.MELODY); assertEquals(FastEntry.nextMelodyPosition(gateway.sheet.score), model.state.value.editor!!.position)
         model.setPosition(next); model.setMelodyDuration(ScoreDuration(8, 1)); model.applyMelody(ScorePitch("C", 0, 4))
         model.setLane(EntryLane.CHORDS); assertEquals(next.copy(offsetTicks = 480), model.state.value.editor!!.position)
         model.setLane(EntryLane.MELODY); assertEquals(next.copy(offsetTicks = 360), model.state.value.editor!!.position)

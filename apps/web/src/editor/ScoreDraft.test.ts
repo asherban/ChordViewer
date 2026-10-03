@@ -31,6 +31,26 @@ it("preserves a dirty score, details and undo across Library metadata, but appli
   expect(model.getSnapshot().dirty).toBe(false);
 });
 describe("synchronous chord draft", () => {
+  it("cleans loaded silent tails without reporting an unmade edit or creating a recovery draft", () => {
+    const original = { ...base, measures: [...base.measures, { id: "silent-tail", chords: [], melody: [] }] };
+    const model = new ScoreDraft(original, { ...saved, score: original });
+    expect(model.getSnapshot().score.measures).toHaveLength(1);
+    expect(model.getSnapshot().dirty).toBe(false);
+    model.acceptSaved({ ...saved, score: model.getSnapshot().score, revision: 2 });
+    expect(model.getSnapshot().dirty).toBe(false);
+  });
+  it("preserves selection and history when the server serializes the same music in a different property order", () => {
+    const model = editor(); model.addChord("C");
+    const score = model.getSnapshot().score, id = score.measures[0].chords[0].id;
+    model.selectChord(id);
+    const serialized = JSON.parse(JSON.stringify(score, function (_key, value) {
+      return value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).reverse()) : value;
+    }));
+    model.acceptSaved({ ...saved, score: serialized, revision: 2 });
+    expect(model.getSnapshot()).toMatchObject({ selectedId: id, dirty: false, undoCount: 1 });
+    model.undo(); expect(model.getSnapshot().score).toEqual(base);
+  });
   it("restores the next-bar insertion position without moving into the completed bar", () => {
     const original = editor();
     original.addChord("C");
@@ -113,18 +133,26 @@ describe("synchronous chord draft", () => {
     expect(model.getSnapshot().score.measures[0].chords[0].symbol).toBe("C cluster");
     expect(model.getSnapshot().entry).toBe("paused");
   });
-  it("does not shorten a chord at a barline; captured duration can be corrected", () => {
+  it("uses the remaining bar duration by default and keeps MIDI entry armed", () => {
     const model = editor(); model.selectPosition({ measureIndex: 0, offsetTicks: 1440 }); model.arm(); chord(model);
-    expect(model.getSnapshot().dirty).toBe(false);
-    expect(model.getSnapshot().notice).toContain("barline");
-    model.setDuration(480); model.applyPending("C");
+    expect(model.getSnapshot().dirty).toBe(true);
+    expect(model.getSnapshot().entry).toBe("insert");
     expect(model.getSnapshot().score.measures[0].chords[0]).toMatchObject({ offsetTicks: 1440, durationTicks: 480 });
   });
-  it("does not overwrite a neighbouring chord when a correction is too long", () => {
+  it("overwrites neighbouring chords within a correction and restores them in one undo", () => {
     const model = editor(); model.setDuration(480); model.arm(); chord(model); chord(model);
     const original = model.getSnapshot().score;
     model.selectChord(original.measures[0].chords[0].id); model.changeSelected("G", 1920);
-    expect(model.getSnapshot().score).toBe(original);
-    expect(model.getSnapshot().notice).toContain("already a chord");
+    expect(model.getSnapshot().score.measures[0].chords).toEqual([{ id: original.measures[0].chords[0].id, symbol: "G", offsetTicks: 0, durationTicks: 1920 }]);
+    model.undo(); expect(model.getSnapshot().score).toEqual(original);
+  });
+  it("keeps the captured duration fixed while a held chord is followed by a new duration", () => {
+    const model = editor(); model.setDuration(480); model.arm();
+    bytes(model, 144, 60, 96); model.setDuration(960);
+    bytes(model, 144, 64, 96); bytes(model, 144, 67, 96);
+    bytes(model, 128, 60, 0); bytes(model, 128, 64, 0); bytes(model, 128, 67, 0);
+    chord(model);
+    expect(model.getSnapshot().score.measures[0].chords.map(e => e.durationTicks)).toEqual([480, 960]);
+    expect(model.getSnapshot().entry).toBe("insert");
   });
 });

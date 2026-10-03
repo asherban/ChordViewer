@@ -7,6 +7,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
+    launchOptions: { channel: process.env.CHORDVIEWER_BROWSER_CHANNEL },
     baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

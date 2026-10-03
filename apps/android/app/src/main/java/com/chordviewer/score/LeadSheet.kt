@@ -77,9 +77,10 @@ object LeadSheetReader {
                 else event.fields("id", "kind", "offsetTicks", "duration", "pitch", optional = setOf("tieToNext"))
                 val durationJson = event.getJSONObject("duration")
                 durationJson.fields("denominator", "dots")
-                val denominator = durationJson.integer("denominator", 1..16)
-                require(denominator in setOf(1, 2, 4, 8, 16)) { "Invalid rhythmic duration" }
+                val denominator = durationJson.integer("denominator", 1..32)
+                require(denominator in setOf(1, 2, 4, 8, 16, 32)) { "Invalid rhythmic duration" }
                 val duration = ScoreDuration(denominator, durationJson.integer("dots", 0..1))
+                require(denominator != 32 || duration.dots == 0) { "Thirty-second notes cannot be dotted" }
                 val pitch = if (kind == "rest") null else event.getJSONObject("pitch").let {
                     it.fields("step", "alter", "octave")
                     val step = it.string("step", 1)

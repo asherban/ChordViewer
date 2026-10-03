@@ -52,7 +52,8 @@ data class LibraryState(
         "$it local recovery ${if (it == 1) "copy" else "copies"} could not be read. The unreadable data has been kept on this device."
     }
     val hasUnsavedChanges: Boolean get() = selected?.let {
-        draftTitle != it.score.title || draftTutorial != it.tutorialUrl.orEmpty() || editor?.score?.let { score -> score != it.score } == true
+        draftTitle != it.score.title || draftTutorial != it.tutorialUrl.orEmpty() ||
+            editor?.score?.let { score -> FastEntry.trimTrailingSilentBars(score) != FastEntry.trimTrailingSilentBars(it.score) } == true
     } ?: false
 }
 
@@ -157,8 +158,8 @@ class LibraryViewModel(
         val next = if (content != null) RecoveryDraft(recoveryId, owner, maxOf(System.currentTimeMillis(), (old?.updatedAt ?: 0) + 1),
             base, current.score, value.draftTitle, value.draftTutorial, current.position) else null
         recoveryWritten = next
-        mutableState.value = value.copy(recoveryStatus = if (next != null) "Writing local recovery copy…" else null)
-        recoveryAction(owner, if (next != null) "Local recovery copy updated. Save to update your Library." else null) { store ->
+        mutableState.value = value.copy(recoveryStatus = null)
+        recoveryAction(owner) { store ->
             if (next != null) store.put(next) else { old?.let(store::remove); source?.let(store::remove) }
         }
     }
@@ -171,7 +172,7 @@ class LibraryViewModel(
         if (value.busy || session?.user?.id != draft.accountId) return
         val clean = RecoveryJson.read(RecoveryJson.write(draft), draft.accountId)
         opened(clean.base)
-        editor = ScoreEditor(clean.score)
+        editor = ScoreEditor(clean.score, preserveTrailingSpace = true)
         editor?.update { it.copy(position = clean.position.clampedTo(clean.score), mode = EntryMode.PAUSED) }
         recoveredSource = clean
         val server = value.sheets.find { it.id == clean.base.id }
@@ -183,7 +184,7 @@ class LibraryViewModel(
     }
     fun saveAsNew() {
         val value = mutableState.value
-        val score = editor?.state?.score ?: return
+        val score = editor?.state?.score?.let { FastEntry.trimTrailingSilentBars(it) } ?: return
         val old = recoveryWritten
         val source = recoveredSource
         authenticated { client, token, request ->
@@ -202,7 +203,14 @@ class LibraryViewModel(
     private var practiceUiBlocked = false
     private var practiceApiBusy = false
     private val practiceBlocked get() = practiceUiBlocked || practiceApiBusy
-    private val capture = ChordGestureCapture(::captureGesture)
+    private val capture = ChordGestureCapture(::captureGesture).apply { onGestureStarted = {
+        editor?.state?.let { value ->
+            gestureChordDuration = if (value.duration == value.score.measureTicks) value.score.measureTicks - value.position.offsetTicks else value.duration
+            gestureMelodyDuration = if (value.mode == EntryMode.REPLACE) value.selectedMelodyId?.let { MelodyEdits.find(value.score, it)?.first?.duration } ?: value.melodyDuration else value.melodyDuration
+        }
+    } }
+    private var gestureChordDuration: Int? = null
+    private var gestureMelodyDuration: ScoreDuration? = null
     private val practiceCapture = ChordGestureCapture(::practiceGesture)
     private fun bookmarkKey(id: String): String? = session?.user?.id?.let { "$it:$id" }
     private fun rememberPositions() {
@@ -258,20 +266,36 @@ class LibraryViewModel(
     fun setLane(lane: EntryLane) = edit {
         pauseEntry()
         require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry before changing lanes." }
-        it.update { value -> value.copy(lane = lane, position = if (lane == EntryLane.CHORDS) value.chordPosition else value.melodyPosition,
+        it.update { value -> value.copy(lane = lane, position = if (lane == EntryLane.CHORDS) value.chordPosition else FastEntry.nextMelodyPosition(value.score),
             selectedId = null, selectedMelodyId = null, alternatives = emptyList(), message = null) }
+    }
+
+    fun togglePinnedChord(symbol: String) = edit {
+        val chord = symbol.trim()
+        require(chord.isNotEmpty() && chord.codePointCount(0, chord.length) <= 32) { "Enter a chord of 1 to 32 characters." }
+        it.update { value -> value.copy(pinnedChords = if (chord in value.pinnedChords) value.pinnedChords - chord else (listOf(chord) + value.pinnedChords).take(8)) }
     }
 
     fun setDuration(duration: Int) = edit {
         require(duration in CHORD_DURATIONS || duration == it.state.score.measureTicks) { "Choose a supported duration." }
-        pauseEntry()
         it.update { value -> value.copy(duration = duration, pending = value.pending?.copy(duration = duration), message = null) }
     }
 
     fun setMelodyDuration(duration: ScoreDuration) = edit {
         require(duration in MELODY_DURATIONS) { "Choose a supported note duration." }
-        pauseEntry()
-        it.update { value -> value.copy(melodyDuration = duration, pendingMelody = value.pendingMelody?.copy(duration = duration), message = null) }
+        if (it.state.pendingMelody != null) {
+            it.update { value -> value.copy(melodyDuration = if (value.pendingMelody?.replaceId == null) duration else value.melodyDuration,
+                pendingMelody = value.pendingMelody?.copy(duration = duration, ticks = duration.ticks), message = null) }
+            return@edit
+        }
+        val selected = it.state.selectedMelodyId?.let { id -> FastEntry.melodyGroup(it.state.score, id) }
+        if (selected != null) {
+            if (selected.ticks != duration.ticks) {
+                pauseEntry()
+                it.commit(FastEntry.changeMelodyAndShift(it.state.score, selected.event.id, MelodySpec(duration, selected.event.pitch)))
+                it.update { value -> value.copy(selectedMelodyId = selected.event.id, position = selected.position, message = null) }
+            }
+        } else it.update { value -> value.copy(melodyDuration = duration, pendingMelody = value.pendingMelody?.copy(duration = duration, ticks = duration.ticks), message = null) }
     }
 
     fun setPosition(position: ScorePosition) = edit {
@@ -293,15 +317,15 @@ class LibraryViewModel(
 
     fun addChord(symbol: String) = edit {
         pauseEntry()
-        it.commit(ChordEdits.insert(it.state.score, it.state.position, it.state.duration, symbol.trim()))
+        it.commit(FastEntry.chord(it.state.score, it.state.position, symbol.trim(), if (it.state.duration == it.state.score.measureTicks) it.state.score.measureTicks - it.state.position.offsetTicks else it.state.duration))
     }
 
     fun selectMelody(id: String) = edit {
         require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry before selecting another event." }
-        val target = requireNotNull(MelodyEdits.find(it.state.score, id)) { "Select an existing note or rest." }
+        val target = requireNotNull(FastEntry.melodyGroup(it.state.score, id)) { "Select an existing note or rest." }
         pauseEntry()
-        it.update { value -> value.copy(lane = EntryLane.MELODY, selectedId = null, selectedMelodyId = id, position = target.second,
-            melodyDuration = target.first.duration, pending = null, pendingMelody = null, alternatives = emptyList(), message = "Entry paused while changing melody.") }
+        it.update { value -> value.copy(lane = EntryLane.MELODY, selectedId = null, selectedMelodyId = target.event.id, position = target.position,
+            pending = null, pendingMelody = null, alternatives = emptyList(), message = null) }
     }
 
     fun applyMelody(pitch: ScorePitch?) = edit {
@@ -309,39 +333,79 @@ class LibraryViewModel(
         val value = it.state
         val pending = value.pendingMelody
         val selected = pending?.replaceId ?: value.selectedMelodyId
-        val spec = MelodySpec(pending?.duration ?: value.melodyDuration, pitch)
-        it.commit(if (selected != null) MelodyEdits.replace(value.score, selected, spec)
-            else MelodyEdits.insert(value.score, pending?.position ?: value.position, spec))
+        val spec = MelodySpec(pending?.duration ?: selected?.let { id -> MelodyEdits.find(value.score, id)?.first?.duration } ?: value.melodyDuration, pitch)
+        it.commit(if (selected != null) FastEntry.changeMelodyAndShift(value.score, selected, spec, ticks = if (pending != null) pending.ticks else FastEntry.melodyGroup(value.score, selected)!!.ticks)
+            else FastEntry.melody(value.score, pending?.position ?: FastEntry.nextMelodyPosition(value.score), spec),
+            preserveTrailingRests = selected == null && pitch == null)
+        if (selected != null) it.update { next -> next.copy(selectedMelodyId = selected, message = null) }
     }
 
+    fun placeNote(position: ScorePosition, pitch: ScorePitch, eventId: String? = null) = edit {
+        require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry first." }
+        pauseEntry()
+        val original = eventId?.let { id -> requireNotNull(FastEntry.melodyGroup(it.state.score, id)) { "This note no longer exists." } }
+        if (original?.event?.pitch == pitch) { selectMelody(requireNotNull(eventId)); return@edit }
+        val spec = MelodySpec(original?.event?.duration ?: it.state.melodyDuration, pitch)
+        try {
+            it.commit(if (eventId != null) FastEntry.changeMelodyAndShift(it.state.score, eventId, spec, ticks = original!!.ticks)
+                else FastEntry.melody(it.state.score, FastEntry.nextMelodyPosition(it.state.score), spec))
+            it.update { value -> value.copy(lane = EntryLane.MELODY, selectedMelodyId = original?.event?.id, position = original?.position ?: value.position, message = null) }
+        } catch (error: IllegalArgumentException) {
+            it.update { value -> value.copy(pendingMelody = PendingMelody(pitch, original?.position ?: position, spec.duration, eventId, original?.ticks ?: spec.duration.ticks), message = error.message) }
+        }
+    }
+    fun resumeMelodyEntry() = edit {
+        pauseEntry()
+        it.update { value -> value.copy(lane = EntryLane.MELODY, position = FastEntry.nextMelodyPosition(value.score),
+            selectedMelodyId = null, selectedId = null, message = null) }
+    }
+
+    fun enterRest() = applyMelody(null)
+    fun addBar(index: Int? = null) = edit {
+        require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry first." }
+        pauseEntry()
+        val at = index ?: it.state.score.measures.size
+        val value = it.state
+        it.commitScore(FastEntry.insertBar(value.score, at), ScorePosition(at), minimumBars = value.score.measures.size + 1)
+        it.update { next -> next.copy(
+            chordPosition = if (next.lane == EntryLane.CHORDS) next.position else value.chordPosition.let { p -> if (p.measureIndex >= at) p.copy(measureIndex = p.measureIndex + 1) else p },
+            melodyPosition = if (next.lane == EntryLane.MELODY) next.position else value.melodyPosition.let { p -> if (p.measureIndex >= at) p.copy(measureIndex = p.measureIndex + 1) else p }) }
+    }
+    fun moveChord(id: String, position: ScorePosition) = edit {
+        require(it.state.pending == null && it.state.pendingMelody == null) { "Apply or discard the pending entry first." }
+        val target = requireNotNull(ChordEdits.find(it.state.score, id)) { "This chord no longer exists." }
+        if (target.second == position) return@edit
+        pauseEntry()
+        it.commit(FastEntry.chord(it.state.score, position, target.first.symbol, target.first.durationTicks, id))
+        it.update { value -> value.copy(lane = EntryLane.CHORDS, position = position, selectedId = id, message = null) }
+    }
     fun deleteMelody() = edit {
         pauseEntry()
         val id = requireNotNull(it.state.selectedMelodyId) { "Select a note or rest." }
-        val target = requireNotNull(MelodyEdits.find(it.state.score, id))
-        it.commitScore(MelodyEdits.delete(it.state.score, id), target.second, "Replaced with a rest. Timing is preserved.")
-        it.update { value -> value.copy(lastMelodyId = id) }
+        val changed = FastEntry.deleteMelodyAndShift(it.state.score, id)
+        it.commitScore(changed, FastEntry.nextMelodyPosition(changed))
+        it.update { value -> value.copy(selectedMelodyId = null, lastMelodyId = null, message = null) }
     }
 
     fun setMelodyTie(enabled: Boolean) = edit {
         pauseEntry()
         val id = requireNotNull(it.state.selectedMelodyId) { "Select a note to edit its tie." }
         val target = requireNotNull(MelodyEdits.find(it.state.score, id))
-        it.commitScore(MelodyEdits.setTie(it.state.score, id, enabled), target.second, if (enabled) "Tied to the next adjacent note." else "Tie removed.")
+        it.commitScore(MelodyEdits.setTie(it.state.score, if (enabled) FastEntry.melodyGroup(it.state.score, id)!!.ids.last() else id, enabled), target.second, if (enabled) "Tied to the next adjacent note." else "Tie removed.")
         it.update { value -> value.copy(selectedMelodyId = id) }
     }
 
     fun changeChord(symbol: String, duration: Int) = edit {
         pauseEntry()
         val selected = requireNotNull(it.state.selectedId) { "Select a chord to change." }
-        it.commit(ChordEdits.replace(it.state.score, selected, duration, symbol.trim()))
+        it.commit(FastEntry.chord(it.state.score, it.state.position, symbol.trim(), duration, selected))
         it.update { value -> value.copy(mode = EntryMode.PAUSED, message = "Chord changed.") }
     }
 
     fun applyPending(symbol: String) = edit {
         pauseEntry()
         val pending = requireNotNull(it.state.pending) { "There is no pending chord." }
-        val mutation = pending.replaceId?.let { id -> ChordEdits.replace(it.state.score, id, pending.duration, symbol.trim()) }
-            ?: ChordEdits.insert(it.state.score, pending.position, pending.duration, symbol.trim())
+        val mutation = FastEntry.chord(it.state.score, pending.position, symbol.trim(), pending.duration, pending.replaceId)
         it.commit(mutation)
         it.update { value -> value.copy(mode = EntryMode.PAUSED) }
     }
@@ -363,10 +427,11 @@ class LibraryViewModel(
                 pauseEntry(); current.update { it.copy(message = error.message) }; publishEditor(); return
             }
             val replacing = if (value.mode == EntryMode.REPLACE) value.selectedMelodyId else null
-            val pending = PendingMelody(pitch, value.position, value.melodyDuration, replacing)
+            val pending = PendingMelody(pitch, value.position, gestureMelodyDuration ?: value.melodyDuration, replacing, replacing?.let { FastEntry.melodyGroup(value.score, it)?.ticks } ?: (gestureMelodyDuration ?: value.melodyDuration).ticks)
             try {
-                val spec = MelodySpec(value.melodyDuration, pitch)
-                current.commit(replacing?.let { MelodyEdits.replace(value.score, it, spec) } ?: MelodyEdits.insert(value.score, value.position, spec))
+                val spec = MelodySpec(pending.duration, pitch)
+                current.commit(if (replacing != null) FastEntry.changeMelodyAndShift(value.score, replacing, spec, ticks = pending.ticks)
+                    else FastEntry.melody(value.score, FastEntry.nextMelodyPosition(value.score), spec))
                 if (replacing != null) { pauseEntry(); current.update { it.copy(message = "Note replaced. Entry paused.") } }
             } catch (error: IllegalArgumentException) {
                 pauseEntry(); current.update { it.copy(pendingMelody = pending, message = error.message) }
@@ -376,14 +441,13 @@ class LibraryViewModel(
         if (notes.map { it % 12 }.distinct().size < 2) return
         val candidates = recognizer?.recognize(notes)?.candidates?.map { it.symbol }.orEmpty()
         val replacing = if (value.mode == EntryMode.REPLACE) value.selectedId else null
-        val pending = PendingChord(notes, value.position, value.duration, replacing)
+        val pending = PendingChord(notes, value.position, gestureChordDuration ?: value.duration, replacing)
         if (candidates.isEmpty()) {
             pauseEntry()
             current.update { it.copy(pending = pending, alternatives = emptyList(), message = "Chord not recognized. Enter its symbol to keep this gesture, or discard it.") }
         } else {
             try {
-                val mutation = replacing?.let { ChordEdits.replace(value.score, it, value.duration, candidates.first()) }
-                    ?: ChordEdits.insert(value.score, value.position, value.duration, candidates.first())
+                val mutation = FastEntry.chord(value.score, value.position, candidates.first(), pending.duration, replacing)
                 current.commit(mutation, candidates)
                 if (replacing != null) { pauseEntry(); current.update { it.copy(message = "Chord replaced. Entry paused.") } }
             } catch (error: IllegalArgumentException) {
@@ -724,7 +788,7 @@ class LibraryViewModel(
         pauseEntry()
         val value = mutableState.value
         val score = editor?.state?.score ?: return null
-        return try { LeadSheetWriter.write(score.copy(title = value.draftTitle.trim())).also {
+        return try { LeadSheetWriter.write(FastEntry.trimTrailingSilentBars(score.copy(title = value.draftTitle.trim()))).also {
             require(it.toByteArray(Charsets.UTF_8).size <= ScoreImport.MAX_BYTES) { "The exported score exceeds the 1 MiB limit." }
         } } catch (error: IllegalArgumentException) { mutableState.value = value.copy(message = error.message ?: "Correct the sheet title before exporting."); null }
     }
@@ -732,7 +796,7 @@ class LibraryViewModel(
     fun save() {
         val selected = mutableState.value.selected ?: return
         pauseEntry()
-        val draftScore = editor?.state?.score ?: selected.score
+        val draftScore = FastEntry.trimTrailingSilentBars(editor?.state?.score ?: selected.score)
         val draft = selected.copy(score = draftScore, scoreJson = LeadSheetWriter.write(draftScore))
         val title = mutableState.value.draftTitle
         val tutorialUrl = mutableState.value.draftTutorial

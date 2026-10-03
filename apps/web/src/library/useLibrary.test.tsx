@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import example from "@chordviewer/contracts/fixtures/lead-sheet-v1.json";
 import { useLibrary } from "./useLibrary";
+import { parseScore } from "@chordviewer/contracts";
 
 const user = { id: "user-a", name: "Pianist", email: "pianist@example.test" };
 const saved = {
@@ -23,6 +24,20 @@ function json(value: unknown, status = 200) {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+it("saves without silent trailing bars", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(json({ user })).mockResolvedValueOnce(json({ sheets: [sheet] }))
+    .mockResolvedValueOnce(json(saved)).mockResolvedValueOnce(json({ ...saved, revision: 2 }));
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(useLibrary);
+  await waitFor(() => expect(result.current.checking).toBe(false));
+  await act(async () => { await result.current.openSheet(saved.id); });
+  const draft = parseScore({ ...example, measures: [...example.measures, { id: "tail", chords: [], melody: [
+    { id: "tail-rest", kind: "rest", offsetTicks: 0, duration: { denominator: 1, dots: 0 } },
+  ] }] });
+  await act(async () => { await result.current.saveSheet(example.title, null, draft); });
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).score.measures).toEqual(example.measures);
 });
 
 it("ignores a private sheet response that arrives after sign-out", async () => {

@@ -78,11 +78,15 @@ class NativeChordAuthoringTest {
             clickDescription("Duration Whole bar")
             click("Replace from MIDI")
             signal("M4_NATIVE_PENDING_REPLACE_READY")
-            waitFor("captured pending symbol", 30_000) { nodes().any { it.isEditable && it.text?.toString() == "G" } }
-            assertEquals("Rejected replacement must preserve the prior chord", listOf("Cmaj7", "F"), chordSymbols())
+            waitFor("replacement extends across the barline", 30_000) { chordSymbols() == listOf("Cmaj7", "G") && chordSymbols(1) == listOf("G") }
+            assertEquals(480, model?.state?.value?.editor?.score?.measures?.get(1)?.chords?.single()?.durationTicks)
+            click("Undo")
+            assertEquals(listOf("Cmaj7", "F"), chordSymbols())
+            assertEquals(emptyList<String>(), chordSymbols(1))
+            clickDescription("Select chord F at tick 480")
             clickDescription("Duration ¼")
-            click("Apply chord")
-            waitFor("pending replacement correction") { chordSymbols() == listOf("Cmaj7", "G") }
+            setField("Chord symbol", "G"); click("Apply change")
+            waitFor("replacement correction") { chordSymbols() == listOf("Cmaj7", "G") }
             click("Save sheet")
             waitFor("save") { api.get(account.token, sheet.id).revision == 2 }
             var saved = api.get(account.token, sheet.id)
@@ -128,22 +132,25 @@ class NativeChordAuthoringTest {
             assertEquals(listOf("Cmaj7", "G"), chordSymbols())
             tapFirstMelodyNote()
             waitFor("native Canvas note selection") { model?.state?.value?.editor?.selectedMelodyId == model?.state?.value?.editor?.score?.measures?.first()?.melody?.first()?.id }
-            click("Close input"); click("Start MIDI entry")
+            instrumentation.runOnMainSync { model!!.resumeMelodyEntry() }; click("Start MIDI entry")
             signal("M5_NATIVE_POLYPHONY_READY")
             waitFor("overlapping pitches rejected", 30_000) { model?.state?.value?.editor?.message?.contains("one pitch") == true }
             assertEquals(2, melodyPitches().size)
-            clickDescription("Select melody D4 at tick 480"); click("Replace from MIDI"); signal("M5_NATIVE_REPLACE_READY")
+            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[1].id) }
+            click("Replace from MIDI"); signal("M5_NATIVE_REPLACE_READY")
             waitFor("one-shot melody replacement", 30_000) { melodyPitches() == listOf(ScorePitch("C", 0, 4), ScorePitch("F", 0, 4)) }
             assertEquals(EntryMode.PAUSED, model?.state?.value?.editor?.mode)
-            click("Add note / rest"); click("Rest"); click("Insert rest")
+            click("+ Rest")
             waitFor("manual rest") { melodyPitches().size == 3 && melodyPitches().last() == null }
             click("Undo"); assertEquals(2, melodyPitches().size); click("Redo")
-            clickDescription("Select melody rest at tick 960"); click("F"); click("Natural"); click("Apply note change")
+            instrumentation.runOnMainSync {
+                val note = model!!.state.value.editor!!.score.measures.first().melody[2]
+                model!!.placeNote(ScorePosition(0, 960), ScorePitch("F", 0, 4), note.id)
+            }
             waitFor("rest changed to note") { melodyPitches().last() == ScorePitch("F", 0, 4) }
-            clickDescription("Select melody F4 at tick 480"); click("Tie to next note")
+            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[1].id) }; click("Tie")
             waitFor("explicit tie") { model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == true }
-            click("Close input")
-            clickDescription("Select melody F4 at tick 960"); click("Delete note to rest")
+            instrumentation.runOnMainSync { model!!.selectMelody(model!!.state.value.editor!!.score.measures.first().melody[2].id) }; click("Rest")
             waitFor("note deletion retains rest and removes invalid tie") { melodyPitches().last() == null && model?.state?.value?.editor?.score?.measures?.first()?.melody?.get(1)?.tieToNext == false }
             click("Undo")
             val melodyTitle = "M5 native melody ${System.currentTimeMillis()}"

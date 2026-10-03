@@ -10,6 +10,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LibraryApiTest {
+    private fun consumeRequest(input: java.io.BufferedReader) {
+        val headers = generateSequence { input.readLine() }.takeWhile { it.isNotEmpty() }.toList()
+        val length = headers.firstOrNull { it.startsWith("Content-Length:", ignoreCase = true) }?.substringAfter(':')?.trim()?.toInt() ?: 0
+        // Closing with unread request bytes can reset the connection on Windows before the response is read.
+        repeat(length) { check(input.read() != -1) }
+    }
     @Test fun originsRequireHttpsOrExplicitLoopbackPermission() {
         assertEquals("https://example.com", LibraryApi.validateOrigin("https://example.com/", false))
         assertEquals("http://127.0.0.1:3000", LibraryApi.validateOrigin("http://127.0.0.1:3000", true))
@@ -67,7 +73,7 @@ class LibraryApiTest {
             val replied = CompletableFuture.runAsync {
                 server.accept().use { socket ->
                     val input = socket.getInputStream().bufferedReader()
-                    generateSequence { input.readLine() }.takeWhile { it.isNotEmpty() }.toList()
+                    consumeRequest(input)
                     socket.getOutputStream().write("HTTP/1.1 409 Conflict\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
                 }
             }
@@ -87,7 +93,7 @@ class LibraryApiTest {
                 val replied = CompletableFuture.runAsync {
                     server.accept().use { socket ->
                         val input = socket.getInputStream().bufferedReader()
-                        generateSequence { input.readLine() }.takeWhile { it.isNotEmpty() }.toList()
+                        consumeRequest(input)
                         val body = "{\"code\":\"$code\",\"message\":\"private server detail\"}"
                         socket.getOutputStream().write(("HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n" + body).toByteArray())
                     }

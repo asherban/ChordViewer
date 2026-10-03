@@ -1104,7 +1104,7 @@
                 "kind": "note",
                 "offsetTicks": 0,
                 "duration": {
-                  "denominator": 32,
+                  "denominator": 64,
                   "dots": 0
                 },
                 "pitch": {

@@ -37,9 +37,10 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     var previousUserId by remember { mutableStateOf(state.user?.id) }
     var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
     val snackbar = remember { SnackbarHostState() }
-    val browsing = state.mode == LibraryMode.LIBRARY && state.user != null
-    LaunchedEffect(state.message, browsing) {
-        if (browsing) state.message?.let { snackbar.showSnackbar(it, withDismissAction = true, duration = SnackbarDuration.Long) }
+    val notice = state.message ?: state.recoveryWarning ?: state.recoveryStatus
+    LaunchedEffect(notice) {
+        snackbar.currentSnackbarData?.dismiss()
+        notice?.let { snackbar.showSnackbar(it, withDismissAction = true, duration = SnackbarDuration.Short) }
     }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
@@ -83,14 +84,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                         AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
                         HorizontalDivider(color = BorderColor)
                     }
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    state.message?.takeUnless { browsing }?.let { message ->
-                        Surface(color = SageColor, modifier = Modifier.fillMaxWidth()) {
-                            Text(message, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    state.recoveryStatus?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
-                    state.recoveryWarning?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                    if (state.busy && state.mode != LibraryMode.CREATE) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (state.conflict && state.selected != null && state.mode != LibraryMode.LIBRARY) {
                         Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                             Text("The saved sheet changed or is unavailable. Keep both versions by saving a new sheet, or reload the server version.")

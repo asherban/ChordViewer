@@ -25,7 +25,7 @@ fun ScoreEntryControls(state: LibraryState, model: LibraryViewModel, changeMelod
     var durationPicker by remember { mutableStateOf(false) }
     var positionPicker by remember { mutableStateOf(false) }
     var chordPicker by remember { mutableStateOf(false) }
-    var manual by remember(editor.lane, editor.lastInsertedId, editor.lastMelodyId) { mutableStateOf(false) }
+    var manual by remember(editor.lane) { mutableStateOf(editor.lane == EntryLane.CHORDS) }
     val melodyLane = editor.lane == EntryLane.MELODY
     val selectedNote = editor.selectedMelodyId?.let { MelodyEdits.find(editor.score, it)?.first }
     val hasSelection = selected != null || selectedNote != null
@@ -38,26 +38,27 @@ fun ScoreEntryControls(state: LibraryState, model: LibraryViewModel, changeMelod
                 label = { Text(if (lane == EntryLane.CHORDS) "Chords" else "Melody") }, modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics { contentDescription = "${lane.name.lowercase().replaceFirstChar { it.uppercase() }} entry lane" }) }
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedButton(onClick = { model.pauseEntry(); durationPicker = true }, enabled = !state.busy,
-                shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = "Choose duration" }) { Text("${if (melodyLane) melodyDurationLabel(editor.melodyDuration) else chordDurationLabel(editor.duration, editor.score.measureTicks)} duration ▾") }
-            OutlinedButton(onClick = { model.pauseEntry(); positionPicker = true }, enabled = !state.busy,
+            if (!melodyLane) OutlinedButton(onClick = { durationPicker = true }, enabled = !state.busy,
+                shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = "Choose duration" }) {
+                    Text(if (!hasSelection && editor.duration == editor.score.measureTicks) "To bar end ▾" else "${chordDurationLabel(editor.duration, editor.score.measureTicks)} duration ▾")
+                }
+            if (!melodyLane) OutlinedButton(onClick = { model.pauseEntry(); positionPicker = true }, enabled = !state.busy,
                 shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = "Choose insertion position" }) { Text(positionLabel(editor.position, editor.score.timeSignature) + if (editor.position.measureIndex == editor.score.measures.size) " · next" else " ▾") }
             if (!hasSelection && !hasPending) {
                 Button(onClick = { if (editor.mode == EntryMode.PAUSED) model.armEntry() else model.pauseEntry() },
-                    enabled = !state.busy && !manual && (state.midiConnected || editor.mode != EntryMode.PAUSED), shape = MaterialTheme.shapes.small,
+                    enabled = !state.busy && (state.midiConnected || editor.mode != EntryMode.PAUSED), shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (editor.mode == EntryMode.PAUSED) "Start MIDI entry" else "Pause entry") }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (!melodyLane) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedButton(onClick = { model.pauseEntry(); manual = !manual }, enabled = !state.busy, shape = MaterialTheme.shapes.small,
                         contentPadding = PaddingValues(8.dp), modifier = Modifier.heightIn(min = 48.dp)) { Text(if (melodyLane) "Add note / rest" else "Add chord") }
                     OutlinedButton(onClick = { model.pauseEntry(); chordPicker = true }, enabled = !state.busy && (if (melodyLane) editor.score.measures.getOrNull(editor.position.measureIndex)?.melody?.isNotEmpty() == true else chords.isNotEmpty()),
                         shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(8.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = if (melodyLane) "Choose melody to change" else "Choose chord to change" }) { Text(if (melodyLane) "Change melody" else "Change chord") }
                 }
-                val last = if (melodyLane) editor.lastMelodyId else editor.lastInsertedId
-                if (last != null) TextButton(onClick = { if (melodyLane) model.selectMelody(last) else model.selectChord(last) }, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Change last") }
             }
         }
         if (!melodyLane && (selected != null || editor.pending != null || manual)) {
+            if (manual && selected == null && editor.pending == null) ChordKeyboard(editor, !state.busy, symbol, { symbol = it }, model::addChord, model::togglePinnedChord)
             if (editor.pending != null) Text("Pending chord · ${positionLabel(editor.pending.position, editor.score.timeSignature)}. Apply it to change the score.", style = MaterialTheme.typography.bodySmall, color = MutedColor)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(symbol, { model.pauseEntry(); symbol = it.take(64) }, label = { Text("Chord symbol") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) model.pauseEntry() })
@@ -78,8 +79,25 @@ fun ScoreEntryControls(state: LibraryState, model: LibraryViewModel, changeMelod
                 if (editor.mode == EntryMode.REPLACE) OutlinedButton(model::pauseEntry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel replacement") }
             }
         }
-        if (melodyLane && (selectedNote != null || editor.pendingMelody != null || manual)) MelodyInput(state, model, selectedNote) { manual = false }
-        Text(editor.message ?: if (melodyLane) "Play and release one note, or add a note / rest. Sustain does not delay insertion." else "Play and release a chord, or add its symbol. Sustain does not delay insertion.", color = MutedColor, style = MaterialTheme.typography.bodySmall)
+        if (melodyLane && editor.pendingMelody != null) {
+            Text(editor.message ?: "The captured note could not be inserted.", style = MaterialTheme.typography.bodySmall)
+            Row {
+                TextButton(onClick = { model.applyMelody(editor.pendingMelody.pitch) }, enabled = !state.busy) { Text("Retry capture") }
+                TextButton(model::discardPending, enabled = !state.busy) { Text("Discard capture") }
+            }
+        }
+        if (melodyLane && selectedNote != null && state.midiConnected) {
+            OutlinedButton(onClick = { model.armEntry(true) }, enabled = !state.busy) { Text("Replace from MIDI") }
+        }
+        if (!melodyLane) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(onClick = { model.addBar() }, enabled = !state.busy && !hasPending && editor.score.measures.size < 256) { Text("+ Bar") }
+            if (editor.position.measureIndex < editor.score.measures.size) {
+                TextButton(onClick = { model.addBar(editor.position.measureIndex) }, enabled = !state.busy && !hasPending && editor.score.measures.size < 256) { Text("+ Before") }
+                TextButton(onClick = { model.addBar(editor.position.measureIndex + 1) }, enabled = !state.busy && !hasPending && editor.score.measures.size < 256) { Text("+ After") }
+            }
+        }
+        if (editor.message != null && !editor.message.startsWith("Inserted ") && editor.message !in listOf("Melody updated.", "Chord changed."))
+            Text(editor.message, color = MutedColor, style = MaterialTheme.typography.bodySmall)
     }
     if (durationPicker) AlertDialog(onDismissRequest = { durationPicker = false }, title = { Text(if (melodyLane) "Melody duration" else "Chord duration") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -118,48 +136,9 @@ fun ScoreEntryControls(state: LibraryState, model: LibraryViewModel, changeMelod
         } }, confirmButton = { TextButton(onClick = { chordPicker = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } })
 }
 
-internal fun melodyDurationLabel(value: ScoreDuration) = when (value.denominator) { 1 -> "Whole"; 2 -> "Half"; 4 -> "Quarter"; 8 -> "Eighth"; else -> "Sixteenth" } + if (value.dots == 1) " dotted" else ""
+internal fun melodyDurationLabel(value: ScoreDuration) = when (value.denominator) { 1 -> "Whole"; 2 -> "Half"; 4 -> "Quarter"; 8 -> "Eighth"; 16 -> "Sixteenth"; else -> "Thirty-second" } + if (value.dots == 1) " dotted" else ""
 private fun tickLabel(offset: Int, time: ScoreTimeSignature): String {
     val unit = BAR_TICKS / time.denominator
     return (1 + offset / unit).toString() + if (offset % unit == 0) "" else "." + (offset % unit * 10000 / unit).toString().padStart(4, '0').trimEnd('0')
 }
 private fun positionLabel(position: ScorePosition, time: ScoreTimeSignature) = "Bar ${position.measureIndex + 1}, beat ${tickLabel(position.offsetTicks, time)}"
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun MelodyInput(state: LibraryState, model: LibraryViewModel, selected: MelodyEvent?, close: () -> Unit) {
-    val editor = state.editor ?: return
-    val key: Any? = editor.pendingMelody?.pitch ?: editor.selectedMelodyId
-    val initial = if (editor.pendingMelody != null) editor.pendingMelody.pitch else selected?.pitch
-    var rest by remember(key) { mutableStateOf(if (editor.pendingMelody != null || selected != null) initial == null else false) }
-    var step by remember(key) { mutableStateOf(initial?.step ?: "C") }
-    var alter by remember(key) { mutableIntStateOf(initial?.alter ?: 0) }
-    var octave by remember(key) { mutableIntStateOf(initial?.octave ?: 4) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (editor.pendingMelody != null) Text("Pending melody · ${positionLabel(editor.pendingMelody.position, editor.score.timeSignature)}. Correct its pitch, duration or position and apply.", style = MaterialTheme.typography.bodySmall)
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FilterChip(rest, { model.pauseEntry(); rest = !rest }, enabled = !state.busy, label = { Text("Rest") }, modifier = Modifier.heightIn(min = 48.dp))
-            "CDEFGAB".forEach { value -> FilterChip(!rest && step == value.toString(), { model.pauseEntry(); step = value.toString(); rest = false }, enabled = !state.busy, label = { Text(value.toString()) }, modifier = Modifier.heightIn(min = 48.dp)) }
-        }
-        if (!rest) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(-1 to "Flat", 0 to "Natural", 1 to "Sharp").forEach { (value, label) -> FilterChip(alter == value, { model.pauseEntry(); alter = value }, enabled = !state.busy, label = { Text(label) }, modifier = Modifier.heightIn(min = 48.dp)) }
-            Text("Octave")
-            OutlinedButton(onClick = { model.pauseEntry(); octave-- }, enabled = !state.busy && octave > 3, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Lower octave" }) { Text("−") }
-            Text(octave.toString())
-            OutlinedButton(onClick = { model.pauseEntry(); octave++ }, enabled = !state.busy && octave < 6, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Higher octave" }) { Text("+") }
-        }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Button(onClick = { model.applyMelody(if (rest) null else ScorePitch(step, alter, octave)) }, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (editor.pendingMelody != null) "Apply melody" else if (selected != null) "Apply note change" else if (rest) "Insert rest" else "Insert note") }
-            if (editor.pendingMelody != null) OutlinedButton(model::discardPending, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Discard pending melody") }
-            else if (selected != null) {
-                OutlinedButton(onClick = { model.armEntry(true) }, enabled = !state.busy && state.midiConnected && editor.mode == EntryMode.PAUSED, modifier = Modifier.heightIn(min = 48.dp)) { Text("Replace from MIDI") }
-                if (selected.pitch != null) {
-                    OutlinedButton(model::deleteMelody, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete note to rest") }
-                    OutlinedButton(onClick = { model.setMelodyTie(!selected.tieToNext) }, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (selected.tieToNext) "Remove tie" else "Tie to next note") }
-                }
-            }
-            TextButton(onClick = { model.setPosition(editor.position); close() }, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Close input") }
-            if (editor.mode == EntryMode.REPLACE) OutlinedButton(model::pauseEntry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel replacement") }
-        }
-    }
-}

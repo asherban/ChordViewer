@@ -1,7 +1,7 @@
 import { keyLabel, type LeadSheet, type MelodyEvent, type NoteDuration, type Pitch } from "@chordviewer/contracts";
 
 export const pitchLabel = (pitch: Pitch) => `${pitch.step}${pitch.alter === 1 ? "♯" : pitch.alter === -1 ? "♭" : ""}${pitch.octave}`;
-export const durationLabel = (duration: NoteDuration) => `${duration.dots ? "Dotted " : ""}${({ 1: "whole", 2: "half", 4: "quarter", 8: "eighth", 16: "sixteenth" })[duration.denominator]}`;
+export const durationLabel = (duration: NoteDuration) => `${duration.dots ? "Dotted " : ""}${({ 1: "whole", 2: "half", 4: "quarter", 8: "eighth", 16: "sixteenth", 32: "thirty-second" })[duration.denominator]}`;
 export const durationValue = (duration: NoteDuration) => `${duration.denominator}:${duration.dots}`;
 export const beatLabel = (ticks: number, score: LeadSheet) => String(1 + ticks * score.timeSignature.denominator / 1920);
 export const meterLabel = (score: LeadSheet) => `${score.timeSignature.numerator}/${score.timeSignature.denominator}`;

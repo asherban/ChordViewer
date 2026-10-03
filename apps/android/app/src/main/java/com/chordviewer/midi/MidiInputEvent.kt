@@ -25,6 +25,7 @@ class OrderedMidiEventBuffer(private val capacity: Int = 1024) {
 
 /** Physical-key gesture capture; sustain affects sound, never the insertion boundary. */
 class ChordGestureCapture(private val completed: (List<Int>) -> Unit) {
+    var onGestureStarted: (() -> Unit)? = null
     private val held = mutableSetOf<Int>()
     private val gesture = mutableSetOf<Int>()
     private var enabled = false
@@ -73,6 +74,7 @@ class ChordGestureCapture(private val completed: (List<Int>) -> Unit) {
         val identity = channel * 128 + first
         when (status and 0xF0) {
             0x90 -> if (second > 0) {
+                if (held.isEmpty() && enabled && !waiting) onGestureStarted?.invoke()
                 held.add(identity)
                 if (enabled && !waiting) gesture.add(first)
             } else release(identity)

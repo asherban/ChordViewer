@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseScore, type LeadSheet } from "@chordviewer/contracts";
+import { parseScore, trimTrailingSilentBars, type LeadSheet } from "@chordviewer/contracts";
 import {
   ApiError,
   parseLibrary,
@@ -318,7 +318,7 @@ export function useLibrary() {
     setError("");
     setMessage("");
     try {
-      const score = parseScore({ ...(draft ?? selected.score), title });
+      const score = trimTrailingSilentBars(parseScore({ ...(draft ?? selected.score), title }));
       if (score.id !== selected.id) throw new Error("The draft belongs to a different sheet.");
       const result = parseSavedSheet(
         await request(

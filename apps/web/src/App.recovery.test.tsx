@@ -41,7 +41,8 @@ it("keeps the displaced draft's recovery copy after renaming the open sheet from
   fireEvent.click(await screen.findByRole("button", { name: `Edit ${score.title}` }));
   fireEvent.click(await screen.findByRole("button", { name: "Sheet details" }));
   fireEvent.change(screen.getByLabelText("Sheet title", { exact: true }), { target: { value: "Unsaved draft title" } });
-  await screen.findByText("Local recovery copy updated. Save to update your Library.");
+  await waitFor(() => expect([...drafts.values()].some(draft => draft.title === "Unsaved draft title")).toBe(true));
+  expect(screen.queryByText(/Local recovery copy updated/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Library" }));
   fireEvent.click(screen.getByRole("button", { name: "Rename" }));
   await screen.findByText("Library details updated.");

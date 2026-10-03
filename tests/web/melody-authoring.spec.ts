@@ -30,7 +30,8 @@ async function createStudy(page: Page, title: string) {
   await expect(page.getByLabel("Editable chord score", { exact: true })).toBeVisible();
   // A separate chord pass already occupies both melody bars.
   for (const symbol of ["G", "D7"]) {
-    await page.getByRole("button", { name: "Add chord by hand", exact: true }).click();
+    if (!await page.getByRole("form", { name: "Add chord", exact: true }).isVisible())
+      await page.getByRole("button", { name: "Add chord by hand", exact: true }).click();
     await page.getByLabel("Chord symbol", { exact: true }).fill(symbol);
     await page.getByRole("button", { name: "Add chord", exact: true }).click();
   }
@@ -62,12 +63,22 @@ async function savedSheet(page: Page, title: string): Promise<SavedSheet> {
 }
 
 async function addManualNote(page: Page, step: string, alter = "0", duration = "4:0") {
-  await page.getByRole("button", { name: "Add note by hand", exact: true }).click();
-  const form = page.getByRole("form", { name: "Add melody", exact: true });
-  await form.getByLabel("Note pitch", { exact: true }).selectOption(step);
-  await form.getByLabel("Note accidental", { exact: true }).selectOption(alter);
-  await form.getByLabel("Note duration", { exact: true }).selectOption(duration);
-  await form.getByRole("button", { name: "Add melody event", exact: true }).click();
+  await setDuration(page, "New note duration", duration);
+  const staffStep = 28 + "CDEFGAB".indexOf(step) - 30;
+  const cursor = page.getByRole("button", { name: "Next note entry line", exact: true });
+  await cursor.click({ position: { x: 20, y: 55 - staffStep * 5 } });
+  if (alter !== (step === "F" ? "1" : "0")) {
+    await page.locator(".editable-melody").last().click();
+    await page.getByRole("button", { name: alter === "-1" ? "Flat" : alter === "1" ? "Sharp" : "Natural", exact: true }).click();
+    await page.getByTestId("notation").click({ position: { x: 6, y: 6 } });
+  }
+}
+
+async function setDuration(page: Page, label: string, value: string) {
+  const choices = ["32:0", "16:0", "16:1", "8:0", "8:1", "4:0", "4:1", "2:0", "2:1", "1:0", "1:1"];
+  const slider = page.getByRole("slider", { name: label, exact: true });
+  const current = Number(await slider.inputValue()), target = choices.indexOf(value);
+  for (let i = 0; i < Math.abs(target - current); i++) await slider.press(target > current ? "ArrowRight" : "ArrowLeft");
 }
 
 async function reopen(page: Page, title: string) {
@@ -82,8 +93,8 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   await signUp(page);
   const initial = await createStudy(page, title);
   await page.getByRole("button", { name: "Melody entry", exact: true }).click();
-  await expect(page.getByLabel("Insertion bar", { exact: true })).toHaveValue("0");
-  await expect(page.getByLabel("Insertion beat", { exact: true })).toHaveValue("0");
+  await expect(page.getByRole("button", { name: "Next note entry line", exact: true })).toBeVisible();
+
   await addManualNote(page, "C");
   await addManualNote(page, "F", "1");
   await addManualNote(page, "F", "1");
@@ -92,11 +103,10 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   await expect(page.locator(".editable-melody").nth(3)).toHaveAccessibleName(/^Rest, quarter, bar 2, beat 1$/);
 
   await page.locator(".editable-melody").nth(1).click();
-  await page.getByRole("checkbox", { name: /^Tie to next note/ }).check();
-  await page.getByRole("button", { name: "Apply melody changes", exact: true }).click();
+  await page.getByRole("button", { name: "Tie to next note", exact: true }).click();
   await expect(page.locator(".editable-melody").nth(1)).toHaveAccessibleName(/tied/);
   await page.locator(".editable-melody").nth(2).click();
-  await page.getByRole("button", { name: "Delete note → rest", exact: true }).click();
+  await page.getByRole("button", { name: "Replace selected note with rest", exact: true }).click();
   await expect(page.locator(".editable-melody").nth(2)).toHaveAccessibleName(/^Rest, quarter/);
   await expect(page.locator(".editable-melody").nth(1)).not.toHaveAccessibleName(/tied/);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
@@ -106,10 +116,11 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   await page.getByRole("button", { name: "Undo", exact: true }).click();
 
   await page.locator(".editable-melody").first().click();
-  await page.getByLabel("Note pitch", { exact: true }).selectOption("D");
-  await page.getByLabel("Note accidental", { exact: true }).selectOption("-1");
-  await page.getByLabel("Note duration", { exact: true }).selectOption("8:1");
-  await page.getByRole("button", { name: "Apply melody changes", exact: true }).click();
+  const first = (await page.locator(".notation .vf-notehead").first().boundingBox())!;
+  await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2); await page.mouse.down();
+  await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2 - 5, { steps: 4 }); await page.mouse.up();
+  await page.getByRole("button", { name: "Flat", exact: true }).click();
+  await setDuration(page, "Selected note duration", "8:1");
   await expect(page.locator(".editable-melody").first()).toHaveAccessibleName(/^D♭4, dotted eighth/);
   await save(page);
   const stored = await savedSheet(page, title);
@@ -119,12 +130,13 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   expect(stored.score.measures.map(bar => bar.chords)).toEqual(initial.score.measures.map(bar => bar.chords));
   expect(stored.score.measures[0].melody).toMatchObject([
     { kind: "note", offsetTicks: 0, pitch: { step: "D", alter: -1, octave: 4 }, duration: { denominator: 8, dots: 1 } },
-    { kind: "note", offsetTicks: 480, pitch: { step: "F", alter: 1, octave: 4 }, duration: { denominator: 4, dots: 0 }, tieToNext: true },
-    { kind: "note", offsetTicks: 960, pitch: { step: "F", alter: 1, octave: 4 }, duration: { denominator: 4, dots: 0 } },
+    { kind: "note", offsetTicks: 360, pitch: { step: "F", alter: 1, octave: 4 }, duration: { denominator: 4, dots: 0 }, tieToNext: true },
+    { kind: "note", offsetTicks: 840, pitch: { step: "F", alter: 1, octave: 4 }, duration: { denominator: 4, dots: 0 } },
+    { kind: "rest", offsetTicks: 1320, duration: { denominator: 16, dots: 0 } },
   ]);
-  expect(stored.score.measures[1].melody).toMatchObject([{ kind: "rest", offsetTicks: 0, duration: { denominator: 4, dots: 0 } }]);
+  expect(stored.score.measures[1].melody).toMatchObject([{ kind: "rest", offsetTicks: 0, duration: { denominator: 8, dots: 1 } }]);
   await reopen(page, title);
-  await expect(page.locator(".editable-melody")).toHaveCount(4);
+  await expect(page.locator(".editable-melody")).toHaveCount(5);
   expect((await savedSheet(page, title)).score).toEqual(stored.score);
   await page.getByRole("button", { name: "Sheet details", exact: true }).click();
   const details = page.getByRole("form", { name: "Sheet details", exact: true });
@@ -145,7 +157,8 @@ test("manual melody passes preserve harmony, exact rests, ties and history throu
   await page.getByRole("button", { name: "Sheet details", exact: true }).click();
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await expect(page.locator(".editable-melody")).toHaveCount(0);
-  await expect(page.locator(".notation .vf-stavenote")).toHaveCount(4);
+  // Two occupied bars remain; two automatic rests complete the second bar.
+  await expect(page.locator(".notation .vf-stavenote")).toHaveCount(7);
 });
 
 test("MusicXML previews before saving, exports exact JSON, reimports with a fresh ID and rejects unsafe files", async ({ page }) => {
@@ -228,14 +241,14 @@ test.describe("physical LoopBe melody acceptance", () => {
     await page.getByRole("button", { name: "Enable MIDI", exact: true }).click();
     await page.getByRole("combobox", { name: "MIDI input", exact: true }).selectOption({ label: "LoopBe Internal MIDI" });
     await page.getByRole("button", { name: "Melody entry", exact: true }).click();
-    await expect(page.getByLabel("Insertion bar", { exact: true })).toHaveValue("0");
-    await page.getByLabel("New note duration", { exact: true }).selectOption("4:0");
+    await expect(page.getByRole("button", { name: "Next note entry line", exact: true })).toBeVisible();
+    await setDuration(page, "New note duration", "4:0");
     await page.getByRole("button", { name: "Start MIDI entry", exact: true }).click();
     await execute("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolve("scripts/midi/Send-Fixture.ps1"), "-Fixture", "melody"],
       { windowsHide: true, timeout: 20_000 });
     await expect(page.locator(".editable-melody")).toHaveCount(6);
-    await expect(page.getByLabel("Insertion bar", { exact: true })).toHaveValue("2");
-    await expect(page.getByLabel("Insertion beat", { exact: true })).toHaveValue("0");
+
+  
     await page.getByRole("button", { name: "Pause entry", exact: true }).click();
     await save(page);
     const captured = await savedSheet(page, title);
@@ -249,21 +262,21 @@ test.describe("physical LoopBe melody acceptance", () => {
     expect(captured.score.measures.map(bar => bar.chords)).toEqual(initial.score.measures.map(bar => bar.chords));
 
     await page.locator(".editable-melody").nth(2).click();
-    await page.getByRole("checkbox", { name: /^Tie to next note/ }).check();
-    await page.getByRole("button", { name: "Apply melody changes", exact: true }).click();
-    await expect(page.locator(".editable-melody").nth(2)).toHaveAccessibleName(/tied/);
+    await page.getByRole("button", { name: "Tie to next note", exact: true }).click();
+      await expect(page.locator(".editable-melody").nth(2)).toHaveAccessibleName(/tied/);
     await page.locator(".editable-melody").nth(1).click();
-    await page.getByRole("button", { name: "Delete note → rest", exact: true }).click();
+    await page.getByRole("button", { name: "Replace selected note with rest", exact: true }).click();
     await expect(page.locator(".editable-melody").nth(1)).toHaveAccessibleName(/^Rest, quarter/);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(page.locator(".editable-melody").nth(1)).toHaveAccessibleName(/^D4, quarter/);
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     await page.locator(".editable-melody").nth(5).click();
-    await page.getByLabel("Note pitch", { exact: true }).selectOption("B");
-    await page.getByLabel("Note accidental", { exact: true }).selectOption("-1");
-    await page.getByLabel("Note duration", { exact: true }).selectOption("8:1");
-    await page.getByRole("button", { name: "Apply melody changes", exact: true }).click();
-    await expect(page.locator(".editable-melody").nth(5)).toHaveAccessibleName(/^B♭4, dotted eighth/);
+    const last = (await page.locator(".notation .vf-notehead").last().boundingBox())!;
+    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2); await page.mouse.down();
+    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2 - 5, { steps: 4 }); await page.mouse.up();
+    await page.getByRole("button", { name: "Flat", exact: true }).click();
+    await setDuration(page, "Selected note duration", "8:1");
+      await expect(page.locator(".editable-melody").nth(5)).toHaveAccessibleName(/^B♭4, dotted eighth/);
     await save(page);
     const corrected = await savedSheet(page, title);
     expect(corrected.score.measures.flatMap(bar => bar.melody.map(event => event.id))).toEqual(captured.score.measures.flatMap(bar => bar.melody.map(event => event.id)));

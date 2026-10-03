@@ -8,7 +8,7 @@ export interface Pitch {
   alter: -1 | 0 | 1;
   octave: 3 | 4 | 5 | 6;
 }
-export interface NoteDuration { denominator: 1 | 2 | 4 | 8 | 16; dots: 0 | 1 }
+export interface NoteDuration { denominator: 1 | 2 | 4 | 8 | 16 | 32; dots: 0 | 1 }
 export interface ChordEvent { id: string; offsetTicks: number; durationTicks: number; symbol: string }
 interface MelodyBase { id: string; offsetTicks: number; duration: NoteDuration }
 export interface NoteEvent extends MelodyBase { kind: 'note'; pitch: Pitch; tieToNext?: boolean }
