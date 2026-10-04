@@ -176,6 +176,89 @@ class LibraryViewModelTest {
         notes.forEach { model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, it, 0))) }
     }
 
+    @Test fun liveChordCombinesSustainedNotesAndRetainsOnlyHeldNotesWhenPedalLifts() = runTest(dispatcher) {
+        val model = LibraryViewModel(FakeGateway(), dispatcher); configure(model)
+        val score = LeadSheet("sustain", "Sustain study", listOf(ScoreMeasure("bar", listOf(ChordEvent("chord", 0, 1920, "C6")), emptyList())))
+        model.previewPractice(score); model.practiceAdvance(false)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 127)))
+        play(model, 60, 64, 67)
+        assertEquals("C", model.state.value.liveChord)
+        assertEquals(false, model.state.value.practiceLiveMatch)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 69, 90)))
+        assertEquals("C6", model.state.value.liveChord)
+        assertEquals(listOf("Am7/C"), model.state.value.liveChordAlternatives)
+        assertEquals(true, model.state.value.practiceLiveMatch)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 72, 90, 144, 76, 90)))
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 0)))
+        assertEquals("Am", model.state.value.liveChord)
+        assertTrue(model.state.value.liveChordAlternatives.isEmpty())
+        assertEquals(false, model.state.value.practiceLiveMatch)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 69, 0, 128, 72, 0, 128, 76, 0)))
+        assertNull(model.state.value.liveChord)
+        assertTrue(model.state.value.liveChordAlternatives.isEmpty())
+        assertNull(model.state.value.practiceLiveMatch)
+    }
+
+    @Test fun liveNamesRefreshOnKeyChangesTranspositionAndReturningToCreate() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle(); model.open(gateway.sheet.id); advanceUntilIdle()
+        val time = model.state.value.editor!!.score.timeSignature
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 61, 90, 144, 65, 90, 144, 68, 90)))
+        model.updateScoreSettings("D", time)
+        assertEquals("C#", model.state.value.liveChord)
+        assertEquals(listOf("Db"), model.state.value.liveChordAlternatives)
+        model.updateScoreSettings("Db", time)
+        assertEquals("Db", model.state.value.liveChord)
+        model.undoChord()
+        assertEquals("C#", model.state.value.liveChord)
+        model.changeMode(LibraryMode.PRACTICE); model.practiceShift(1)
+        assertEquals("Eb", model.state.value.practiceScore!!.keySignature)
+        assertEquals("Db", model.state.value.liveChord)
+        model.changeMode(LibraryMode.CREATE)
+        assertEquals("C#", model.state.value.liveChord)
+    }
+
+    @Test fun sustainRespectsChannelsAndAllResetPathsClearNames() = runTest(dispatcher) {
+        val model = LibraryViewModel(FakeGateway(), dispatcher); configure(model)
+        fun sustainChord() {
+            model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(177, 64, 127, 145, 61, 90, 145, 65, 90, 145, 68, 90,
+                129, 61, 0, 129, 65, 0, 129, 68, 0)))
+            assertEquals("Db", model.state.value.liveChord)
+            assertEquals(listOf("C#"), model.state.value.liveChordAlternatives)
+        }
+        fun cleared() { assertNull(model.state.value.liveChord); assertTrue(model.state.value.liveChordAlternatives.isEmpty()) }
+        sustainChord()
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 0))) // A different channel's pedal cannot release these notes.
+        assertEquals("Db", model.state.value.liveChord)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(177, 64, 0))); cleared()
+        sustainChord(); model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(177, 120, 0))); cleared()
+        sustainChord(); model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(177, 121, 0))); cleared()
+        sustainChord(); model.onMidiEvent(MidiInputEvent.Reset(false)); cleared()
+        configure(model); sustainChord(); model.onAppBackground(); cleared()
+    }
+
+    @Test fun practiceReleaseIncludesSustainAndBatchedFutureNotesCannotAffectIt() = runTest(dispatcher) {
+        val model = LibraryViewModel(FakeGateway(), dispatcher); configure(model)
+        val score = LeadSheet("sustain", "Sustain study", listOf(ScoreMeasure("bar", listOf(
+            ChordEvent("first", 0, 960, "C6"), ChordEvent("second", 960, 960, "Dm")), emptyList())))
+        model.previewPractice(score)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 127)))
+        play(model, 60, 64, 67)
+        assertEquals(0, model.state.value.practice.eventIndex)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 69, 90)))
+        assertEquals(true, model.state.value.practiceLiveMatch)
+        // The A release completes C6 before the following D changes the sounding set.
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(128, 69, 0, 144, 62, 90)))
+        assertEquals(1, model.state.value.practice.eventIndex)
+        assertEquals(false, model.state.value.practiceLiveMatch)
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(144, 65, 90, 144, 69, 90, 128, 62, 0, 128, 65, 0, 128, 69, 0)))
+        assertFalse(model.state.value.practice.complete) // Old sustained tones still prevent a Dm match.
+        model.onMidiEvent(MidiInputEvent.Bytes(intArrayOf(176, 64, 0)))
+        assertFalse(model.state.value.practice.complete) // Pedal release alone does not advance.
+        play(model, 62, 65, 69)
+        assertTrue(model.state.value.practice.complete)
+    }
+
     @Test fun durationChangesDuringFragmentedMidiApplyOnlyToTheNextGesture() = runTest(dispatcher) {
         val gateway = FakeGateway(); val model = LibraryViewModel(gateway, dispatcher); configure(model)
         model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()

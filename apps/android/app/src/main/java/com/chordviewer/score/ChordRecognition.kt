@@ -6,6 +6,30 @@ import org.json.JSONObject
 data class RecognizedChord(val symbol: String, val rootPitchClass: Int, val quality: String, val bassPitchClass: Int)
 data class ChordRecognition(val pitchClasses: List<Int>, val bassMidi: Int?, val candidates: List<RecognizedChord>)
 
+/** Display ordering only; chord entry keeps the shared recognizer's original ranking. */
+fun ChordRecognition.displayNames(keySignature: String?): List<String> {
+    val key = KEY_SIGNATURES[keySignature]
+    val spellings = if (key != null) keyAccidentals(keySignature!!).map { (step, alter) -> ChordSpelling(step, alter) }
+        .associate { it.pitchClass to it.label } else emptyMap()
+    fun spellingPenalty(symbol: String): Int {
+        val root = Regex("^[A-G][#b]?").find(symbol)!!.value
+        val bass = Regex("/([A-G][#b]?)$").find(symbol)?.groupValues?.get(1)
+        return listOfNotNull(root, bass).sumOf { name ->
+            val pitch = ChordSpelling(name.take(1), when (name.getOrNull(1)) { '#' -> 1; 'b' -> -1; else -> 0 }).pitchClass
+            when {
+                spellings[pitch] == name -> 0
+                spellings.containsKey(pitch) -> 2
+                key != null && (key.fifths > 0 && 'b' in name || key.fifths < 0 && '#' in name) -> 1
+                else -> 0
+            }
+        }
+    }
+    // Keep bass-first harmonic identities, preferring their key-appropriate root and bass spellings.
+    val groups = candidates.groupBy { Triple(it.rootPitchClass, it.quality, it.bassPitchClass) }.values
+        .map { group -> group.sortedBy { spellingPenalty(it.symbol) } }
+    return (groups.map { it.first() } + groups.flatMap { it.drop(1) }).map { it.symbol }.distinct()
+}
+
 /** Uses the same language-neutral vocabulary and ranking as the web client. */
 class ChordRecognizer(json: String) {
     private data class Quality(val name: String, val suffix: String, val intervals: Set<Int>, val optional: Set<Int>)

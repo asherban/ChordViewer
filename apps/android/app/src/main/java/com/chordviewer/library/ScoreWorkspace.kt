@@ -12,13 +12,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.chordviewer.MidiInputState
-import com.chordviewer.midi.MidiNote
+import com.chordviewer.R
 import com.chordviewer.score.LeadSheet
 import com.chordviewer.score.NativeScore
 import com.chordviewer.score.keyLabel
@@ -43,7 +47,7 @@ fun WorkspacePicker(state: LibraryState, newSheet: () -> Unit, library: () -> Un
 
 @Composable
 fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi: MidiInputState, melody: Boolean, changeMelody: (Boolean) -> Unit,
-    setupMidi: () -> Unit, details: () -> Unit, createMode: () -> Unit, model: LibraryViewModel) {
+    details: () -> Unit, createMode: () -> Unit, model: LibraryViewModel) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp)) {
         val wide = maxWidth >= 760.dp
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -57,7 +61,7 @@ fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi:
                         TutorialPanel(state.selected?.tutorialUrl, !sample && state.mode == LibraryMode.CREATE, details, state.selected?.id, state.user?.id)
                         Surface(Modifier.weight(1f).fillMaxWidth(), color = PaperColor, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, BorderColor)) {
                             Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                WorkspaceControls(state, score, sample, midi, changeMelody, setupMidi, model)
+                                WorkspaceControls(state, score, sample, midi, changeMelody, model)
                             }
                         }
                     }
@@ -66,7 +70,7 @@ fun ScoreWorkspace(state: LibraryState, score: LeadSheet, sample: Boolean, midi:
             } else {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TutorialPanel(state.selected?.tutorialUrl, !sample && state.mode == LibraryMode.CREATE, details, state.selected?.id, state.user?.id)
-                    WorkspaceControls(state, score, sample, midi, changeMelody, setupMidi, model)
+                    WorkspaceControls(state, score, sample, midi, changeMelody, model)
                     ScorePaper(state, score, sample, melody, model, Modifier.fillMaxWidth(), scroll = false)
                 }
             }
@@ -124,13 +128,13 @@ private fun WorkspaceToolbar(state: LibraryState, score: LeadSheet, sample: Bool
 
 @Composable
 private fun WorkspaceControls(state: LibraryState, score: LeadSheet, sample: Boolean, midi: MidiInputState,
-    changeMelody: (Boolean) -> Unit, setupMidi: () -> Unit, model: LibraryViewModel) {
+    changeMelody: (Boolean) -> Unit, model: LibraryViewModel) {
     if (state.mode == LibraryMode.CREATE) {
         if (sample) Text("Save your own sheet from Library to enter music.", color = MutedColor)
         else ScoreEntryControls(state, model, changeMelody)
         HorizontalDivider(color = BorderColor)
     }
-    PlayedNotesPanel(state, score, midi, setupMidi)
+    PlayedNotesPanel(state, score, midi)
     if (state.mode == LibraryMode.PRACTICE) {
         HorizontalDivider(color = BorderColor)
         PracticeControls(state, score, model)
@@ -212,37 +216,62 @@ private fun PracticeControls(state: LibraryState, score: LeadSheet, model: Libra
 }
 
 @Composable
-private fun PlayedNotesPanel(state: LibraryState, score: LeadSheet, midi: MidiInputState, setup: () -> Unit) {
+private fun PlayedNotesPanel(state: LibraryState, score: LeadSheet, midi: MidiInputState) {
     val practicing = state.mode == LibraryMode.PRACTICE
+    val sustaining = midi.snapshot.sustainChannels.isNotEmpty()
     val current = com.chordviewer.score.ChordTimeline.groups(score).getOrNull(state.practice.eventIndex)?.event
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (practicing) Column(Modifier.weight(1f)) {
-                Text("CHART", color = MutedColor, style = MaterialTheme.typography.labelLarge)
+                Text("CHART", modifier = Modifier.heightIn(min = 20.dp), color = MutedColor, style = MaterialTheme.typography.labelLarge)
                 Text(current?.symbol ?: "—", style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.semantics { contentDescription = "Practice target ${current?.symbol ?: "none"}" })
             }
             Column(Modifier.weight(1f)) {
-                Text(if (practicing) "PLAYED" else "LIVE INPUT", color = MutedColor, style = MaterialTheme.typography.labelLarge)
-                Text(state.liveChord ?: "—", style = MaterialTheme.typography.headlineMedium)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (practicing) "PLAYED" else "LIVE INPUT", modifier = Modifier.weight(1f),
+                        color = MutedColor, style = MaterialTheme.typography.labelLarge)
+                    Icon(painterResource(R.drawable.ic_sustain_pedal), contentDescription = if (sustaining) "Sustain pedal on" else "Sustain pedal off",
+                        modifier = Modifier.size(20.dp), tint = if (sustaining) AccentColor else MutedColor.copy(alpha = 0.45f))
+                }
+                Text(state.liveChord ?: "—", style = MaterialTheme.typography.headlineMedium,
+                    color = if (practicing && state.practiceLiveMatch == true) AccentColor else InkColor,
+                    modifier = Modifier.semantics {
+                        if (practicing) when (state.practiceLiveMatch) {
+                            true -> stateDescription = "Matches chart chord"
+                            false -> stateDescription = "Does not match chart chord"
+                            null -> Unit
+                        }
+                    })
             }
         }
-        if (practicing) Text(when {
-            state.practice.complete -> "Complete. Reopen this sheet to practice again."
-            current == null -> "No chords to match. Add chords in Create."
-            !state.practiceTargetSupported -> "Chord matching is unavailable for this symbol. Edit it in Create."
-            state.practiceLiveMatch == true -> "Match · release to advance"
-            state.practiceLiveMatch == false -> "Held notes differ from this chord."
-            else -> state.practice.feedback ?: "Play the chart chord."
-        }, color = if (state.practiceLiveMatch == true) AccentColor else MutedColor, style = MaterialTheme.typography.bodySmall)
-        Text("Held  ${midi.snapshot.held.noteNames()}", style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.semantics { contentDescription = "Held notes: ${midi.snapshot.held.noteNames()}" })
-        Text("Sounding  ${midi.snapshot.sounding.noteNames()}", style = MaterialTheme.typography.bodySmall)
-        Text("Sustain: " + if (midi.snapshot.sustainChannels.isEmpty()) "Off" else "On · channel ${midi.snapshot.sustainChannels.joinToString { "${it + 1}" }}",
-            color = MutedColor, style = MaterialTheme.typography.bodySmall)
-        if (midi.connected) Text("● MIDI connected", color = AccentColor, style = MaterialTheme.typography.bodySmall)
-        else OutlinedButton(onClick = setup, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text("MIDI setup") }
+        ChordAlternativeNames(state.liveChordAlternatives)
     }
 }
 
-private fun List<MidiNote>.noteNames() = if (isEmpty()) "None" else joinToString(" · ") { "${it.name} (ch ${it.channel + 1})" }
+@Composable
+private fun ChordAlternativeNames(names: List<String>) {
+    if (names.isEmpty()) return
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.headlineSmall
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val width = constraints.maxWidth
+        val lines = remember(names, measurer, style, width) {
+            val result = mutableListOf<String>()
+            fun fits(text: String) = measurer.measure(AnnotatedString(text), style = style, softWrap = false).size.width <= width
+            for (name in names.take(3)) {
+                if (!fits(name)) continue
+                val combined = result.lastOrNull()?.let { "$it · $name" }
+                if (combined != null && fits(combined)) result[result.lastIndex] = combined
+                else if (result.size < 2) result.add(name)
+                else break
+            }
+            result.toList()
+        }
+        if (lines.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("ALSO", color = MutedColor, style = MaterialTheme.typography.labelLarge)
+            lines.forEach { Text(it, style = style, maxLines = 1, softWrap = false) }
+        }
+    }
+}

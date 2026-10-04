@@ -114,7 +114,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
                             if (score == null) WorkspacePicker(state, ::newSheet,
                                 { model.changeMode(LibraryMode.LIBRARY) }, { if (sample != null) { showSample = true; model.previewPractice(sample) } })
                             else ScoreWorkspace(state, score, state.selected == null, midi, showMelody, { showMelody = it },
-                                ::midiSetup, ::details, model::editFromPractice, model)
+                                ::details, model::editFromPractice, model)
                         }
                     }
                 }

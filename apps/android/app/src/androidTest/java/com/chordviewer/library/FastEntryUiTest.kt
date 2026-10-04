@@ -51,7 +51,7 @@ class FastEntryUiTest {
                 var melody by remember { mutableStateOf(true) }
                 ChordViewerTheme {
                     state.editor?.let { ScoreWorkspace(state, it.score, false,
-                        MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {}), melody, { melody = it }, {}, {}, {}, model) }
+                        MidiInputState(MidiSnapshot(), "Disconnected", false, {}, {}), melody, { melody = it }, {}, {}, model) }
                 }
             }
         }

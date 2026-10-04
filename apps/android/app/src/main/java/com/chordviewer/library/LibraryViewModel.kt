@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.chordviewer.ApiConfiguration
 import com.chordviewer.midi.ChordGestureCapture
 import com.chordviewer.midi.MidiInputEvent
+import com.chordviewer.midi.MidiState
 import com.chordviewer.score.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -33,6 +34,7 @@ data class LibraryState(
     val editor: ScoreEditorState? = null,
     val midiConnected: Boolean = false,
     val liveChord: String? = null,
+    val liveChordAlternatives: List<String> = emptyList(),
     val practice: PracticePosition = PracticePosition(),
     val practiceLiveMatch: Boolean? = null,
     val practiceTargetSupported: Boolean = true,
@@ -75,6 +77,7 @@ class LibraryViewModel(
     private var active: Job? = null
     private var editor: ScoreEditor? = null
     private var recognizer: ChordRecognizer? = null
+    private val liveMidi = MidiState()
     private var practiceRules: PracticeRules? = null
     private var practiceSession: PracticeSession? = null
     private var practiceBaseScore: LeadSheet? = null
@@ -229,6 +232,7 @@ class LibraryViewModel(
         when (event) {
             is MidiInputEvent.Reset -> {
                 midiConnected = event.connected
+                liveMidi.reset()
                 capture.reset()
                 practiceCapture.reset()
                 if (event.connected && !practiceBlocked && mutableState.value.mode == LibraryMode.PRACTICE && practiceSession?.position?.advanceOnMatch == true) practiceCapture.arm()
@@ -237,8 +241,13 @@ class LibraryViewModel(
                 editor?.update { it.copy(message = event.reason) }
             }
             is MidiInputEvent.Bytes -> {
-                capture.accept(event.data)
-                practiceCapture.accept(event.data)
+                // Gesture callbacks must see the sounding state at that exact release, even in a batched packet.
+                event.data.forEach { byte ->
+                    val data = intArrayOf(byte)
+                    liveMidi.accept(data)
+                    capture.accept(data)
+                    practiceCapture.accept(data)
+                }
                 if (!capture.armed) editor?.update { it.copy(mode = EntryMode.PAUSED) }
             }
         }
@@ -497,11 +506,13 @@ class LibraryViewModel(
     private fun publishEditor() {
         val message = mutableState.value.message.let { if (it == "Changes saved." && editor?.state?.score != mutableState.value.selected?.score) null else it }
         val target = practiceSession?.let { session -> practiceRules?.events(session.score)?.getOrNull(session.position.eventIndex) }
-        val held = capture.heldKeys.map { it % 128 }
+        val sounding = liveMidi.snapshot().sounding.map { it.pitch }
+        val score = if (mutableState.value.mode == LibraryMode.PRACTICE) practiceSession?.score else editor?.state?.score
+        val names = recognizer?.recognize(sounding)?.displayNames(score?.keySignature).orEmpty()
         mutableState.value = mutableState.value.copy(editor = editor?.state, midiConnected = midiConnected,
-            liveChord = recognizer?.recognize(held)?.candidates?.firstOrNull()?.symbol,
+            liveChord = names.firstOrNull(), liveChordAlternatives = names.drop(1),
             practice = practiceSession?.position ?: mutableState.value.practice,
-            practiceLiveMatch = if (target != null && held.isNotEmpty()) practiceRules?.matches(target.symbol, held, target.definition) else null,
+            practiceLiveMatch = if (target != null && sounding.isNotEmpty()) practiceRules?.matches(target.symbol, sounding, target.definition) else null,
             practiceTargetSupported = target?.let { practiceRules?.supported(it.symbol, it.definition) } ?: true,
             message = message)
         retainRecovery()
@@ -538,7 +549,7 @@ class LibraryViewModel(
 
     private fun practiceGesture(notes: List<Int>) {
         if (mutableState.value.mode != LibraryMode.PRACTICE || mutableState.value.busy || practiceBlocked || !midiConnected) return
-        practiceSession?.receive(notes)
+        practiceSession?.receive((notes + liveMidi.snapshot().sounding.map { it.pitch }).distinct())
         if (practiceSession?.position?.complete == true) practiceCapture.pause()
         publishEditor()
     }
@@ -574,6 +585,7 @@ class LibraryViewModel(
         publishEditor()
     }
     fun onAppBackground() {
+        liveMidi.reset()
         practiceCapture.reset()
         capture.reset()
         editor?.update { it.copy(mode = EntryMode.PAUSED) }
