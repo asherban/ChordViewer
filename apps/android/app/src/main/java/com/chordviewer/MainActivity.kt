@@ -11,6 +11,7 @@ import com.chordviewer.library.LibraryScreen
 import com.chordviewer.library.LibraryViewModel
 import com.chordviewer.library.FileRecoveryStore
 import com.chordviewer.library.KeystoreSessionStore
+import com.chordviewer.midi.MidiDeviceSelection
 import java.io.File
 import com.chordviewer.ui.ChordViewerTheme
 
@@ -20,13 +21,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         ApiConfiguration.initialize(applicationContext)
         val library = ViewModelProvider(this)[LibraryViewModel::class.java]
+        val midiSelection = ViewModelProvider(this)[MidiDeviceSelection::class.java]
         library.configureRecovery(FileRecoveryStore(File(noBackupFilesDir, EndpointPolicy.recoveryDirectory(requireNotNull(ApiConfiguration.baseUrl)))))
         ApiConfiguration.baseUrl?.let { library.configureSession(KeystoreSessionStore(applicationContext, it)) }
         assets.open("chord-vocabulary-v1.json").bufferedReader().use { library.configureChordVocabulary(it.readText()) }
         setContent {
             ChordViewerTheme {
                 // The shell owns MIDI. Navigation, metadata and dialogs never own its lifetime.
-                val midi = rememberMidiInput(library::onMidiEvent)
+                val midi = rememberMidiInput(midiSelection, library::onMidiEvent)
                 val state by library.state.collectAsStateWithLifecycle()
                 LibraryScreen(state, library, midi)
             }

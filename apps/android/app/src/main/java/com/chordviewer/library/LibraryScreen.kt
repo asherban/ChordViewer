@@ -55,7 +55,10 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
     }.getOrNull() }
     fun leave(action: () -> Unit) { model.pauseEntry(); if (model.state.value.hasUnsavedChanges) pendingLeave = action else action() }
     fun details() { model.pauseEntry(); model.setPracticeBlocked(true); showDetails = true }
-    fun midiSetup() { model.pauseEntry(); model.setPracticeBlocked(true); showMidi = true }
+    fun chooseMidi() {
+        if (midi.devices.size <= 1) return
+        model.pauseEntry(); model.setPracticeBlocked(true); showMidi = true
+    }
     fun account() { model.pauseEntry(); model.setPracticeBlocked(true); showAccount = true }
     fun open(id: String, mode: LibraryMode) {
         if (model.state.value.selected?.id == id) { model.changeMode(mode); model.touch(id) }
@@ -66,8 +69,9 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         model.setPracticeBlocked(showAccount || showNew || showDetails || showMidi || state.importPreview != null || pendingLeave != null || state.busy)
     }
     LaunchedEffect(state.selected?.id) { showNew = false; showDetails = false; showSample = false }
+    LaunchedEffect(midi.devices.size) { if (midi.devices.size <= 1) showMidi = false }
     LaunchedEffect(state.user?.id) {
-        if (previousUserId != null && state.user == null) midi.disconnect()
+        if (previousUserId != null && state.user == null) midi.clear()
         previousUserId = state.user?.id
         showAccount = false; showNew = false; showDetails = false; pendingLeave = null
     }
@@ -78,10 +82,10 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         BoxWithConstraints(Modifier.fillMaxSize().padding(insets)) {
             val rail = maxWidth >= 840.dp
             Row(Modifier.fillMaxSize()) {
-                if (rail) AppNavigationRail(state, midi.connected, model::changeMode, ::midiSetup, ::account)
+                if (rail) AppNavigationRail(state, midi, model::changeMode, ::chooseMidi, ::account)
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     if (!rail) {
-                        AppHeader(state, midi, model::changeMode, ::midiSetup, ::account)
+                        AppHeader(state, midi, model::changeMode, ::chooseMidi, ::account)
                         HorizontalDivider(color = BorderColor)
                     }
                     if (state.busy && state.mode != LibraryMode.CREATE) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -118,20 +122,13 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
         }
     }
     if (showAccount) AccountDialog(state, model::authenticate, {
-        showAccount = false; leave { midi.disconnect(); model.signOut() }
+        showAccount = false; leave { midi.clear(); model.signOut() }
     }, { showAccount = false })
     if (showNew) NewSheetDialog(state, model::create) { showNew = false }
     if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraftTitle, model::updateDraftTutorial,
         model::updateScoreSettings, documents.exportSheet, model::save) { showDetails = false }
     if (state.importPreview != null) ImportPreviewDialog(state, model) { leave(model::saveImport) }
-    if (showMidi) AlertDialog(
-        onDismissRequest = { showMidi = false }, title = { Text("MIDI connection") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            midi.controls()
-            Text("Received ${midi.snapshot.messagesReceived} messages", style = MaterialTheme.typography.bodySmall)
-        } },
-        confirmButton = { TextButton(onClick = { showMidi = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") } },
-    )
+    if (showMidi && midi.devices.size > 1) MidiDevicePicker(midi) { showMidi = false }
     if (pendingLeave != null) AlertDialog(
         onDismissRequest = { pendingLeave = null }, title = { Text("Leave unsaved changes?") },
         text = { Text("The last confirmed recovery copy stays on this device. Reloading the current sheet replaces its draft and removes that copy after success.") },
@@ -141,7 +138,7 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
 }
 
 @Composable
-private fun AppNavigationRail(state: LibraryState, connected: Boolean, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
+private fun AppNavigationRail(state: LibraryState, midi: MidiInputState, navigate: (LibraryMode) -> Unit, openMidi: () -> Unit, account: () -> Unit) {
     NavigationRail(Modifier.fillMaxHeight().width(80.dp), containerColor = SageColor, windowInsets = WindowInsets(0)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("♪", Modifier.padding(vertical = 16.dp), fontSize = 32.sp, color = AccentColor)
@@ -155,9 +152,9 @@ private fun AppNavigationRail(state: LibraryState, connected: Boolean, navigate:
             }
             Spacer(Modifier.height(16.dp))
         }
-        NavigationRailItem(selected = false, onClick = openMidi,
-            icon = { Icon(Icons.Default.Settings, contentDescription = if (connected) "MIDI connected" else "MIDI disconnected",
-                tint = if (connected) AccentColor else MutedColor) }, label = { Text("MIDI") })
+        NavigationRailItem(selected = false, onClick = openMidi, enabled = midi.devices.size > 1,
+            modifier = Modifier.midiConnectionSemantics(midi),
+            icon = { MidiConnectionIcon(midi) }, label = { Text("MIDI", color = if (midi.connected) AccentColor else MutedColor) })
         NavigationRailItem(selected = false, onClick = account,
             icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) }, label = { Text(if (state.user == null) "Sign in" else "Account") })
     }
@@ -175,8 +172,8 @@ private fun AppHeader(state: LibraryState, midi: MidiInputState, navigate: (Libr
                     Text("ChordViewer", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = if (compact) 24.sp else 28.sp, color = InkColor)
                     if (wide) ModeTabs(state, navigate)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = openMidi, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(if (midi.connected) { if (compact) "● MIDI" else "●  MIDI connected" } else "○  MIDI", color = if (midi.connected) AccentColor else MutedColor)
+                    IconButton(onClick = openMidi, enabled = midi.devices.size > 1, modifier = Modifier.midiConnectionSemantics(midi)) {
+                        MidiConnectionIcon(midi)
                     }
                     TextButton(onClick = account, modifier = Modifier.heightIn(min = 48.dp)) {
                         Text(if (state.user != null) "Account" else "Sign in", maxLines = 1, overflow = TextOverflow.Ellipsis)

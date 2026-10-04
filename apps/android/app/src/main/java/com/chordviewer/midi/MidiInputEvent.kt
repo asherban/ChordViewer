@@ -3,7 +3,7 @@ package com.chordviewer.midi
 /** Ordered transport events. Authoring must consume these, never a coalesced screen snapshot. */
 sealed interface MidiInputEvent {
     data class Bytes(val data: IntArray) : MidiInputEvent
-    data class Reset(val connected: Boolean = false, val reason: String = "MIDI entry paused. Reconnect and arm when ready.") : MidiInputEvent
+    data class Reset(val connected: Boolean = false, val reason: String = "MIDI entry paused. Resume when ready.") : MidiInputEvent
 }
 
 /** Single-owner bounded handoff. Overflow invalidates all queued gesture history. */
@@ -13,7 +13,7 @@ class OrderedMidiEventBuffer(private val capacity: Int = 1024) {
     fun offer(event: MidiInputEvent): Boolean {
         if (events.size >= capacity) {
             events.clear()
-            events.addLast(MidiInputEvent.Reset(false, "MIDI input was too fast. Reconnect and arm entry again."))
+            events.addLast(MidiInputEvent.Reset(false, "MIDI input was too fast. Entry paused."))
             return false
         }
         events.addLast(event)

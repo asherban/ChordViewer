@@ -11,19 +11,20 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import org.json.JSONObject
 
-internal data class NativeMidiSource(val device: MidiDeviceInfo, val port: Int, val identity: String,
-    val computer: Boolean, val strongIdentity: Boolean, val label: String)
+internal data class NativeMidiSource(val device: MidiDeviceInfo, val port: Int,
+    val computer: Boolean, val label: String) {
+    val id: String get() = device.id.toString()
+}
 internal data class NativeMidiUpdate(val sources: List<NativeMidiSource> = emptyList(),
-    val status: String = "Choose a USB MIDI input", val connected: Boolean = false,
-    val snapshot: MidiSnapshot = MidiSnapshot(), val hasSelection: Boolean = false)
+    val status: String = "No MIDI device connected", val connected: Boolean = false,
+    val snapshot: MidiSnapshot = MidiSnapshot(), val selectedId: String? = null)
 
 /** Owns one native port. Discovery and lifetime run on main; copied byte delivery is bounded. */
 internal class NativeMidiInput(context: Context, private val onInput: (MidiInputEvent) -> Unit,
+    private val selection: MidiDeviceSelection = MidiDeviceSelection(),
     private val onUpdate: (NativeMidiUpdate) -> Unit) {
     private val manager = context.getSystemService(MidiManager::class.java)
-    private val preferences = context.getSharedPreferences("midi-input", Context.MODE_PRIVATE)
     private val main = Handler(Looper.getMainLooper())
     private val gate = Any()
     private val events = OrderedMidiEventBuffer()
@@ -32,21 +33,18 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
     private var session: MidiInputSession? = null
     private var device: MidiDevice? = null
     private var port: MidiOutputPort? = null
-    private var selectedId: Int? = null
-    private var knownId: Int? = null
-    private var selected = preferences.getString("source", null)
-    private var ambiguousIdentity = preferences.getBoolean("ambiguous", false)
-    private var reconnect = preferences.getBoolean("reconnect", false)
+    private var boundId: String? = null
+    private var retryDelay = 1000L
+    private val retry = Runnable { discover() }
     private var active = false
     private var closed = false
     private var sources = emptyList<NativeMidiSource>()
-    private var status = "Choose a USB MIDI input"
+    private var status = "No MIDI device connected"
 
     private val observer = object : MidiManager.DeviceCallback() {
         override fun onDeviceAdded(info: MidiDeviceInfo) { discover() }
         override fun onDeviceRemoved(info: MidiDeviceInfo) {
-            if (knownId == info.id) knownId = null
-            if (selectedId == info.id) closePort("MIDI device removed. Entry paused.")
+            if (boundId == info.id.toString()) closePort("MIDI device removed. Entry paused.")
             discover()
         }
     }
@@ -65,31 +63,16 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
         if (closed || active == enabled) return
         active = enabled
         main.removeCallbacks(watchdog)
+        main.removeCallbacks(retry)
         if (enabled) { discover(); main.post(watchdog) }
         else closePort("MIDI suspended. Entry paused.")
     }
 
-    fun select(source: NativeMidiSource) {
-        if (source !in sources) return
+    fun select(id: String) {
+        if (closed || !selection.select(id) || boundId == id) return
         closePort("MIDI source changed. Entry paused.")
-        ambiguousIdentity = (selected == source.identity && ambiguousIdentity) || sources.count { it.identity == source.identity } > 1
-        selected = source.identity
-        knownId = source.device.id
-        reconnect = true
-        preferences.edit().putString("source", selected).putBoolean("reconnect", true).putBoolean("ambiguous", ambiguousIdentity).apply()
+        retryDelay = 1000L
         discover()
-    }
-
-    fun connect() {
-        reconnect = true
-        preferences.edit().putBoolean("reconnect", true).apply()
-        discover()
-    }
-
-    fun disconnect() {
-        reconnect = false
-        preferences.edit().putBoolean("reconnect", false).apply()
-        closePort("Disconnected. Choose Connect to reconnect.")
     }
 
     fun clear() = synchronized(gate) { session?.clear()?.let { offer(it) } }
@@ -99,6 +82,7 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
         closed = true
         manager?.unregisterDeviceCallback(observer)
         main.removeCallbacks(watchdog)
+        main.removeCallbacks(retry)
     }
 
     @Suppress("DEPRECATION")
@@ -107,41 +91,26 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
         sources = if (manager == null) emptyList() else {
             val devices = if (Build.VERSION.SDK_INT >= 33)
                 manager.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM) else manager.devices.toList()
-            devices.filter { it.type == MidiDeviceInfo.TYPE_USB }.flatMap { info ->
-                info.ports.filter { it.type == MidiDeviceInfo.PortInfo.TYPE_OUTPUT }.map { candidate ->
+            // One input per physical device. Multi-port keyboards must not inflate the device count.
+            devices.filter { it.type == MidiDeviceInfo.TYPE_USB }.sortedBy { it.id }.mapNotNull { info ->
+                info.ports.filter { it.type == MidiDeviceInfo.PortInfo.TYPE_OUTPUT }.minByOrNull { it.portNumber }?.let { candidate ->
                     val properties = info.properties
                     val usb = properties.getParcelable<UsbDevice>(MidiDeviceInfo.PROPERTY_USB_DEVICE)
                     val computer = usb == null
-                    val serial = properties.getString(MidiDeviceInfo.PROPERTY_SERIAL_NUMBER).orEmpty()
                     val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME).orEmpty()
-                    val identity = JSONObject().put("name", name)
-                        .put("manufacturer", properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER).orEmpty())
-                        .put("product", properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT).orEmpty())
-                        .put("serial", serial).put("vendor", usb?.vendorId ?: -1).put("usbProduct", usb?.productId ?: -1)
-                        .put("computer", computer).put("port", candidate.portNumber).toString()
-                    NativeMidiSource(info, candidate.portNumber, identity, computer, computer || serial.isNotBlank(),
-                        "${if (computer) "Computer via USB" else name.ifBlank { "USB MIDI device" }} · port ${candidate.portNumber + 1}")
+                    NativeMidiSource(info, candidate.portNumber, computer,
+                        if (computer) "Computer via USB" else name.ifBlank { "USB MIDI device" })
                 }
             }
         }
-        val matches = sources.filter { it.identity == selected }
-        if (matches.size > 1 && !ambiguousIdentity) {
-            ambiguousIdentity = true
-            preferences.edit().putBoolean("ambiguous", true).apply()
-        }
-        // A user's explicit choice is valid for this attachment, even among identical devices.
-        val explicit = matches.singleOrNull { it.device.id == knownId }
-        val source = explicit ?: matches.singleOrNull()
-        if (selectedId != null && source?.device?.id != selectedId)
-            closePort("MIDI identity changed or is ambiguous. Select the input again.")
-        if (active && reconnect && selectedId == null) {
+        val selectedId = selection.update(sources.map { it.id })
+        val source = sources.firstOrNull { it.id == selectedId }
+        if (boundId != null && boundId != selectedId) closePort("MIDI source changed. Entry paused.")
+        if (active && boundId == null) {
+            main.removeCallbacks(retry)
             when {
                 manager == null -> status = "MIDI is unavailable on this device"
-                selected == null -> status = "Choose a USB MIDI input"
-                matches.isEmpty() -> status = "Waiting for the selected USB MIDI input"
-                source == null -> status = "Several inputs match. Select the input again."
-                ambiguousIdentity && source.device.id != knownId -> status = "Input identity was ambiguous. Select it again."
-                !source.strongIdentity && source.device.id != knownId -> status = "Input has no stable identity. Select it again."
+                source == null -> status = "No MIDI device connected"
                 else -> open(source)
             }
         }
@@ -150,18 +119,19 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
 
     private fun open(source: NativeMidiSource) {
         val current = synchronized(gate) { ++generation }
-        selectedId = source.device.id
+        boundId = source.id
         status = "Opening ${source.label}…"
         try {
             manager?.openDevice(source.device, { opened ->
                 if (!active || closed || current != synchronized(gate) { generation }) {
                     runCatching { opened?.close() }; return@openDevice
                 }
-                if (opened == null) { closePort("Cannot open MIDI input. Choose Connect to retry."); return@openDevice }
+                if (opened == null) { retryConnection("Cannot open MIDI input."); return@openDevice }
                 try {
                     val output = opened.openOutputPort(source.port) ?: error("Port unavailable")
                     device = opened
                     port = output
+                    retryDelay = 1000L
                     synchronized(gate) {
                         session = MidiInputSession(source.computer)
                         status = if (source.computer) "Computer via USB · waiting for router" else "Connected · ${source.label}"
@@ -182,9 +152,18 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
                             }
                         }
                     })
-                } catch (_: Exception) { runCatching { opened.close() }; closePort("MIDI port failed. Choose Connect to retry.") }
+                } catch (_: Exception) { runCatching { opened.close() }; retryConnection("MIDI port failed.") }
             }, main)
-        } catch (_: Exception) { closePort("Cannot open MIDI input. Choose Connect to retry.") }
+        } catch (_: Exception) { retryConnection("Cannot open MIDI input.") }
+    }
+
+    private fun retryConnection(reason: String) {
+        closePort("$reason Retrying automatically.")
+        main.removeCallbacks(retry)
+        if (active && !closed) {
+            main.postDelayed(retry, retryDelay)
+            retryDelay = (retryDelay * 2).coerceAtMost(5000L)
+        }
     }
 
     private fun closePort(reason: String) {
@@ -195,7 +174,7 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
             status = reason
         }
         val previousPort = port; val previousDevice = device
-        port = null; device = null; selectedId = null
+        port = null; device = null; boundId = null
         runCatching { previousPort?.close() }; runCatching { previousDevice?.close() }
         onInput(MidiInputEvent.Reset(false, reason))
         publish()
@@ -212,8 +191,7 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
                 // Close on main without sending any more old gesture history.
                 val expected = generation
                 main.post { if (expected == synchronized(gate) { generation }) {
-                    reconnect = false
-                    closePort("MIDI input overflow. Choose Connect to retry.")
+                    retryConnection("MIDI input overflow. Entry paused.")
                 } }
                 break
             }
@@ -231,6 +209,6 @@ internal class NativeMidiInput(context: Context, private val onInput: (MidiInput
 
     private fun publish() = synchronized(gate) {
         onUpdate(NativeMidiUpdate(sources, status, session?.ready == true,
-            session?.snapshot ?: MidiSnapshot(), selected != null))
+            session?.snapshot ?: MidiSnapshot(), selection.selectedId))
     }
 }

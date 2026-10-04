@@ -1,13 +1,16 @@
 package com.chordviewer
 
-import androidx.compose.runtime.Composable
 import com.chordviewer.midi.MidiSnapshot
 
-/** The app shell owns this transport state; opening or closing its controls never owns the connection. */
+data class MidiDeviceOption(val id: String, val label: String)
+
+/** Opening the device picker never owns or resets the input connection. */
 class MidiInputState(
     val snapshot: MidiSnapshot,
     val status: String,
     val connected: Boolean,
-    val disconnect: () -> Unit,
-    val controls: @Composable () -> Unit,
+    val clear: () -> Unit,
+    val select: (String) -> Unit,
+    val devices: List<MidiDeviceOption> = emptyList(),
+    val selectedId: String? = null,
 )

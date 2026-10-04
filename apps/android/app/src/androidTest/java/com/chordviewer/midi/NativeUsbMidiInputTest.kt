@@ -18,7 +18,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Opt-in native product acceptance. Uses an unsaved sample and restores only its MIDI preferences. */
+/** Opt-in native product acceptance. Uses an unsaved sample and automatic device selection. */
 @RunWith(AndroidJUnit4::class)
 class NativeUsbMidiInputTest {
     @Test fun usbInputHealthGesturesAndActivityReuse() {
@@ -27,8 +27,6 @@ class NativeUsbMidiInputTest {
         val context = instrumentation.targetContext
         val phase = File(context.filesDir, "usb-midi-acceptance.phase")
         val evidence = File(context.filesDir, "usb-midi-acceptance.txt")
-        val preferences = context.getSharedPreferences("midi-input", android.content.Context.MODE_PRIVATE)
-        val saved = preferences.all.toMap()
         var input: NativeMidiInput? = null
         val update = AtomicReference(NativeMidiUpdate())
         val completed = mutableListOf<List<Int>>()
@@ -68,7 +66,11 @@ class NativeUsbMidiInputTest {
                 input!!.foreground(true)
             }
             await("USB source") { update.get().sources.any { it.computer } }
-            instrumentation.runOnMainSync { input!!.select(update.get().sources.single { it.computer }) }
+            // A single attached device requires no selection or Connect action.
+            instrumentation.runOnMainSync {
+                assertEquals(1, update.get().sources.size)
+                assertEquals(update.get().sources.single().id, update.get().selectedId)
+            }
             await("router heartbeat") { update.get().connected }
             instrumentation.runOnMainSync { capture.arm() }
             phase.writeText("ready")
@@ -83,22 +85,17 @@ class NativeUsbMidiInputTest {
             phase.writeText("timeout-pass")
             await("router recovery") { update.get().connected }
             instrumentation.runOnMainSync { assertFalse(capture.armed); assertTrue(update.get().snapshot.held.isEmpty()) }
-            input!!.let { instrumentation.runOnMainSync { it.disconnect(); it.foreground(false); it.foreground(true) } }
+            instrumentation.runOnMainSync { input!!.foreground(false) }
             assertFalse(update.get().connected)
-            evidence.writeText("PASS: native USB triad, sustain release, channel separation, ordered main-thread gestures, router timeout/recovery, explicit entry pause, manual disconnect, same Activity and LibraryViewModel after reuse.\n")
+            assertEquals(MidiSnapshot(), update.get().snapshot)
+            instrumentation.runOnMainSync { input!!.foreground(true) }
+            await("automatic foreground reconnect") { update.get().connected }
+            instrumentation.runOnMainSync { assertFalse(capture.armed) }
+            evidence.writeText("PASS: automatic native USB connection, triad, sustain release, channel separation, ordered main-thread gestures, router timeout/recovery, explicit entry pause, automatic foreground reconnect, same Activity and LibraryViewModel after reuse.\n")
             phase.writeText("done")
         } finally {
             instrumentation.runOnMainSync {
                 input?.close()
-                val restore = preferences.edit().clear()
-                saved.forEach { (key, value) -> when (value) {
-                    is String -> restore.putString(key, value)
-                    is Boolean -> restore.putBoolean(key, value)
-                    is Int -> restore.putInt(key, value)
-                    is Long -> restore.putLong(key, value)
-                    is Float -> restore.putFloat(key, value)
-                } }
-                restore.commit()
                 activity.finish()
             }
         }
