@@ -102,6 +102,8 @@ Android startup retries an explicit Activity Manager timeout up to three attempt
 
 ## Start only the web client and API
 
+For Android testing over ordinary Wi-Fi/LAN, use `-DevHost <PC-private-IP>` on both the backend and testing launchers. The debug APK receives its server address at build time and connects without backend ADB forwarding. See [LAN setup, firewall access and release safeguards](docs/development/lan-development.md). Production APK/bundle packaging is blocked until an approved HTTPS origin is configured.
+
 Start Docker Desktop, then run in the initialized terminal:
 
 ```powershell
@@ -213,7 +215,7 @@ In a development PowerShell from the repository root:
 ```powershell
 . .\scripts\development\Initialize-AndroidEnvironment.ps1
 .\scripts\development\Test-Prerequisites.ps1 -RequireContainers
-.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:assembleDebug :app:compileReleaseKotlin :app:verifyReleaseIsolation :app:assembleDebugAndroidTest
 .\apps\android\gradlew.bat -p apps/android --stop
 ```
 
@@ -224,7 +226,7 @@ Finish builds and stop Gradle daemons before booting the emulator on this 16 GB 
 If other applications leave little free memory, this verified alternative uses one smaller compiler JVM for the invocation:
 
 ```powershell
-.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:assembleRelease
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:compileReleaseKotlin :app:verifyReleaseIsolation
 ```
 
 It can take several minutes and does not change project defaults. Keep the emulator stopped until it completes.

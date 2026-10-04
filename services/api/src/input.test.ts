@@ -101,4 +101,16 @@ describe('explicit local deployment', () => {
     expect(() => configuration({ ...local, AUTH_BASE_URL: url })).toThrow();
     expect(() => configuration({ ...local, TRUSTED_ORIGINS: url })).toThrow();
   });
+  it('allows only the explicitly selected LAN API origin and retains browser origin checks', () => {
+    const url = 'http://192.168.1.50:3000';
+    expect(() => configuration({ ...local, AUTH_BASE_URL: url })).toThrow();
+    expect(configuration({ ...local, DEV_API_ORIGIN: url, AUTH_BASE_URL: url }).authBaseUrl).toBe(url);
+    for (const other of ['http://192.168.1.51:3000', 'http://192.168.1.50:3001', 'http://192.168.1.50:5173']) {
+      expect(() => configuration({ ...local, DEV_API_ORIGIN: url, AUTH_BASE_URL: other })).toThrow();
+      expect(() => configuration({ ...local, DEV_API_ORIGIN: url, TRUSTED_ORIGINS: other })).toThrow();
+    }
+    for (const invalid of ['http://8.8.8.8:3000', 'http://0.0.0.0:3000', 'http://example.com', url + '/path', 'http://user:secret@192.168.1.50:3000']) {
+      expect(() => configuration({ ...local, DEV_API_ORIGIN: invalid })).toThrow();
+    }
+  });
 });

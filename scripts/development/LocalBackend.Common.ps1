@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'DevelopmentEndpoint.Common.ps1')
 
 function Get-LocalBackendSettings {
     param([ValidateSet('development', 'test')][string]$Environment)
@@ -69,8 +70,17 @@ function Test-LocalBackendEnvironment {
 }
 
 function Invoke-LocalBackendCompose {
-    param([Parameter(Mandatory)]$Settings, [Parameter(Mandatory)][string[]]$Arguments)
+    param([Parameter(Mandatory)]$Settings, [Parameter(Mandatory)][string[]]$Arguments, [string]$DevHost)
     Test-LocalBackendEnvironment -Settings $Settings
+    $lanArguments = @()
+    if ($DevHost) {
+        Assert-DevelopmentHost $DevHost -RequireLocalAddress
+        $origin = Get-DevelopmentApiOrigin $DevHost $Settings.Port
+        $overlay = Join-Path $Settings.Directory "$($Settings.Project)-lan.yaml"
+        if ((Test-Path -LiteralPath $overlay) -and ((Get-Item -LiteralPath $overlay -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'LAN configuration cannot be a link.' }
+        [IO.File]::WriteAllText($overlay, "services:`n  api:`n    environment:`n      DEV_API_ORIGIN: '$origin'`n      AUTH_BASE_URL: '$origin'`n    ports:`n      - '${DevHost}:$($Settings.Port):3000'`n", [Text.UTF8Encoding]::new($false))
+        $lanArguments = @('--file', $overlay)
+    }
     # An explicit env file bypasses the repository's unrelated private .env.
     # Shell values normally outrank --env-file, so temporarily remove only our own keys.
     $keys = @('CHORDVIEWER_API_PORT', 'CHORDVIEWER_DB_PASSWORD', 'CHORDVIEWER_DB_ADMIN_PASSWORD', 'CHORDVIEWER_AUTH_SECRET', 'COMPOSE_ENV_FILES', 'COMPOSE_PROFILES')
@@ -80,7 +90,7 @@ function Invoke-LocalBackendCompose {
             $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
             Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue
         }
-        & docker compose --project-name $Settings.Project --env-file $Settings.EnvFile --file $Settings.ComposeFile @Arguments
+        & docker compose --project-name $Settings.Project --env-file $Settings.EnvFile --file $Settings.ComposeFile @lanArguments @Arguments
         if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed with exit code $LASTEXITCODE for $($Settings.Project)." }
     } finally {
         foreach ($key in $keys) {

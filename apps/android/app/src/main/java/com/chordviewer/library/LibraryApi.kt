@@ -6,6 +6,8 @@ import java.net.HttpURLConnection
 import java.net.URI
 import org.json.JSONObject
 import com.chordviewer.score.*
+import com.chordviewer.ApiConfiguration
+import com.chordviewer.EndpointPolicy
 
 class ApiFailure(val status: Int, val userMessage: String, val code: String? = null) : Exception(userMessage)
 
@@ -118,11 +120,10 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
     companion object {
         internal const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
         internal fun validateOrigin(value: String, allowLoopbackHttp: Boolean): String {
-            val uri = URI(value)
-            require(uri.userInfo == null && uri.query == null && uri.fragment == null && uri.path.orEmpty() in listOf("", "/"))
-            require(uri.host != null && uri.port in -1..65535 && uri.port != 0)
-            require(uri.scheme == "https" || (allowLoopbackHttp && uri.scheme == "http" && uri.host == "127.0.0.1"))
-            return value.removeSuffix("/")
+            val origin = EndpointPolicy.origin(value)
+            require(URI(origin).scheme == "https" || (allowLoopbackHttp && ApiConfiguration.permitsHttp(origin)))
+            ApiConfiguration.requireAllowedOrigin(origin)
+            return origin
         }
         internal fun validToken(value: String): Boolean = value.length in 1..4096 && value.all { it.code in 0x21..0x7e }
         internal fun readBounded(input: InputStream): ByteArray {

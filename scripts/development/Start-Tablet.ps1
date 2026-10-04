@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('\A[A-Za-z0-9._:-]+\z')][string]$Serial,
     [ValidateRange(-1, 65535)][int]$MidiOutputId = -1,
     [ValidateRange(1, 65535)][int]$BackendPort = 3000,
+    [string]$DevHost,
     [switch]$InstallApk,
     [switch]$SkipBuild,
     [ValidateRange(0, 86400)][int]$DurationSeconds = 0
@@ -10,6 +11,8 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Initialize-AndroidEnvironment.ps1')
 . (Join-Path $PSScriptRoot 'TabletUsb.Common.ps1')
+. (Join-Path $PSScriptRoot 'DevelopmentEndpoint.Common.ps1')
+$apiOrigin = Get-DevelopmentApiOrigin $DevHost $BackendPort
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $usb = $null; $router = $null; $stopFile = $null; $tabletLock = $null
 try {
@@ -27,14 +30,25 @@ try {
     catch { throw 'Another tablet session owns this device. It was not changed.' }
     if ($InstallApk) {
         if (-not $SkipBuild) {
-            & (Join-Path $repository 'apps/android/gradlew.bat') -p (Join-Path $repository 'apps/android') --no-daemon --max-workers=1 :app:assembleDebug
+            & (Join-Path $repository 'apps/android/gradlew.bat') -p (Join-Path $repository 'apps/android') --no-daemon --max-workers=1 "-PdevApiUrl=$apiOrigin" :app:assembleDebug
             if ($LASTEXITCODE -ne 0) { throw 'Android build failed.' }
         }
         $apk = Join-Path $repository 'apps/android/app/build/outputs/apk/debug/app-debug.apk'
+        Assert-DebugApkOrigin $apk $apiOrigin
         $null = Invoke-TabletAdb $Serial @('install', '-r', '-t', $apk) -TimeoutSeconds 90
+    } else {
+        # Check the installed APK itself, not a potentially newer workstation build.
+        $packagePath = (Invoke-TabletAdb $Serial @('shell', 'pm', 'path', 'com.chordviewer.debug')).Text
+        $baseApk = @($packagePath -split '\r?\n' | Where-Object { $_ -match '^package:.*base\.apk$' })
+        if ($baseApk.Count -ne 1) { throw 'Install the debug app with -InstallApk first.' }
+        $inspectionApk = Join-Path $stateDirectory ([Guid]::NewGuid().ToString() + '.apk')
+        try {
+            $null = Invoke-TabletAdb $Serial @('pull', $baseApk[0].Substring(8), $inspectionApk) -TimeoutSeconds 60
+            Assert-DebugApkOrigin $inspectionApk $apiOrigin
+        } finally { if (Test-Path -LiteralPath $inspectionApk) { Remove-Item -LiteralPath $inspectionApk } }
     }
     # Capture settings after potentially lengthy build/install work, immediately before mutation.
-    $usb = New-TabletUsbContext $Serial $BackendPort
+    $usb = New-TabletUsbContext $Serial $BackendPort -UseReverse (-not [bool]$DevHost)
     Enable-TabletUsbMidi $usb
     # No -S: ordinary MIDI reconnect must not force-stop an existing Activity or editor.
     $launch = Invoke-TabletAdb $Serial @('shell', 'am', 'start', '-W', '--activity-single-top', '--activity-clear-top', '-n', 'com.chordviewer.debug/com.chordviewer.MainActivity') -TimeoutSeconds 30
@@ -49,12 +63,13 @@ try {
     $log = Join-Path $repository '.local/usb-midi-tablet.log'
     $router = [ChordViewer.Testing.ChildProcess]::new($powershell, $arguments, $repository, $log)
     Write-Host 'Tablet session running. Choose its USB MIDI input in ChordViewer on first use. Press Ctrl+C to stop.'
-    Write-Host 'Uses your running local backend. MIDI travels through USB; backend forwarding is maintained separately.'
+    Write-Host "API: $apiOrigin. MIDI travels through USB."
+    if ($DevHost) { Write-Host 'API traffic uses the LAN; this session does not maintain a backend ADB reverse mapping.' }
     $timer = [Diagnostics.Stopwatch]::StartNew(); $sync = 0L
     while ($DurationSeconds -eq 0 -or $timer.Elapsed.TotalSeconds -lt $DurationSeconds) {
         while ($null -ne ($line = $router.ReadLine())) { Write-Host $line }
         if ($router.HasExited) { throw "USB MIDI router stopped. Inspect $log; choose its tablet destination with -MidiOutputId on first use." }
-        if ($timer.ElapsedMilliseconds - $sync -ge 1000) {
+        if (-not $DevHost -and $timer.ElapsedMilliseconds - $sync -ge 1000) {
             $null = Sync-TabletBackend $usb
             $sync = $timer.ElapsedMilliseconds
         }

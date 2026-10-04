@@ -68,4 +68,22 @@ jobs:
       - name: Install Android build packages
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Check native client
-        run: bash apps/android/gradlew -p apps/android --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+        run: bash apps/android/gradlew -p apps/android --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:verifyReleaseIsolation -PdevApiUrl=http://192.168.254.253:3000
+      - name: Enforce production packaging boundary
+        shell: bash
+        run: |
+          if [ -n "$(tr -d '[:space:]' < apps/android/production-api-origin.txt)" ]; then
+            bash apps/android/gradlew -p apps/android --no-daemon :app:assembleRelease :app:bundleRelease -PdevApiUrl=http://192.168.254.253:3000
+          else
+            for task in assembleRelease bundleRelease; do
+              if bash apps/android/gradlew -p apps/android --no-daemon ":app:$task" -PdevApiUrl=http://192.168.254.253:3000 > release-guard.log 2>&1; then
+                echo "ERROR: $task succeeded without an approved production endpoint."
+                exit 1
+              fi
+              if ! grep -q 'Production packaging is blocked: approve an HTTPS origin' release-guard.log; then
+                cat release-guard.log
+                exit 1
+              fi
+              echo "$task correctly blocked until a production origin is approved."
+            done
+          fi

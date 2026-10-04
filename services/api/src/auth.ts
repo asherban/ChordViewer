@@ -12,7 +12,7 @@ export function createAuth(pool: Pool, config: Configuration) {
     session: { expiresIn: 86_400, updateAge: 3_600, cookieCache: { enabled: false } },
     plugins: [bearer({ requireSignature: true })],
     advanced: {
-      useSecureCookies: false, // configuration() refuses non-loopback deployment; HTTPS is a later milestone.
+      useSecureCookies: false, // Explicit local HTTP deployment only; public HTTPS hosting remains unconfigured.
       cookiePrefix: 'chordviewer', defaultCookieAttributes: { httpOnly: true, sameSite: 'lax', path: '/' },
       ipAddress: { ipAddressHeaders: ['x-chordviewer-client-ip'] },
     },

@@ -41,7 +41,9 @@ Choose **Library → ⋮ → Import** and select an uncompressed `.json`, `.xml`
 
 Use **Sheet details → Export ChordViewer JSON** to save the current draft through Android's create-document picker. JSON preserves the exact score, including key, meter, timing and ties. Exporting does not save the draft to your library and does not include account credentials or the separately stored tutorial URL. Files use UTF-8; import rejects malformed JSON/XML, DTDs/entities, excessive nesting and unsupported score data.
 
-Only the debug source set permits HTTP, restricted to `127.0.0.1` through `adb reverse`. Release networking requires HTTPS and has no API origin configured until public hosting is selected. Redirects are rejected so credentials cannot follow a server redirect to another host. Requests have connection/read timeouts; response reads stop at 2 MiB and score writes at 1 MiB. Android's normal certificate verification applies to HTTPS.
+The debug API origin is selected at build time with `-PdevApiUrl=http://<private-ip>:3000`, or through the launchers' `-DevHost` option. Without an override it uses `127.0.0.1:3000` through `adb reverse`. Debug HTTP permits only the selected host and loopback. [LAN development](../../docs/development/lan-development.md) covers installation, test port 3001, firewall access and endpoint checks. Recovery copies stay with their API origin; changing origin requires signing in again.
+
+Release accepts only the reviewed HTTPS origin in `production-api-origin.txt`, prohibits HTTP and rejects endpoint overrides. That file is intentionally empty, so APK and bundle production packaging are blocked until hosting is selected. CI verifies release isolation even with a development property supplied. Redirects are rejected so credentials cannot follow a server redirect to another host. Requests have connection/read timeouts; response reads stop at 2 MiB and score writes at 1 MiB. Android's normal certificate verification applies to HTTPS.
 
 The implementation separates `library/LibraryApi.kt` (bounded HTTP), `LibraryModels.kt` (validated contracts), `LibraryViewModel.kt` (session and request lifetime), and `LibraryScreen.kt` (Compose UI). It uses the platform HTTP client and the existing AndroidX lifecycle family; no third-party HTTP or credential-storage implementation was added.
 
@@ -65,14 +67,14 @@ The test checks an empty account, example and keyed/metered blank creation, impo
 Open this directory in Android Studio or use the checked-in Gradle wrapper. Install Android SDK platform 35 and build tools 35.0.0. Point `ANDROID_HOME` to the SDK and `JAVA_HOME` to **JDK 21**, which the repository's development setup installs separately. Select the same JDK for Gradle in Android Studio; its bundled runtime may be newer than this build supports. A generated `local.properties` file may contain the SDK path; it is ignored.
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease
+.\gradlew.bat :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:assembleDebug :app:compileReleaseKotlin :app:verifyReleaseIsolation
 ```
 
 If other applications leave little free memory on a 16 GB machine, build before starting the emulator and use a single compiler JVM. From the repository root in PowerShell:
 
 ```powershell
 . .\scripts\development\Initialize-AndroidEnvironment.ps1
-.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:assembleRelease
+.\apps\android\gradlew.bat -p apps/android --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' '-Pkotlin.compiler.execution.strategy=in-process' :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:compileReleaseKotlin :app:verifyReleaseIsolation
 ```
 
 These options apply only to that invocation. Close memory-heavy applications if the build still runs out of memory; do not build while the emulator is running.

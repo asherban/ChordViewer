@@ -41,7 +41,7 @@ The Android helper changes only the current process environment:
 ```powershell
 . .\scripts\development\Initialize-AndroidEnvironment.ps1
 .\scripts\development\Test-Prerequisites.ps1 -RequireContainers
-.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:assembleDebug :app:compileReleaseKotlin :app:verifyReleaseIsolation :app:assembleDebugAndroidTest
 ```
 
 The first build downloads Gradle and Maven dependencies. Subsequent builds reuse the user's Gradle cache. On this 16 GB machine, finish the build before booting the emulator and release build-daemon memory with `apps/android/gradlew.bat -p apps/android --stop`. Build outputs, SDK paths, credentials and local test logs are ignored by version control.

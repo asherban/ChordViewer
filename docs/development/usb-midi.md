@@ -30,6 +30,8 @@ Later sessions reuse the built/installed app and remembered Windows destination:
 
 `-Environment test` routes the device's backend port 3000 to the running test API on host port 3001. `-InstallApk -SkipBuild` installs an existing APK. The focused `Start-Tablet.ps1` also accepts `-DurationSeconds` for bounded manual sessions.
 
+Add `-DevHost <PC-private-IP>` to use [LAN API access](lan-development.md) alongside USB MIDI. Use the same option when starting the backend. Rebuild and install the APK for that address; the launcher checks the installed or reused APK's endpoint. In LAN mode it does not create, monitor or restore the backend reverse mapping.
+
 The launcher owns a tablet lock before changing settings. It snapshots current/default USB settings and mappings immediately before selecting MIDI, verifies effective state after USB re-enumeration, maintains backend forwarding through reconnect, and refuses mapping conflicts. Activity launch reuses the existing instance without force-stop. Normal shutdown requests router cleanup, restores the previous USB function if it still owns that change, and restores original mappings. The default USB function is never changed. Killing the launcher or losing ADB during cleanup can leave temporary USB/backend resources in place; the router stops when its captured parent exits, and the launcher reports cleanup failures when it can.
 
 ## Native operation

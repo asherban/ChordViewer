@@ -22,7 +22,7 @@ Invoke-RestMethod http://127.0.0.1:3000/health
 
 Run `Start-LocalBackend.ps1` again after backend or dependency changes. It builds the current source, starts containers, applies the application's explicit database migrations, and waits for a healthy API. Existing database data and generated credentials are retained. Running it again without changes is safe.
 
-The web development server runs on the host and proxies requests to port 3000. Open its canonical URL, `http://127.0.0.1:5173`; authentication allows that browser origin. The Android debug app reaches host port 3000 through `adb reverse tcp:3000 tcp:3000`. The backend is reachable only through the host's loopback interface, and PostgreSQL has no published host port.
+The web development server runs on the host and proxies requests to port 3000. Open its canonical URL, `http://127.0.0.1:5173`; authentication allows that browser origin. By default, the Android debug app reaches host port 3000 through `adb reverse tcp:3000 tcp:3000` and the backend publishes only loopback. `Start-LocalBackend.ps1 -DevHost <private-ip>` additionally publishes the API on that specific local LAN address. PostgreSQL has no published host port. See [LAN development and release isolation](lan-development.md).
 
 ## Independent test backend
 

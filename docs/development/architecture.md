@@ -5,7 +5,7 @@ The root [README](../../README.md) is the developer command reference. Product i
 ## Boundaries
 
 - `apps/web` is a React client with same-origin cookie authentication, a personal Library and explicit full-score saving. Web MIDI sends every ordered message to a synchronous score draft store for both entry lanes, independently of React's display updates. Create explicitly arms insertion; Practice and anonymous examples are read-only.
-- `services/api` is a TypeScript/Fastify process with Better Auth and PostgreSQL. Every sheet operation scopes queries to the authenticated owner. Revision checks prevent stale saves. Compose publishes only `127.0.0.1:3000` (development) or `127.0.0.1:3001` (test); PostgreSQL has no host port.
+- `services/api` is a TypeScript/Fastify process with Better Auth and PostgreSQL. Every sheet operation scopes queries to the authenticated owner. Revision checks prevent stale saves. Compose publishes `127.0.0.1:3000` (development) or `127.0.0.1:3001` (test); explicit `-DevHost` startup also publishes that port on the chosen private LAN address. PostgreSQL has no host port.
 - `apps/android` is a native Kotlin/Compose client for the same account, Library and authoring operations, with a session held only in memory. It validates saved scores and draws notation using Canvas and a bundled music font. Ordered MIDI events feed its draft model through a bounded queue; live display updates may be coalesced without losing gestures. The local relay is debug-only.
 - `contracts` owns versioned JSON Schema, TypeScript validation, storage DTOs, OpenAPI and the canonical example. Android implements the same structural and musical rules in Kotlin. Both validators run a shared conformance matrix.
 

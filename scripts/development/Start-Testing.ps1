@@ -4,14 +4,17 @@ param(
     [ValidateRange(0.1, 10.0)][double]$Speed = 0.25,
     [switch]$SkipBuild,
     [switch]$Headless,
+    [string]$DevHost,
     [ValidatePattern('\A[A-Za-z0-9._:-]+\z')][string]$TabletSerial,
     [ValidateRange(-1, 65535)][int]$MidiOutputId = -1,
     [switch]$InstallApk
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'DevelopmentEndpoint.Common.ps1')
+Assert-DevelopmentHost $DevHost -RequireLocalAddress
 if ($TabletSerial) {
     $backendPort = if ($Environment -eq 'test') { 3001 } else { 3000 }
-    & (Join-Path $PSScriptRoot 'Start-Tablet.ps1') -Serial $TabletSerial -MidiOutputId $MidiOutputId -BackendPort $backendPort -InstallApk:$InstallApk -SkipBuild:$SkipBuild
+    & (Join-Path $PSScriptRoot 'Start-Tablet.ps1') -Serial $TabletSerial -MidiOutputId $MidiOutputId -BackendPort $backendPort -DevHost $DevHost -InstallApk:$InstallApk -SkipBuild:$SkipBuild
     return
 }
 if ($InstallApk -or $MidiOutputId -ge 0) { throw '-InstallApk and -MidiOutputId require -TabletSerial.' }
@@ -63,6 +66,7 @@ try {
     @{
         id = $sessionId; parentPid = $PID; parentStartTicks = $current.StartTime.ToUniversalTime().Ticks.ToString()
         environment = $Environment; speed = $Speed; skipBuild = [bool]$SkipBuild; headless = [bool]$Headless
+        devHost = $DevHost
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $session 'config.json') -Encoding UTF8
     if (-not ('ChordViewer.Testing.MenuInput' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'testing/ProcessHost.cs') }
     # ADB is shared workstation infrastructure, like Docker Desktop. Start it outside the workload job.

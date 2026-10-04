@@ -18,8 +18,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ApiConfiguration.initialize(applicationContext)
         val library = ViewModelProvider(this)[LibraryViewModel::class.java]
-        library.configureRecovery(FileRecoveryStore(File(noBackupFilesDir, "drafts")))
+        library.configureRecovery(FileRecoveryStore(File(noBackupFilesDir, EndpointPolicy.recoveryDirectory(requireNotNull(ApiConfiguration.baseUrl)))))
         ApiConfiguration.baseUrl?.let { library.configureSession(KeystoreSessionStore(applicationContext, it)) }
         assets.open("chord-vocabulary-v1.json").bufferedReader().use { library.configureChordVocabulary(it.readText()) }
         setContent {

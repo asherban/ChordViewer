@@ -19,6 +19,10 @@ $children = New-Object 'Collections.Generic.List[object]'
 $mappings = New-Object 'Collections.Generic.List[string]'
 $serial = 'emulator-5560'
 $settings = Get-LocalBackendSettings -Environment $config.environment
+$devHost = if ($config.PSObject.Properties['devHost']) { [string]$config.devHost } else { '' }
+Assert-DevelopmentHost $devHost -RequireLocalAddress
+$endpointArguments = if ($devHost) { @('-DevHost', $devHost) } else { @() }
+$apiOrigin = Get-DevelopmentApiOrigin $devHost $settings.Port
 $powershell = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
 $stage = Join-Path $PSScriptRoot 'Stage.ps1'
 $label = "com.chordviewer.testing-session=$($config.id)"
@@ -155,18 +159,19 @@ try {
     $null = Run-Child 'avd-profile' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repository 'scripts/development/Initialize-AndroidEmulator.ps1')) 60
     if (-not $config.skipBuild) {
         Publish 'building' 'Building contracts and the native debug app before booting the emulator.'
-        $null = Run-Child 'build' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'build') 600
+        $null = Run-Child 'build' $powershell (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'build', '-Environment', $config.environment) + $endpointArguments) 600
     }
     $apk = Join-Path $repository 'apps/android/app/build/outputs/apk/debug/app-debug.apk'
-    if (-not (Test-Path -LiteralPath $apk)) { throw 'Debug APK is missing. Run again without -SkipBuild.' }
+    Assert-DebugApkOrigin $apk $apiOrigin
     $override = "services:`n  api:`n    labels:`n      com.chordviewer.testing-session: '$($config.id)'`n  database:`n    labels:`n      com.chordviewer.testing-session: '$($config.id)'`nnetworks:`n  default:`n    labels:`n      com.chordviewer.testing-session: '$($config.id)'`n"
     [IO.File]::WriteAllText((Join-Path $SessionDirectory 'compose-session.yaml'), $override)
     Publish 'backend' 'Starting the local API and database; existing saved sheets are preserved.'
     # Builds may be lengthy. Refuse a backend started by another terminal during that time.
     Assert-BackendAvailable
     $backendIntent = $true
-    $null = Run-Child 'backend' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'backend', '-Environment', $config.environment, '-SessionDirectory', $SessionDirectory) 600
+    $null = Run-Child 'backend' $powershell (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'backend', '-Environment', $config.environment, '-SessionDirectory', $SessionDirectory) + $endpointArguments) 600
     Wait-Health "http://127.0.0.1:$($settings.Port)/health" 30
+    if ($devHost) { Wait-Health "$apiOrigin/health" 30 }
     Publish 'web' 'Starting the web development server.'
     Assert-FreePort 5173
     $web = Start-Child 'web' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'web', '-Environment', $config.environment)
@@ -189,8 +194,10 @@ try {
     }
     Publish 'android' 'Installing and opening the native app for UI and backend testing.'
     $null = Run-Child 'android-install' 'adb.exe' @('-s', $serial, 'install', '-r', '-t', $apk) 90
-    $null = Run-Child 'reverse-tcp-3000' 'adb.exe' @('-s', $serial, 'reverse', '--no-rebind', 'tcp:3000', "tcp:$($settings.Port)")
-    $mappings.Add('tcp:3000')
+    if (-not $devHost) {
+        $null = Run-Child 'reverse-tcp-3000' 'adb.exe' @('-s', $serial, 'reverse', '--no-rebind', 'tcp:3000', "tcp:$($settings.Port)")
+        $mappings.Add('tcp:3000')
+    }
     $null = Run-Child 'android-launch' $powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $stage, '-Stage', 'android', '-Serial', $serial) 60
     Publish 'browser' 'Opening the dedicated Chrome window and enabling real MIDI input.'
     $browserArgs = @((Join-Path $PSScriptRoot 'browser.mjs'), '--profile', (Join-Path $testing 'browser'))

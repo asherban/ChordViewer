@@ -37,14 +37,15 @@ function Restore-TabletMappings($Context) {
     }
 }
 
-function New-TabletUsbContext([string]$Serial, [int]$BackendPort) {
+function New-TabletUsbContext([string]$Serial, [int]$BackendPort, [bool]$UseReverse = $true) {
     if ($Serial -match '^emulator-' -or $Serial -notmatch '\A[A-Za-z0-9._:-]+\z') { throw 'Choose a physical USB tablet serial from adb devices.' }
     if ((Invoke-TabletAdb $Serial @('get-state')).Text -ne 'device') { throw 'Authorize USB debugging on the selected tablet first.' }
     $original = (Invoke-TabletAdb $Serial @('shell', 'getprop', 'sys.usb.config')).Text
     $default = (Invoke-TabletAdb $Serial @('shell', 'getprop', 'persist.sys.usb.config')).Text
     $mappings = @(Get-TabletReverseMappings $Serial)
     $backend = @($mappings | Where-Object { $_.Local -eq 'tcp:3000' })
-    if ($backend.Count -gt 0 -and $backend[0].Remote -ne "tcp:$BackendPort") { throw 'The tablet backend mapping conflicts with this session. It was not changed.' }
+    if ($UseReverse -and $backend.Count -gt 0 -and $backend[0].Remote -ne "tcp:$BackendPort") { throw 'The tablet backend mapping conflicts with this session. It was not changed.' }
+    if (-not $UseReverse) { $mappings = @($mappings | Where-Object { $_.Local -ne 'tcp:3000' }) }
     $functions = @($original -split ',' | Where-Object { $_ -and $_ -ne 'adb' }) -join ','
     if ($functions -notin @('', 'none', 'sec_charging', 'mtp', 'ptp', 'rndis', 'midi')) {
         throw 'The current USB function cannot be safely restored by this launcher. Select MIDI manually, then retry.'
@@ -52,7 +53,7 @@ function New-TabletUsbContext([string]$Serial, [int]$BackendPort) {
     if ($functions -eq 'sec_charging' -and $default -ne $original) {
         throw 'The current Samsung charging function differs from its default. Select MIDI manually, then retry.'
     }
-    return [pscustomobject]@{ Serial = $Serial; BackendPort = $BackendPort; OriginalUsb = $original;
+    return [pscustomobject]@{ Serial = $Serial; BackendPort = $BackendPort; UseReverse = $UseReverse; OriginalUsb = $original;
         OriginalDefault = $default; PreviousFunctions = $functions; OriginalMappings = $mappings;
         ChangedUsb = $false; ExpectedUsb = $null; OwnBackend = $false }
 }
@@ -82,6 +83,7 @@ function Enable-TabletUsbMidi($Context) {
 }
 
 function Sync-TabletBackend($Context) {
+    if (-not $Context.UseReverse) { return $true }
     try {
     $state = Invoke-TabletAdb $Context.Serial @('get-state') -AllowFailure -TimeoutSeconds 2
     if ($state.ExitCode -ne 0 -or $state.Text -ne 'device') { return $false }

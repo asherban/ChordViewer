@@ -9,6 +9,7 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
+/** Product transport tests use debug-only loopback fixtures; release rejects these destinations. */
 class LibraryApiTest {
     private fun consumeRequest(input: java.io.BufferedReader) {
         val headers = generateSequence { input.readLine() }.takeWhile { it.isNotEmpty() }.toList()
