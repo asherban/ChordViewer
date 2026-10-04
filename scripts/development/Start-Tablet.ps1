@@ -62,7 +62,7 @@ try {
     if ($MidiOutputId -ge 0) { $arguments += @('-Select', [string]$MidiOutputId) }
     $log = Join-Path $repository '.local/usb-midi-tablet.log'
     $router = [ChordViewer.Testing.ChildProcess]::new($powershell, $arguments, $repository, $log)
-    Write-Host 'Tablet session running. Choose its USB MIDI input in ChordViewer on first use. Press Ctrl+C to stop.'
+    Write-Host 'Tablet session running. ChordViewer connects to MIDI automatically; use the piano icon to choose among multiple devices. Press Ctrl+C to stop.'
     Write-Host "API: $apiOrigin. MIDI travels through USB."
     if ($DevHost) { Write-Host 'API traffic uses the LAN; this session does not maintain a backend ADB reverse mapping.' }
     $timer = [Diagnostics.Stopwatch]::StartNew(); $sync = 0L

@@ -85,7 +85,9 @@ The build pins AGP 8.13.2, Gradle 8.14.5, Kotlin / Compose compiler 2.3.21, Comp
 
 USB MIDI input is available in debug and release builds. A piano connects with the tablet as USB host. For computer input, the computer is host and Android exposes its own standard USB MIDI peripheral port; LoopBe is routed to that port by the Windows helper. See the [USB MIDI setup and verification guide](../../docs/development/usb-midi.md).
 
-For local development with the backend already running, use `scripts/development/Start-Testing.ps1 -TabletSerial <serial>`. First select the tablet's Windows destination with `-MidiOutputId <Id>` and its input in ChordViewer's MIDI controls. Later connections remember an unambiguous identity. `-InstallApk` explicitly builds and updates the debug app; ordinary MIDI reconnect preserves the existing Activity and ViewModel. The launcher temporarily enables USB MIDI, maintains backend forwarding separately, and restores its owned resources on normal shutdown. It starts no emulator.
+ChordViewer automatically connects to the first detected USB MIDI device. The piano icon in the navigation rail (or compact header) shows connection status. With more than one device, a count pill appears and tapping the icon opens a device picker. Selecting a row switches the input and closes the picker. New attachments do not replace the active input; removing it selects the first remaining device. Each device appears once, using its first receiving port. The selected attachment survives rotation. Connection failures retry automatically, and foreground return reconnects without rearming score entry.
+
+For local development with the backend already running, use `scripts/development/Start-Testing.ps1 -TabletSerial <serial>`. First select the tablet's Windows destination with `-MidiOutputId <Id>`; ChordViewer selects its input automatically. The Windows router remembers an unambiguous destination. `-InstallApk` explicitly builds and updates the debug app; ordinary MIDI reconnect preserves the existing Activity and ViewModel. The launcher temporarily enables USB MIDI, maintains backend forwarding separately, and restores its owned resources on normal shutdown. It starts no emulator.
 
 Outside the development launcher, select MIDI in Android's USB preferences and run the [Windows USB router](../../scripts/midi/README.md). MIDI requires no ADB, token, or network connection. The current debug backend still needs its independent ADB mapping.
 
@@ -101,7 +103,7 @@ adb -s emulator-5554 shell am start -W -n com.chordviewer.debug/com.chordviewer.
 
 These commands install the built debug APK, map the local backend and open ChordViewer. Use the actual serial from `adb devices` if it differs. The debug application ID is `com.chordviewer.debug`; its activity is `com.chordviewer.MainActivity`. The [root README](../../README.md) gives the full build, boot, test and shutdown commands.
 
-For live computer input, use the [physical USB workflow](../../docs/development/usb-midi.md). Connection ownership stays at the app root, so opening dialogs, switching modes and saving do not reset live held notes; they pause automatic writing and cancel incomplete entry. Native **Disconnect**, **Clear notes** and backgrounding clear state. MIDI does not create sound or send notes back to LoopBe.
+For live computer input, use the [physical USB workflow](../../docs/development/usb-midi.md). Connection ownership stays at the app root, so opening dialogs, switching modes and saving do not reset live held notes; they pause automatic writing and cancel incomplete entry. Device switching, device loss, sign-out and backgrounding clear live notes. There are no manual Connect, Disconnect or Clear notes controls. MIDI does not create sound or send notes back to LoopBe.
 
 ## Boundaries and tests
 
@@ -115,6 +117,14 @@ Native USB input delivers every ordered musical event to the common gesture engi
 M1 builds, 17 JVM tests and real LoopBe/emulator instrumentation passed on 2026-09-20. See the [verification record](../../docs/development/m1-verification.md) and [local setup guide](../../docs/development/local-setup.md) for the tested hardware-graphics AVD. A successful loopback run covers application input behavior; it does not verify a physical tablet's USB/Bluetooth compatibility.
 
 Native shell and chord-authoring acceptance use `MidiProductFixture` in the test APK to supply musical events. They verify the real product model and native UI without shipping test input in the app. Native transport and live-note cards require the separate USB hardware check.
+
+After installing the debug and test APKs on an emulator, run the MIDI picker UI acceptance with:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class com.chordviewer.library.MidiDevicePickerUiTest -e midiPickerUi true com.chordviewer.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This uses synthetic device attachments to check disconnected/single/multiple-device states, selection, device removal while the picker is open, compact navigation and large text. It does not verify physical USB enumeration or receiving.
 
 Build references: [AGP 8.13 compatibility](https://developer.android.com/build/releases/agp-8-13-0-release-notes), [Kotlin compatibility](https://kotlinlang.org/docs/gradle-configure-project.html), [Gradle security advisory](https://github.com/gradle/gradle/security/advisories/GHSA-w78c-w6vf-rw82), [Compose compiler setup](https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler), [Compose BOM mapping](https://developer.android.com/develop/ui/compose/bom/bom-mapping).
 

@@ -20,7 +20,7 @@ Choose the tablet output ID explicitly. The verified tablet displays **MIDI func
 .\scripts\development\Start-Testing.ps1 -TabletSerial <serial> -MidiOutputId <Id> -InstallApk
 ```
 
-Use the serial from `adb devices`. In ChordViewer's MIDI controls, choose **Use Computer via USB**. Wait for readiness, then explicitly resume score entry. To supply original notes through LoopBe, run `scripts/midi/Send-Fixture.ps1` in another terminal.
+Use the serial from `adb devices`. ChordViewer connects to the first detected input automatically. If multiple devices are attached, tap the piano icon with its count pill and choose **Computer via USB**. Wait for the green connected indicator, then explicitly resume score entry. To supply original notes through LoopBe, run `scripts/midi/Send-Fixture.ps1` in another terminal.
 
 Later sessions reuse the built/installed app and remembered Windows destination:
 
@@ -38,7 +38,7 @@ The launcher owns a tablet lock before changing settings. It snapshots current/d
 
 Without the development launcher, start `scripts/midi/Start-UsbRouter.ps1`, connect the cable and select MIDI in Android's USB preferences. Native MIDI has no ADB or network dependency. The debug app's local backend remains a separate route; release backend deployment is still unconfigured.
 
-Android remembers one selected source and port. Local peripheral identities reconnect when unique. Pianos without a stable serial, and identities observed to be ambiguous, require explicit selection after attachment loss. Windows also forgets its saved destination when it observes an indistinguishable duplicate, before forwarding can continue. **Disconnect** persists the user's choice to stay disconnected; **Clear notes** clears live state and pauses entry. Foreground return can reconnect an enabled source, but does not rearm score entry. Realtime heartbeats never become musical gestures.
+Android automatically uses the first detected USB MIDI device and retains a user-selected device while it remains attached. Devices appear once, using their first receiving port; the badge counts devices, not ports. The picker appears only with multiple devices and closes after a choice or when fewer than two remain. Removing the active device clears notes and selects the first remaining attachment. Temporary open failures retry automatically. Foreground return reconnects, but does not rearm score entry. The old saved selection and manual-disconnect preferences no longer control discovery. Realtime heartbeats never become musical gestures. The Windows router still requires an explicit output destination and forgets it when it observes an indistinguishable duplicate.
 
 ## Verification
 
@@ -55,6 +55,6 @@ The original [hardware proof](usb-midi-hardware-proof.json) established exact na
 
 The physical MIDI check exercised a native controller connected to the shared gesture engine. Activity and ViewModel reuse were checked separately; direct delivery into the shell's authoring stream and preservation of an unsaved draft or undo history were not physically measured. Existing product tests cover authoring behavior. Development-only tooling receives compilation, syntax diagnostics and bounded manual checks rather than new automated test suites.
 
-The opt-in `NativeUsbMidiInputTest` starts and finishes MainActivity, so save open work before running it. It uses an unsaved bundled practice sample, restores MIDI source preferences, and does not write saved library records.
+The opt-in `NativeUsbMidiInputTest` starts and finishes MainActivity, so save open work before running it. It uses an unsaved bundled practice sample and one attached USB device, verifies automatic selection and foreground reconnection, and does not write saved library records.
 
 The remaining manual acceptance cases include physical unplug/replug, MIDI mode persistence, tablet lock/reboot, Windows sleep/resume, a direct Roland RP102 connection, and native receipt with USB debugging disabled. These require the corresponding device interaction; software reconfiguration alone does not establish them.
