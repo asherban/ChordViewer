@@ -57,7 +57,7 @@ test("selecting a late chord in a dense bar scrolls that actual chord into view"
     { kind: "tonal", root: { step: "C", alter: 0 }, family: "major", seventh: "major", extension: "13", alterations: [{ degree: 11, alter: 1 }] },
     { kind: "tonal", root: { step: "G", alter: 0 }, family: "major", seventh: "dominant", alterations: [{ degree: 9, alter: -1 }, { degree: 11, alter: 1 }] },
     { kind: "tonal", root: { step: "F", alter: 1 }, family: "diminished", seventh: "dominant" },
-    { kind: "tonal", root: { step: "B", alter: 0 }, family: "major", seventh: "dominant", alterations: [{ degree: 5, alter: -1 }, { degree: 5, alter: 1 }, { degree: 9, alter: -1 }, { degree: 9, alter: 1 }] },
+    { kind: "tonal", root: { step: "B", alter: 0 }, family: "major", seventh: "dominant", alterations: [{ degree: 9, alter: 1 }] },
   ];
   measure.chords = definitions.map((definition, index) => ({
     id: `dense-chord-${index}`, offsetTicks: index * 480, durationTicks: 480, symbol: chordSymbol(definition), definition,
