@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { parseScore, type LeadSheet } from "../../contracts/src/index";
+import { chordSymbol, parseScore, type ChordDefinition, type LeadSheet } from "../../contracts/src/index";
 import example from "../../contracts/fixtures/lead-sheet-v1.json" with { type: "json" };
 
 const study = parseScore({ ...example, id: "score-layout-study", title: "Evening changes", measures: Array.from({ length: 12 }, (_, bar) => ({
@@ -53,11 +53,17 @@ test("practice uses readable chord systems and connected melody without losing n
 
 test("selecting a late chord in a dense bar scrolls that actual chord into view", async ({ page }) => {
   const measure = structuredClone(example.measures[0]);
-  measure.chords = ["Cmaj13(#11)", "G7b9#11", "F#m7b5", "B7alt"].map((symbol, index) => ({
-    id: `dense-chord-${index}`, offsetTicks: index * 480, durationTicks: 480, symbol,
+  const definitions: ChordDefinition[] = [
+    { kind: "tonal", root: { step: "C", alter: 0 }, family: "major", seventh: "major", extension: "13", alterations: [{ degree: 11, alter: 1 }] },
+    { kind: "tonal", root: { step: "G", alter: 0 }, family: "major", seventh: "dominant", alterations: [{ degree: 9, alter: -1 }, { degree: 11, alter: 1 }] },
+    { kind: "tonal", root: { step: "F", alter: 1 }, family: "diminished", seventh: "dominant" },
+    { kind: "tonal", root: { step: "B", alter: 0 }, family: "major", seventh: "dominant", alterations: [{ degree: 5, alter: -1 }, { degree: 5, alter: 1 }, { degree: 9, alter: -1 }, { degree: 9, alter: 1 }] },
+  ];
+  measure.chords = definitions.map((definition, index) => ({
+    id: `dense-chord-${index}`, offsetTicks: index * 480, durationTicks: 480, symbol: chordSymbol(definition), definition,
   }));
   measure.melody[4].tieToNext = false;
-  const dense = parseScore({ ...example, id: "dense-practice-study", title: "Dense Practice", measures: [measure] });
+  const dense = parseScore({ ...example, schemaVersion: 3, id: "dense-practice-study", title: "Dense Practice", measures: [measure] });
   await page.setViewportSize({ width: 360, height: 800 });
   await openStudy(page, dense);
   await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
@@ -90,17 +96,23 @@ test("Create selects and changes the same chord from either score display", asyn
 });
 
 test("long offbeat symbols and existing accidentals, rests and ties survive reflow", async ({ page }) => {
-  const dense = structuredClone(example);
-  dense.measures[0].chords = [{ id: "late-symbol", offsetTicks: 1919, durationTicks: 1, symbol: "Cmaj13(#11)/G alternate voicing" }];
+  const dense: LeadSheet = { ...structuredClone(example), schemaVersion: 3 };
+  const definition: ChordDefinition = {
+    kind: "tonal", root: { step: "C", alter: 0 }, family: "major", seventh: "major", extension: "13",
+    alterations: [{ degree: 9, alter: -1 }, { degree: 9, alter: 1 }, { degree: 11, alter: 1 }, { degree: 13, alter: -1 }],
+    additions: [{ degree: 6, alter: 0 }], omissions: [5], bass: { step: "G", alter: 0 },
+  };
+  const longSymbol = chordSymbol(definition);
+  dense.measures[0].chords = [{ id: "late-symbol", offsetTicks: 1919, durationTicks: 1, symbol: longSymbol, definition }];
   await page.setViewportSize({ width: 360, height: 800 });
   await openStudy(page, parseScore(dense));
   await expect(page.getByTestId("notation")).toHaveAttribute("data-rendered", "true");
   await expect(page.locator(".notation .vf-stavenote")).toHaveCount(18);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  const textBounds = await page.locator(".notation svg").evaluate(svg => {
-    const text = [...svg.querySelectorAll("text")].find(node => node.textContent?.includes("alternate voicing"))!;
+  const textBounds = await page.locator(".notation svg").evaluate((svg, expectedSymbol) => {
+    const text = [...svg.querySelectorAll("text")].find(node => node.textContent === expectedSymbol)!;
     return { right: text.getBoundingClientRect().right, edge: svg.getBoundingClientRect().right };
-  });
+  }, longSymbol);
   expect(textBounds.right).toBeLessThanOrEqual(textBounds.edge);
   await page.getByRole("button", { name: "Chords only", exact: true }).click();
   const symbol = page.locator(".score-chord").first();
