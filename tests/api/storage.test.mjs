@@ -2,6 +2,7 @@ import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { appendChord, chordSymbol, logicalChords, parseScore } from '../../contracts/dist/index.js';
 
 const base = process.env.TEST_API_URL ?? 'http://127.0.0.1:3001';
@@ -33,7 +34,15 @@ async function request(path, { method = 'GET', body, token, cookie, headers = {}
 }
 async function account(label, browser = false) {
   const credentials = { name: label, email: `${randomUUID()}@example.test`, password: `M3-${randomUUID()}` };
-  const response = await request('/api/auth/sign-up/email', { method: 'POST', body: credentials, headers: browser ? { origin } : {} });
+  const register = () => request('/api/auth/sign-up/email', { method: 'POST', body: credentials, headers: browser ? { origin } : {} });
+  let response = await register();
+  // Sequential browser/API runs share the backend's persisted signup limit.
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get('retry-after'));
+    assert.ok(Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 60, 'Account setup throttling supplies a bounded retry interval');
+    await delay(retryAfter * 1000);
+    response = await register();
+  }
   assert.equal(response.status, 200, 'Account registration succeeds');
   const body = await response.json();
   assert.equal(Object.hasOwn(body, 'token'), false, 'No raw session token in JSON');
