@@ -2,7 +2,7 @@
 
 Decided: 2026-09-20–21, through M2–M5. Recorded retrospectively: 2026-10-15.
 
-**Decision:** Represent music as versioned score JSON with independent chord and melody lanes on an integer-tick timeline. Begin with one treble melody voice and support a chord-only view. The contracts package owns schemas, TypeScript validation and API definitions; Kotlin implements equivalent rules using shared conformance fixtures. Preserve older valid score versions when expanding keys, meters or harmony.
+**Decision:** Represent music as versioned score JSON with independent chord and melody lanes on an integer-tick timeline. Begin with one treble melody voice and support a chord-only view. The contracts package owns schemas, TypeScript validation and API definitions; Kotlin implements equivalent rules using shared conformance fixtures.
 
 **Reason:** Both clients and the backend must agree on musical meaning without sharing a UI implementation. Explicit pitch spelling, duration and identity support editing and exchange more reliably than pictures or arrays of chord labels.
 

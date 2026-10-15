@@ -17,7 +17,7 @@ Numbered ADRs are immutable after their first commit. This index is editable: ad
 | [0009](0009-native-usb-midi.md) | Use native USB MIDI and automatic input selection | Accepted |
 | [0010](0010-structured-harmony-and-logical-chords.md) | Store structured harmony and logical cross-bar chords | Accepted; extends [0004](0004-versioned-score-contract.md) |
 | [0011](0011-development-and-release-endpoints.md) | Select development endpoints at build time and guard releases | Accepted |
-| [0012](0012-android-practice-and-sounding-notes.md) | Advance Android Practice on matching sounding chords | Accepted; metronome remains future work |
+| [0012](0012-android-practice-and-sounding-notes.md) | Advance Android Practice on completed gestures; show sounding chords | Accepted; metronome remains future work |
 | [0013](0013-immutable-architecture-decisions.md) | Keep short, linked, immutable decision records | Accepted |
 
 ## Historical sources
