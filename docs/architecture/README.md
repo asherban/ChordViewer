@@ -4,6 +4,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 
 | Document | Contents |
 | --- | --- |
+| [Architecture decision records](../ADRs/README.md) | Short records of accepted decisions, their reasons and relationships. |
 | [Product and architecture plan](product-plan.md) | Accepted scope, Library/Create/Practice behavior, the three application parts, deployment direction and open decisions. |
 | [Development setup and repository cleanup](setup-and-cleanup.md) | Workstation audit, Android tooling, local development, later private NAS deployment, preservation and cleanup boundaries. |
 | [Local MIDI testing](local-midi-testing.md) | Verified Windows loopback/web test and the proposed bridge to the Android emulator, without a piano or tablet. |
