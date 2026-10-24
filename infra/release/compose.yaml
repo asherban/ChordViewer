@@ -1,0 +1,125 @@
+x-app: &app
+  image: ${API_IMAGE:?Set the immutable release API image}
+  pull_policy: never
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 512m
+  cpus: 1.0
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: 5m
+      max-file: "3"
+
+services:
+  database:
+    image: ${DATABASE_IMAGE:?Set the immutable release database image}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: chordviewer
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Missing database administrator password}
+      MIGRATION_DB_PASSWORD: ${DB_MIGRATION_PASSWORD:?Missing migration password}
+      APP_DB_PASSWORD: ${DB_APP_PASSWORD:?Missing application password}
+    volumes:
+      - database:/var/lib/postgresql
+      - ./initialize-database.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d chordviewer"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 1g
+    cpus: 1.0
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+
+  migrate:
+    <<: *app
+    profiles: [operations]
+    command: [sh, -c, "node services/api/dist/migrate.js && node services/api/dist/release-setup.js"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://chordviewer_owner:${DB_MIGRATION_PASSWORD:?Missing migration password}@database:5432/chordviewer
+    networks: [database]
+    depends_on:
+      database: {condition: service_healthy}
+
+  operator:
+    <<: *app
+    profiles: [operations]
+    command: [node, services/api/dist/operator.js]
+    environment:
+      OPERATOR_DATABASE_URL: postgresql://chordviewer_owner:${DB_MIGRATION_PASSWORD:?Missing migration password}@database:5432/chordviewer
+    networks: [database]
+    depends_on:
+      database: {condition: service_healthy}
+
+  api:
+    <<: *app
+    restart: unless-stopped
+    command: [node, services/api/dist/server.js]
+    environment:
+      NODE_ENV: production
+      DEPLOYMENT_PROFILE: https
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: postgresql://chordviewer_runtime:${DB_APP_PASSWORD:?Missing application password}@database:5432/chordviewer
+      BETTER_AUTH_SECRET: ${AUTH_SECRET:?Missing authentication secret}
+      GATEWAY_SECRET: ${GATEWAY_SECRET:?Missing gateway secret}
+      AUTH_BASE_URL: https://${APP_HOST:?Missing canonical hostname}
+      TRUSTED_ORIGINS: https://${APP_HOST}
+    depends_on:
+      database: {condition: service_healthy}
+    networks: [gateway, database]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  gateway:
+    image: ${GATEWAY_IMAGE:?Set the immutable release gateway image}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      APP_HOST: ${APP_HOST}
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+    ports:
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:8080"
+      - "${HTTP_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:8443"
+    volumes:
+      - certificates:/data
+      - caddy_config:/config
+      - ./tls-${TLS_MODE:-public}.caddy:/etc/caddy/tls.caddy:ro
+      - ${DOWNLOADS_DIRECTORY:-./downloads}:/srv/downloads:ro
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [gateway, internet]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/ready]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *logging
+
+networks:
+  internet: {}
+  gateway: {internal: true}
+  database: {internal: true}
+volumes:
+  database: {}
+  certificates: {}
+  caddy_config: {}

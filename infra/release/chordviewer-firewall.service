@@ -1,0 +1,13 @@
+[Unit]
+Description=ChordViewer host and Docker ingress firewall
+After=network-pre.target docker.service
+Wants=network-pre.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/chordviewer-firewall
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target docker.service

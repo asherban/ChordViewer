@@ -86,6 +86,7 @@ it("uses same-origin cookies and no-store without a bearer token", async () => {
     expect.objectContaining({
       credentials: "same-origin",
       cache: "no-store",
+      redirect: "error",
       headers: { "Content-Type": "application/json" },
     }),
   );

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS manifests
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS manifests
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY contracts/package.json ./contracts/package.json
@@ -15,8 +15,10 @@ RUN npm run build -w @chordviewer/contracts && npm run build -w @chordviewer/api
 FROM manifests AS runtime-dependencies
 RUN npm ci --no-audit --omit=dev --workspace @chordviewer/contracts --workspace @chordviewer/api --include-workspace-root=false && npm cache clean --force
 
-FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS runtime
 ENV NODE_ENV=production
+# Package installation belongs to build stages; do not ship npm's CLI/dependency tree.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 COPY --from=runtime-dependencies /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json

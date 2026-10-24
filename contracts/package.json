@@ -22,7 +22,7 @@
     "src/lead-sheet-v3.schema.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/generate-validators.mjs && tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {

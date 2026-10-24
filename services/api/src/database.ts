@@ -12,7 +12,7 @@ export const databaseTypes: CustomTypesConfig = {
   },
 };
 
-export function createPool(config: Configuration): Pool {
+export function createPool(config: Pick<Configuration, 'databaseUrl'>): Pool {
   // pg otherwise returns BIGINT as text. Better Auth performs numeric arithmetic on its
   // millisecond lastRequest field. Our other BIGINT results are bounded sheet counts.
   // Scope conversion to this pool and reject precision loss instead of rounding silently.

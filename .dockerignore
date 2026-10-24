@@ -10,12 +10,16 @@
 !apps/
 !apps/web/
 !apps/web/package.json
+!apps/web/**
 !infra/
 !infra/backend/
 !infra/backend/Dockerfile
+!infra/release/
+!infra/release/**
 **/node_modules
 **/dist
 **/*.test.ts
+**/*.test.tsx
 **/.env*
 **/*.log
 **/coverage
