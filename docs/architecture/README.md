@@ -29,6 +29,8 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [Local backup and restore](../development/local-backup-restore.md) | Private archives, fresh isolated restore targets and cleanup commands. |
 | [M7 verification record](../development/m7-verification.md) | Restart/outage/conflict checks, backup comparison, release/resource validation and evidence. |
 | [M8 execution and server security plan](m8-execution-plan.md) | Public Hostinger VPS installation, hardening, HTTPS, release work, backups, monitoring and acceptance. |
+| [First public deployment](../deployment/first-deploy-2026-10-24.md) | Live release identities, browser/native acceptance, host checks and remaining M8 gates. |
+| [Release operations](../deployment/runbook.md) | Administrator access, accounts, updates, rollback and recovery. |
 | [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |
@@ -51,10 +53,10 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 
 ## How to read this plan
 
-The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Chord and melody authoring contracts record the M4/M5 decisions, including MusicXML and JSON import. Hostinger VPS is the deployment target; its tier, region and domain remain open. Billing is deferred without a scheduled milestone.
+The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Chord and melody authoring contracts record the M4/M5 decisions, including MusicXML and JSON import. The first release runs on the existing Hostinger Debian VPS at `chordviewer.app`; provider region and billing details still need recording. Billing is deferred without a scheduled milestone.
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
-The old active client has been replaced by the three-part foundation, account libraries and score authoring. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. Deployment remains deferred.
+The old active client has been replaced by the three-part foundation, account libraries and score authoring. The [root README](../../README.md) contains developer commands, and the [local development guide](../development/local-setup.md) records the installed hardware-graphics setup. A private baseline preserves removed work. The first public deployment is live; off-site recovery, monitoring and full M8 acceptance remain pending.
 
 All mockup assets and internal document links are stored within the repository. Update this folder as decisions are made so future implementation work uses the same plan.
