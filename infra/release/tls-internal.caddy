@@ -1,0 +1,2 @@
+# Isolated local rehearsal only. Never use this issuer on the public server.
+tls internal

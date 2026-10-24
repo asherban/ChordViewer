@@ -3,7 +3,8 @@ import { configuration } from './config.js';
 import { createPool } from './database.js';
 import { migrations } from './migrations.js';
 
-const pool = createPool(configuration());
+const databaseUrl = process.env.MIGRATION_DATABASE_URL ?? configuration().databaseUrl;
+const pool = createPool({ databaseUrl });
 try {
   const connection = await pool.connect();
   try {
@@ -19,7 +20,7 @@ try {
       await connection.query('INSERT INTO chordviewer_migrations (id, checksum) VALUES ($1,$2)', [migration.id, known.get(migration.id)]);
     }
     await connection.query('COMMIT');
-    console.info('Local database migrations are current.');
+    console.info('Database migrations are current.');
   } catch (error) { await connection.query('ROLLBACK'); throw error; }
   finally { connection.release(); }
 } catch {

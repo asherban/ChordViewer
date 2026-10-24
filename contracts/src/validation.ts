@@ -1,4 +1,4 @@
-import { Ajv } from 'ajv';
+import { validateShapeV1 as validateShape, validateShapeV2, validateShapeV3 } from './generated/score-validators.js';
 import schema from './lead-sheet-v1.schema.json' with { type: 'json' };
 import { chordDefinitionKey, chordSymbol, parseChordDefinition, validateChordDefinition } from './chord-definition.js';
 import schemaV3 from './lead-sheet-v3.schema.json' with { type: 'json' };
@@ -21,10 +21,7 @@ export class ScoreValidationError extends Error {
 }
 
 // Validate rather than normalize: every client must see the same original score and spelling.
-const ajv = new Ajv({ strict: true, allErrors: false, coerceTypes: false, useDefaults: false, removeAdditional: false });
-const validateShape = ajv.compile<LeadSheet>(scoreSchema);
-const validateShapeV3 = ajv.compile<LeadSheet>(scoreSchemaV3);
-const validateShapeV2 = ajv.compile<LeadSheet>(scoreSchemaV2);
+// Shape validators are compiled during the build so strict browser CSP needs no eval.
 
 /** Throws on invalid input; never coerces, reorders, strips fields or changes pitch spelling. */
 export function parseScore(value: unknown): LeadSheet {

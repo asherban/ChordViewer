@@ -1,0 +1,5 @@
+tls {
+    issuer acme {
+        dir https://acme-v02.api.letsencrypt.org/directory
+    }
+}

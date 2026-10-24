@@ -8,6 +8,7 @@ import org.json.JSONObject
 import com.chordviewer.score.*
 import com.chordviewer.ApiConfiguration
 import com.chordviewer.EndpointPolicy
+import com.chordviewer.BuildConfig
 
 class ApiFailure(val status: Int, val userMessage: String, val code: String? = null) : Exception(userMessage)
 
@@ -37,6 +38,7 @@ class LibraryApi(baseUrl: String, allowLoopbackHttp: Boolean = false) : LibraryG
     private val origin = validateOrigin(baseUrl, allowLoopbackHttp)
 
     override fun signIn(email: String, password: String, name: String?): AccountSession {
+        require(BuildConfig.DEBUG || name == null) { "Accounts are provisioned by the operator." }
         val body = JSONObject().put("email", email.trim()).put("password", password)
         if (name != null) body.put("name", name.trim())
         val response = request("POST", if (name == null) "/api/auth/sign-in/email" else "/api/auth/sign-up/email", body = body)

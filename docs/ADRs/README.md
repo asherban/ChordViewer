@@ -20,7 +20,9 @@ Numbered ADRs are immutable after their first commit. This index is editable: ad
 | [0012](0012-android-practice-and-sounding-notes.md) | Advance Android Practice on completed gestures; show sounding chords | Accepted; metronome remains future work |
 | [0013](0013-immutable-architecture-decisions.md) | Keep short, linked, immutable decision records | Accepted |
 | [0014](0014-private-vpn-access-for-m8.md) | Reach the private NAS from home and remotely through a VPN | Superseded by [0015](0015-public-hostinger-deployment.md); this deployment was not implemented |
-| [0015](0015-public-hostinger-deployment.md) | Deploy M8 publicly on Hostinger VPS; defer commercial launch | Accepted for planning; supersedes [0014](0014-private-vpn-access-for-m8.md) and the deployment sequence in [0003](0003-local-first-development-and-portable-deployment.md); implementation remains pending |
+| [0015](0015-public-hostinger-deployment.md) | Deploy M8 publicly on Hostinger VPS; defer commercial launch | Accepted; supersedes [0014](0014-private-vpn-access-for-m8.md) and the deployment sequence in [0003](0003-local-first-development-and-portable-deployment.md); first-release boundaries are recorded in [0016](0016-first-public-release-boundaries.md) |
+| [0016](0016-first-public-release-boundaries.md) | One HTTPS origin and operator-managed enrollment for the first release | Accepted; extends [0015](0015-public-hostinger-deployment.md) and [0011](0011-development-and-release-endpoints.md); recovery and full M8 acceptance remain pending |
+| [0017](0017-compile-score-validators-at-build-time.md) | Compile shared score validators at build time | Accepted; supports the strict browser CSP in [0016](0016-first-public-release-boundaries.md) while preserving [0004](0004-versioned-score-contract.md) |
 
 ## Historical sources
 

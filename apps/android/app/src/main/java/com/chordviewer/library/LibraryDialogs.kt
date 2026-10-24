@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chordviewer.ui.*
 import com.chordviewer.score.*
+import com.chordviewer.BuildConfig
 
 @Composable
 fun AccountLanding(state: LibraryState, authenticate: (String, String, String?) -> Unit, preview: () -> Unit) {
@@ -61,7 +62,8 @@ private fun AccountFields(busy: Boolean, authenticate: (String, String, String?)
         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
     Button(onClick = { val submitted = password; password = ""; authenticate(email, submitted, if (create) name else null) }, enabled = !busy,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text(if (create) "Create account" else "Sign in") }
-    TextButton(onClick = { create = !create; password = "" }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
+    if (!BuildConfig.DEBUG) Text("Contact the operator for an account or help resetting your password.", color = MutedColor)
+    if (BuildConfig.DEBUG) TextButton(onClick = { create = !create; password = "" }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
         Text(if (create) "Use an existing account" else "Create an account")
     }
 }

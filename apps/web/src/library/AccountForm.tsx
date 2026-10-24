@@ -3,8 +3,10 @@ import { useState, type FormEvent } from "react";
 export function AccountForm({
   busy,
   onSubmit,
+  allowSignup = import.meta.env.MODE !== 'release',
 }: {
   busy: boolean;
+  allowSignup?: boolean;
   onSubmit: (
     kind: "signin" | "signup",
     fields: { name: string; email: string; password: string },
@@ -32,16 +34,14 @@ export function AccountForm({
           your saved work on another device.
         </p>
         <p className="small">
-          Accounts are stored on the backend you are connected to. Password
-          reset and email verification are not available in this local
-          development version.
+          {allowSignup ? 'Accounts are stored on this development backend. Password reset and email verification are unavailable.' : 'Contact the operator for an account or help resetting your password.'}
         </p>
       </div>
       <form
         onSubmit={(event) => void submit(event)}
         aria-label={kind === "signin" ? "Sign in" : "Create account"}
       >
-        <div className="segmented" aria-label="Account action">
+        {allowSignup && <div className="segmented" aria-label="Account action">
           <button
             type="button"
             disabled={busy}
@@ -64,7 +64,7 @@ export function AccountForm({
           >
             Create account
           </button>
-        </div>
+        </div>}
         {kind === "signup" && (
           <label className="field">
             Name
