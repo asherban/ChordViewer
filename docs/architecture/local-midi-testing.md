@@ -42,4 +42,4 @@ The historical [M1](../development/m1-verification.md), [M4](../development/m4-v
 
 Build Android before booting the emulator to limit memory pressure on the 16 GB workstation. Use the documented hardware graphics profile and start only the services needed for the current check. The [setup guide](../development/local-setup.md) records the configured tools.
 
-Emulator fixtures do not require a piano or tablet. Hardware USB discovery, cable reconnection, device sleep and real-device latency require separate physical checks. NAS deployment remains separate from local MIDI testing.
+Emulator fixtures do not require a piano or tablet. Hardware USB discovery, cable reconnection, device sleep and real-device latency require separate physical checks. Public server deployment remains separate from local MIDI testing.

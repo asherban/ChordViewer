@@ -52,7 +52,7 @@ Sources: [Android Studio installation](https://developer.android.com/studio/inst
 - Create an Android virtual device with a landscape tablet layout. Neither the Samsung tablet nor the RP102 is needed for routine development tests.
 - Use the installed LoopBe1 port for generated notes, chord sequences and sustain events. The existing browser app already receives this input through Web MIDI.
 - Use musical fixtures confined to the Android test APK to exercise the real product event path. Use native USB MIDI on a physical tablet for live Windows input and transport checks.
-- With 16 GB workstation RAM, start with one accelerated emulator and measure responsiveness alongside the local backend/database. Tune resource allocations and run only the services needed for the current test. Defer NAS deployment until the later deployment milestone.
+- With 16 GB workstation RAM, start with one accelerated emulator and measure responsiveness alongside the local backend/database. Tune resource allocations and run only the services needed for the current test. Defer remote deployment until M8.
 - Validate Windows Hypervisor Platform acceleration and its coexistence with the existing WSL/Docker setup. Do not change virtualization features or reboot as a side effect of a documentation step.
 
 See [Local MIDI testing](local-midi-testing.md) for the routing design and limits. Sources: [Emulator acceleration](https://developer.android.com/studio/run/emulator-acceleration), [Emulator limitations](https://developer.android.com/studio/run/advanced-emulator-usage).
@@ -93,7 +93,7 @@ docs/
 
 - `contracts` holds the versioned API/score schema. Web and Kotlin clients can consume the same contract without pretending that TypeScript modules run natively on Android.
 - Music fixtures describe expected input/output behavior for both clients; selected web logic may also be ported or reused where appropriate.
-- Compose configuration starts with local backend/database services and persistent test data. Keep release containers portable, with separate settings for the later NAS and VPS deployments.
+- Compose configuration starts with local backend/database services and persistent test data. Keep release containers portable, with separate settings for the Hostinger VPS deployment.
 - Setup scripts and documentation provide a repeatable path for checking prerequisites, starting development, launching the emulator or physical USB session, and installing a debug Android build.
 
 ### Cleanup inventory
@@ -135,9 +135,9 @@ All recursive removals must use verified absolute paths within this repository, 
 - Use development-specific Android backend configuration and signing. Keep production credentials and signing material outside the repository.
 - Document clean-checkout setup, rebuilding containers, database backup/restore and installing a new debug app version.
 
-## Later stage: private NAS deployment
+## Later stage: public Hostinger VPS deployment
 
-After the complete workflow passes local validation (M7), deploy compatible release containers to the NAS (M8). At that point, verify NAS capacity and Container Manager, configure separate credentials/data and private HTTPS access, and check updates and backup restoration. Public hosting follows in M9. NAS setup is not an early development dependency.
+After the complete workflow passes local validation (M7), deploy compatible release containers publicly on Hostinger VPS in M8. Install and harden Ubuntu, restrict administration, configure the public HTTPS domain and separate credentials/data, and verify updates, monitoring and independent backup restoration. The [M8 execution plan](m8-execution-plan.md) defines the work and acceptance gates. Remote hosting is not an early development dependency; the active roadmap ends at M8.
 
 ## Recommended execution order
 
@@ -147,14 +147,14 @@ After the complete workflow passes local validation (M7), deploy compatible rele
 4. Remove the identified obsolete code/configuration and generated remnants as coherent, reviewable changes.
 5. Run the backend and database locally and connect both a minimal web client and native Android emulator client.
 6. Implement the core automatic-entry/undo/change workflow, followed by Library and Practice.
-7. Complete local workflow, recovery and release validation before deploying compatible containers to the NAS for private deployment testing.
+7. Complete local workflow, recovery and release validation before installing and securing the Hostinger VPS and deploying compatible containers publicly.
 
 Tool installation and repository cleanup are prerequisites for the rebuild, not reasons to change the accepted product scope.
 
 ## Remaining information
 
 - Selected emulator profile/system image and memory allocation. Exact Samsung model, Android version and cable/adapter matter only to later hardware-specific validation.
-- DS224+ installed RAM and DSM/Container Manager state, deferred until the NAS deployment milestone.
+- Hostinger VPS tier, region, domain, administrator access, independent backup destination and alert owner, to confirm during M8 preflight.
 - Final backend framework, SDK/minimum Android version and compatible toolchain versions at implementation time.
 
 ## Documentation lookup note

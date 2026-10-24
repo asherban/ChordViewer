@@ -1,6 +1,6 @@
 # Local backend containers
 
-M3 runs the API and PostgreSQL on the development computer. The browser and Android emulator share that backend; NAS and public deployment remain later milestones. The root [README](../../README.md) is the entry point for the complete developer workflow.
+M3 runs the API and PostgreSQL on the development computer. The browser and Android emulator share that backend; public Hostinger VPS deployment remains M8. The root [README](../../README.md) is the entry point for the complete developer workflow.
 
 ## Start and stop
 

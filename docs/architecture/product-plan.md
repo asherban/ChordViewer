@@ -1,6 +1,6 @@
 # ChordViewer product plan
 
-Updated: 2026-09-22. Living discussion draft; accepted decisions and proposals are distinguished below.
+Updated: 2026-10-23. Living discussion draft; accepted decisions and proposals are distinguished below.
 
 See the [architecture index](README.md), [milestone roadmap](milestones.md) and [selected mockups](mockups/README.md).
 
@@ -18,9 +18,9 @@ See the [architecture index](README.md), [milestone roadmap](milestones.md) and 
 - Explore optional melody notation without lyrics. Keep a chord-only view available.
 - Library initially contains each user's own sheets and imports; sharing is a later capability.
 - Practice supports manual navigation by default and an optional advance-on-matching-chord setting.
-- Develop and test on the local machine as much as possible, including the backend and database. Defer NAS deployment until after complete local workflow validation; the NAS remains private. Public users will use a later cloud deployment.
+- Develop and test locally, including the backend and database, through M7. M8 deploys the validated product publicly on Hostinger VPS with HTTPS, secured administration and approved-user accounts. The active roadmap ends at M8; commercial launch is deferred.
 - Target production hosting budget: approximately USD 10 per month.
-- Available hardware: Samsung tablet described as "Tab9" (exact model to verify), Roland RP102 piano, Synology DS224+ (installed RAM to verify).
+- Available client hardware includes the Samsung SM-X610 tablet and Roland RP102 piano. The deployment target is Hostinger VPS; confirm its tier, region and domain before provisioning.
 - Include Android development-tool installation and removal of obsolete repository work as explicit preparatory phases of the rebuild.
 - Start with an empty user library. Do not build a migration of charts from the previous browser-only application.
 - Test locally using the workstation's MIDI loopback setup, with the web client in a desktop browser and the native Android client in an emulator. Testing does not depend on having a physical piano or tablet connected.
@@ -101,7 +101,7 @@ These Library/Create/Practice transitions are implemented. Draft content stays i
 | Web client | Library, Create and Practice; direct browser MIDI input, local chord recognition and editable score presentation. |
 | Native Android client | The same core workflows with native UI, MIDI/device integration and local authoring on the tablet. |
 
-Both clients connect directly to the piano and communicate with the backend for stored application data. The backend and NAS do not sit in the live MIDI path. A linked YouTube player has its own playback controls.
+Both clients connect directly to the piano and communicate with the backend for stored application data. The backend does not sit in the live MIDI path. A linked YouTube player has its own playback controls.
 
 ### Data and client behavior
 
@@ -112,7 +112,7 @@ Both clients connect directly to the piano and communicate with the backend for 
 - Use local recovery and explicit Save so a temporary server connection loss does not interrupt creation. M7 preserves complete drafts and their original revisions. After authentication, restore deliberately; conflicts offer Save as new or a confirmed reload. No automatic merge or server autosave is planned. See [draft recovery](draft-recovery.md).
 - Use one versioned API contract for web and Android. Native Android has its own UI and MIDI integration; shared behavior does not imply shared UI code.
 - Keep each client's MIDI processing separable from its input transport. Web tests can use the real Web MIDI path through LoopBe1; Android emulator tests will use a local bridge and debug input adapter feeding the same native processing used by device input. The adapter remains outside release builds. See [Local MIDI testing](local-midi-testing.md) for verified results and remaining work.
-- M3 implements TypeScript/Fastify, PostgreSQL and self-hosted Better Auth email/password with database-backed sessions. Web uses HttpOnly SameSite cookies through its same-origin proxy; Android uses signed bearer credentials held only in memory. HTTP is limited to workstation loopback for this milestone. Public HTTPS, account recovery/verification and payment access remain later work. See the [backend contract](backend-contract.md).
+- The backend uses TypeScript/Fastify, PostgreSQL and self-hosted Better Auth email/password with database-backed sessions. Web uses HttpOnly SameSite cookies through its same-origin proxy; Android uses signed bearer sessions with [secure local persistence](../ADRs/0008-persistent-android-sessions.md). Development HTTP stays separate from the M8 HTTPS release profile. M8 adds restricted account provisioning and operator-assisted recovery; self-service verification/recovery and payment access remain deferred. See the [backend contract](backend-contract.md).
 - The first melody scope is one treble voice with chord symbols, rests, accidentals, dotted notes and ties, confirmed by the user during M2. Web uses VexFlow; Android draws natively with Compose Canvas and a bundled music font. M5 extends the score to version 2: all standard major/minor key signatures and meters of 1–12 beats over 2, 4 or 8. Existing v1 C/4/4 sheets remain readable. See [melody authoring](melody-authoring.md).
 
 ## Proposed development and deployment path
@@ -120,12 +120,12 @@ Both clients connect directly to the piano and communicate with the backend for 
 The workstation audit, preservation steps and cleanup inventory are recorded in [Development setup and repository cleanup](setup-and-cleanup.md). The [local development guide](../development/local-setup.md) tracks the installed Android tools and implemented MIDI test setup; product features and source replacement follow the milestone sequence.
 
 - Build, debug and test the web client, native Android emulator, backend and database on the development machine. Use a repeatable local container setup for backend services and package releases as versioned container images.
-- Complete local feature and release validation before deploying to the NAS. Then run the web/HTTPS gateway, backend and database with Docker Compose on the NAS as a private deployment rehearsal.
-- Use separate settings, credentials and persistent data for development, NAS testing and production.
-- Later deploy the same compatible images to a Linux VPS. Move database content explicitly, configure the production domain/HTTPS, and validate restoration before cutover.
-- Keep MIDI connected directly to the tablet or browser device; the NAS does not mediate piano input.
-- Keep server administration and the database private. Account access controls, updates, off-host database backups and restore checks are part of operating the paid service.
-- The cloud provider is not selected. DigitalOcean and OVHcloud are candidates; measure resource use locally and confirm deployment needs during the later NAS milestone before choosing. Verify regional prices, tax, backup coverage and availability at purchase time.
+- Complete local feature and release validation, then deploy versioned web/HTTPS gateway, API and PostgreSQL containers to Hostinger VPS in M8. Follow the [server installation and security plan](m8-execution-plan.md).
+- Use separate settings, credentials and persistent data for development, testing and the public deployment. Start with a fresh server library; move selected scores deliberately through JSON export/import.
+- Both clients use the same public HTTPS domain without a VPN. Keep MIDI connected directly to the tablet or browser device.
+- Restrict server administration and keep the API's direct port and database private. Verify account isolation, restricted enrollment, updates, monitoring and independent backup restoration before enabling real accounts.
+- Hostinger is selected. Confirm the tier, region, domain, renewal pricing, tax and backup costs before provisioning. Resource measurements and recovery rehearsals determine whether the selected server is adequate.
+- Subscriptions, payments, unrestricted public signup and app-store publication are deferred without a scheduled milestone. M8 delivers a signed APK for approved users.
 
 ## Open design decisions
 
@@ -134,9 +134,9 @@ The workstation audit, preservation steps and cleanup inventory are recorded in 
 3. One treble voice and expanded global keys/meters are agreed. Tuplets, multiple voices and more complex notation remain outside the initial scope.
 4. M4 exposes chord-name alternatives; M5 chooses key-aware MIDI spelling and allows direct pitch correction. Further shortcuts can follow usability testing.
 5. MusicXML plus ChordViewer JSON, explicit preview/new-sheet import and manual chord/note/rest editing are agreed for M5.
-6. Account and subscription model, payment approach and Android distribution channel. Sharing is deferred; decide its exact scope later.
+6. Subscription model, payments, unrestricted public enrollment and app-store distribution are deferred. M8 uses operator-provisioned accounts and a signed APK distributed over HTTPS. Sharing is deferred; decide its exact scope later.
 7. Resolved for M7: device-local recovery with explicit Save, original revision checks and Save as new for simultaneous edits; automatic merging/synchronization remains outside scope.
-8. Measure combined local service resource use as backend work is added. M1 selected and verified the tablet emulator configuration in the [local setup guide](../development/local-setup.md). Verify NAS capacity when the later deployment milestone begins. Exact tablet model and physical piano compatibility remain unverified hardware details, but do not block the local test workflow.
+8. Confirm Hostinger capacity, administrator access, the independent backup destination and alert ownership during M8 preflight. Measure deployed resource use and recovery time before completing M8. The Samsung SM-X610 has physical acceptance evidence; direct RP102 compatibility remains a separate hardware check.
 
 ## Mockup notes
 
@@ -155,13 +155,7 @@ Available generation and revision prompts are saved in [Mockup prompts](mockups/
 ## References checked during planning
 
 - [Docker Compose in production](https://docs.docker.com/compose/how-tos/production/)
-- [Synology Container Manager supported models](https://www.synology.com/en-in/dsm/packages/ContainerManager)
-- [Synology DS224+ specifications](https://www.synology.com/en-ca/products/DS224%2B)
+- [M8 server plan and current installation/security references](m8-execution-plan.md)
 - [Roland RP102 specifications](https://www.roland.com/au/products/rp102/)
-- [DigitalOcean Droplet pricing](https://www.digitalocean.com/pricing/droplets)
-- [DigitalOcean backup pricing](https://www.digitalocean.com/pricing/backups)
-- [OVHcloud VPS pricing](https://www.ovhcloud.com/en/vps/)
-- [DigitalOcean public reviews](https://www.trustpilot.com/review/digitalocean.com)
-- [OVHcloud public reviews](https://www.trustpilot.com/review/ovhcloud.com)
 
-No provider has been purchased or deployed as part of this planning discussion.
+Hostinger is the selected provider. This plan does not record a server purchase or completed deployment.

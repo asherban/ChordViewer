@@ -69,7 +69,7 @@ The shared conformance matrix covers unknown fields, incorrect numeric types, bo
 | `GET /health` | Reports API availability and migrated database readiness; returns 503 when unavailable. |
 | `GET /api/v1/score-example` | The canonical `LeadSheet` object, validated before serving and serialized using the shared schema. |
 
-The container API is published only to host loopback on port 3000 (development) or 3001 (test). Authenticated library endpoints include blank/example creation, import-as-new and revision-checked full-score saves. The [backend contract](backend-contract.md) defines ownership, credentials, limits and request-origin checks. The web development server proxies its local API; native debug uses explicit ADB forwarding. NAS deployment and public exposure remain later milestones.
+The container API is published only to host loopback on port 3000 (development) or 3001 (test). Authenticated library endpoints include blank/example creation, import-as-new and revision-checked full-score saves. The [backend contract](backend-contract.md) defines ownership, credentials, limits and request-origin checks. The web development server proxies its local API; native debug uses explicit ADB forwarding. Public HTTPS deployment is planned in [M8](m8-execution-plan.md).
 
 The contracts package builds to JavaScript and declarations under its ignored `dist` directory. The API's production command runs compiled JavaScript with Node. Development uses the root workspace's TypeScript runner. The shared fixture is an exported package asset, so the API does not read arbitrary repository paths at runtime. Root development/build commands build contracts before the clients that import it.
 

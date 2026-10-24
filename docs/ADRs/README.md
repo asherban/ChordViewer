@@ -8,7 +8,7 @@ Numbered ADRs are immutable after their first commit. This index is editable: ad
 | --- | --- | --- |
 | [0001](0001-retain-current-backend.md) | Keep the current backend; defer Firebase | Accepted; reaffirms 0002, 0003 and 0007 |
 | [0002](0002-native-clients-and-rest-backend.md) | Separate web, native Android and REST backend | Accepted; reaffirmed by [0001](0001-retain-current-backend.md) |
-| [0003](0003-local-first-development-and-portable-deployment.md) | Validate locally, then deploy portable containers | Accepted; reaffirmed by [0001](0001-retain-current-backend.md) |
+| [0003](0003-local-first-development-and-portable-deployment.md) | Validate locally, then deploy portable containers | Local validation and portability remain accepted; the NAS/later-public sequence is superseded by [0015](0015-public-hostinger-deployment.md) |
 | [0004](0004-versioned-score-contract.md) | Share a versioned score contract across clients | Accepted; extended by [0010](0010-structured-harmony-and-logical-chords.md) |
 | [0005](0005-midi-step-entry.md) | Use MIDI step entry with separate authoring lanes | Accepted; live feedback is distinguished in [0012](0012-android-practice-and-sounding-notes.md) |
 | [0006](0006-musicxml-and-json-import.md) | Import MusicXML and exchange canonical score JSON | Accepted |
@@ -16,9 +16,11 @@ Numbered ADRs are immutable after their first commit. This index is editable: ad
 | [0008](0008-persistent-android-sessions.md) | Persist Android sessions securely across restarts | Accepted; endpoint isolation is covered by [0011](0011-development-and-release-endpoints.md) |
 | [0009](0009-native-usb-midi.md) | Use native USB MIDI and automatic input selection | Accepted |
 | [0010](0010-structured-harmony-and-logical-chords.md) | Store structured harmony and logical cross-bar chords | Accepted; extends [0004](0004-versioned-score-contract.md) |
-| [0011](0011-development-and-release-endpoints.md) | Select development endpoints at build time and guard releases | Accepted |
+| [0011](0011-development-and-release-endpoints.md) | Select development endpoints at build time and guard releases | Accepted; the public M8 target is defined by [0015](0015-public-hostinger-deployment.md) |
 | [0012](0012-android-practice-and-sounding-notes.md) | Advance Android Practice on completed gestures; show sounding chords | Accepted; metronome remains future work |
 | [0013](0013-immutable-architecture-decisions.md) | Keep short, linked, immutable decision records | Accepted |
+| [0014](0014-private-vpn-access-for-m8.md) | Reach the private NAS from home and remotely through a VPN | Superseded by [0015](0015-public-hostinger-deployment.md); this deployment was not implemented |
+| [0015](0015-public-hostinger-deployment.md) | Deploy M8 publicly on Hostinger VPS; defer commercial launch | Accepted for planning; supersedes [0014](0014-private-vpn-access-for-m8.md) and the deployment sequence in [0003](0003-local-first-development-and-portable-deployment.md); implementation remains pending |
 
 ## Historical sources
 

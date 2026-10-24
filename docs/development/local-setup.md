@@ -1,6 +1,6 @@
 # Local development
 
-The root [README](../../README.md) contains the complete developer commands. M3 adds shared local accounts, persistent sheet libraries and backend/database containers to the web/native foundation. NAS deployment remains M8. See the [milestones](../architecture/milestones.md) for the current delivery boundary.
+The root [README](../../README.md) contains the complete developer commands. M3 adds shared local accounts, persistent sheet libraries and backend/database containers to the web/native foundation. Public Hostinger VPS deployment remains M8. See the [milestones](../architecture/milestones.md) for the current delivery boundary.
 
 **M1 verified:** Android builds, all 17 JVM tests and the real LoopBe-to-emulator instrumentation test pass. Use the hardware-graphics profile below; software graphics stalled on this workstation. See the [M1 verification record](m1-verification.md) for evidence and limits.
 
