@@ -1,14 +1,14 @@
 # M8: Public deployment on Hostinger VPS
 
-Updated: 2026-10-23. M8 deploys ChordViewer to a public Hostinger VPS and proves that web and Android work independently of the development computer. Server installation, hardening, HTTPS, release packaging, backups and operating procedures are part of this milestone. Implementation and deployment remain pending.
+Updated: 2026-10-24. M8 deploys ChordViewer to a public Hostinger VPS and proves that web and Android work independently of the development computer. Server installation, hardening, HTTPS, release packaging, backups and operating procedures are part of this milestone. The first release is live; the [dated verification](../deployment/first-deploy-2026-10-24.md) records the evidence, and the [operations runbook](../deployment/runbook.md) records the installed layout and remaining acceptance gates.
 
-Hostinger is selected; the VPS tier, region, domain and backup destination still need confirmation. The active roadmap ends at M8. Subscriptions, payments, unrestricted public signup and app-store publication remain deferred without a scheduled milestone. For the initial deployment, anyone can reach the HTTPS login page, while the operator provisions accounts for approved users. No client VPN is required.
+Hostinger VPS `187.124.165.121` and canonical domain `chordviewer.app` are selected. The owner confirmed secure account/recovery access, administration from this workstation, Synology backups over Tailscale as the next setup step, and `andrei.sherban@gmail.com` for alerts. Provider billing/region details, off-site transfer and alert delivery remain to be recorded/configured. The active roadmap ends at M8. Subscriptions, payments, unrestricted public signup and app-store publication remain deferred. Anyone can reach the HTTPS login page, while the operator provisions approved accounts. No client VPN is required.
 
 The [deployment decision](../ADRs/0015-public-hostinger-deployment.md) records the scope. Local validation and environment separation remain prerequisites, and Android retains its [reviewed release-origin requirement](../ADRs/0011-development-and-release-endpoints.md).
 
 ## Deployment layout
 
-Use a plain Ubuntu 24.04 LTS server with Docker Engine and the Compose plugin. Run a Caddy gateway that serves the built web application, manages public TLS certificates and proxies `/api/` to the API. Both clients use one canonical origin, such as `https://<chosen-domain>`. The API and PostgreSQL are reachable only on container networks; the database network excludes the gateway.
+Retain the inspected Debian 13 server with Docker Engine and Compose, as recorded in [ADR 0016](../ADRs/0016-first-public-release-boundaries.md). Caddy serves the built web application, manages public TLS certificates and proxies `/api/` to the API. Both clients use `https://chordviewer.app`; `www` redirects there and `api` remains an API alias. The API and PostgreSQL are reachable only on container networks; the database network excludes the gateway.
 
 ```mermaid
 flowchart TB
@@ -16,7 +16,7 @@ flowchart TB
     A[Native Android] -->|Public HTTPS| G
     O[Operator] -->|SSH key, allowed source IP| H
     subgraph VPS[Hostinger VPS]
-        H[Ubuntu host]
+        H[Debian host]
         G[Caddy: web and HTTPS gateway] --> API[API]
         API --> DB[(PostgreSQL)]
     end
@@ -33,28 +33,28 @@ Start sizing around one vCPU and 4 GB RAM, with enough disk for the OS, two rele
 
 Confirm ownership of the application domain, DNS access, administrator source IPs, independent backup storage, an alert destination and an operator responsible for patching and recovery. Enable MFA for Hostinger, DNS and backup accounts; store recovery codes and SSH key recovery material privately outside the VPS.
 
-Hostinger offers a plain Ubuntu 24.04 image. Its dashboard provides firewall, backup and emergency recovery controls; verify access to recovery before changing SSH. [OS templates](https://www.hostinger.com/support/1583571-what-are-the-available-operating-systems-for-vps-at-hostinger/), [VPS dashboard](https://www.hostinger.com/support/5726606-how-to-use-the-vps-dashboard-in-hostinger/).
+The existing VPS runs Debian 13. Hostinger's dashboard provides firewall, backup and emergency recovery controls; the owner confirmed a recovery route before SSH changes. [VPS dashboard](https://www.hostinger.com/support/5726606-how-to-use-the-vps-dashboard-in-hostinger/).
 
-## 2. Install and harden Ubuntu
+## 2. Install and harden the host
 
 Perform these steps in order and record the effective configuration in the deployment runbook.
 
 | Step | Required work |
 | --- | --- |
-| Bootstrap | Install the plain LTS image on the confirmed fresh VPS. Apply security updates, set a stable hostname and UTC server clock, enable time synchronization, and reboot if required. Record the OS and kernel versions. |
+| Bootstrap | Retain the inspected Debian 13 installation. Apply security updates, keep a stable hostname and UTC server clock, enable time synchronization, and reboot if required. Record the OS and kernel versions. |
 | Administrator | Create a named, non-root operator with sudo access and an Ed25519 SSH public key. Keep the private key passphrase-protected on the operator's device. Verify the server host-key fingerprint using the provider recovery route. |
 | SSH hardening | First prove key login and sudo in a second session while retaining the initial session. Then disable remote root login, password authentication and keyboard-interactive authentication; restrict SSH to the operator account. Check effective settings, including image/cloud-init overrides, validate configuration before reload, and prove a fresh connection still works. |
 | Recovery | Record and verify Hostinger's emergency recovery procedure. Restrict SSH source addresses only after confirming an administrator route. If the operator's address changes, update the provider allowlist before reconnecting; do not temporarily open SSH to everyone. |
-| Updates | Enable automatic Ubuntu security updates and failure reporting. Schedule reboots in an operator-controlled maintenance window. Review Docker packages, container images and application dependencies separately; OS updates do not update application images. |
+| Updates | Enable automatic Debian security updates and failure reporting. Schedule reboots in an operator-controlled maintenance window. Review Docker packages, container images and application dependencies separately; OS updates do not update application images. |
 | Minimal host | Remove unnecessary listeners and disable unused services. Administer through SSH without a public database or container-management panel. Bound system logs and monitor free space. |
 | Container runtime | Install Docker Engine and the Compose plugin from Docker's official apt repository. Enable startup on boot and record versions. Limit Docker administration to trusted operators: daemon access is effectively root access. Never expose the Docker API or mount its socket in application containers. |
 | Deployment storage | Create `/srv/chordviewer` for versioned releases and restricted configuration. Keep secrets outside Git and images, readable only by the required operator/service identities. Generate independent database and authentication secrets for this deployment. |
 
-The SSH changes follow Ubuntu's [OpenSSH guide](https://ubuntu.com/server/docs/how-to/security/openssh-server/); package maintenance follows its [automatic-update guide](https://ubuntu.com/server/docs/how-to/software/automatic-updates/). Follow the current [Docker Ubuntu installation procedure](https://docs.docker.com/engine/install/ubuntu/) during implementation rather than a convenience installation script.
+Validate the effective SSH configuration against Debian's [sshd_config reference](https://manpages.debian.org/trixie/openssh-server/sshd_config.5.en.html). Docker uses its [official Debian repository](https://docs.docker.com/engine/install/debian/). The runbook records the installed maintenance services and effective settings.
 
 ## 3. Configure network access and HTTPS
 
-Activate a Hostinger managed firewall with explicit inbound rules, and configure the Ubuntu firewall consistently. Apply rules to both IP families. Allow established return traffic and necessary network-control traffic, including ICMPv6, so filtering does not break IPv6 or path MTU discovery.
+Configure the host firewall with explicit inbound rules for both IP families. Activate Hostinger's managed firewall as an additional layer when provider access is available; its configuration remains unverified. Allow established return traffic and necessary network-control traffic, including ICMPv6, so filtering does not break IPv6 or path MTU discovery.
 
 | Service | Allowed access |
 | --- | --- |
@@ -72,7 +72,7 @@ Apply security headers deliberately: prevent MIME sniffing and framing of the ap
 
 ## 4. Prepare the application release
 
-The current API requires `LOCAL_DEVELOPMENT=true`, accepts development HTTP origins and disables Secure cookies. The web client uses a development proxy, and Android has no configured release origin. These are implementation blockers; changing the existing Compose port binding is not a release procedure.
+The release now has a distinct HTTPS configuration, Secure cookies, closed enrollment, a packaged web gateway and a reviewed Android origin. The development profile remains separate. The following requirements define the release boundary and continuing operational obligations.
 
 | Area | Required change |
 | --- | --- |
@@ -106,9 +106,9 @@ Set up external HTTPS availability monitoring and alerts for certificate expiry,
 | --- | --- |
 | 1. Preflight | Record the VPS, domain, approved cost, administrator/recovery access, backup destination and alert owner. |
 | 2. Local release rehearsal | Pass production-configuration, enrollment, HTTPS cookie/bearer, proxy-spoofing, origin rejection, quota and account-isolation checks through the packaged gateway. |
-| 3. Server installation | Record Ubuntu/Docker versions, effective SSH settings, firewall rules, running services and external IPv4/IPv6 scans. Verify only the intended ports are reachable and repeat after reboot. |
+| 3. Server installation | Record Debian/Docker versions, effective SSH settings, firewall rules, running services and external IPv4/IPv6 scans. Verify only the intended ports are reachable and repeat after reboot. |
 | 4. Public deployment | Install the release with fresh secrets and data. Confirm browser and signed Android sign-in, create/save/reopen, Library, Practice, tutorial and MIDI from home and a separate remote network, with the PC backend stopped and no VPN. |
 | 5. Failure and update checks | Verify network loss, local recovery, cross-device conflicts, session expiry/revocation, container replacement and server reboot. Confirm saved data and metadata survive; rehearse a compatible rollback. |
 | 6. Recovery and handover | Restore an independent backup, demonstrate clean-host recovery, measure recovery time and resource use, and observe at least 24 hours of normal operation including a successful scheduled backup and delivered test alert. Publish the runbook and dated M8 verification record. |
 
-M8 is complete only when the deployed service passes these gates. Include product tests for changed authentication, enrollment and proxy behavior, plus real browser/native acceptance. Development-only helpers retain runtime diagnostics without dedicated automated test suites, following repository policy. This document defines future work and does not claim that any server has been provisioned or secured.
+M8 is complete only when the deployed service passes these gates. Include product tests for changed authentication, enrollment and proxy behavior, plus real browser/native acceptance. Development-only helpers retain runtime diagnostics without dedicated automated test suites. First deployment does not close the NAS backup, alert delivery, hardware/network acceptance or observation gates; use the dated verification record rather than treating this checklist as completed evidence.
