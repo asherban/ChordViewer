@@ -1,14 +1,16 @@
 # Rebuild milestones
 
-Planning baseline: 2026-09-20; delivery status updated 2026-09-26. This is an outcome-level roadmap based on the [product plan](product-plan.md) and [setup and cleanup plan](setup-and-cleanup.md). It does not assign dates or low-level tasks. **M0–M7 are complete locally; M8 is next.** See the [M1 verification record](../development/m1-verification.md) for tooling, [M2 verification record](../development/m2-verification.md) for the foundation and notation proof, [M3 verification record](../development/m3-verification.md) for persistence, [M4 verification record](../development/m4-verification.md) for chord authoring, [M5 verification record](../development/m5-verification.md) for melody and import/export, [M6 verification record](../development/m6-verification.md) for Library and Practice on both clients, and [M7 verification record](../development/m7-verification.md) for recovery and complete local validation. M8 onward remain planned.
+Planning baseline: 2026-09-20; roadmap updated 2026-10-23. This is an outcome-level roadmap based on the [product plan](product-plan.md) and [setup and cleanup plan](setup-and-cleanup.md). It does not assign dates or low-level tasks. **M0–M7 are complete locally; M8 public Hostinger VPS deployment is next.** See the [M1 verification record](../development/m1-verification.md) for tooling, [M2 verification record](../development/m2-verification.md) for the foundation and notation proof, [M3 verification record](../development/m3-verification.md) for persistence, [M4 verification record](../development/m4-verification.md) for chord authoring, [M5 verification record](../development/m5-verification.md) for melody and import/export, [M6 verification record](../development/m6-verification.md) for Library and Practice on both clients, and [M7 verification record](../development/m7-verification.md) for recovery and complete local validation. M8 remains planned and is the final active milestone.
 
 Both web and native Android are part of the product. A milestone involving a user workflow is complete only when it works on both clients, unless explicitly described as a tooling milestone.
+
+The [M8 execution and server security plan](m8-execution-plan.md) covers installation on Hostinger VPS, public HTTPS access, restricted administration, application release work, backups and recovery. Deployment and acceptance remain pending.
 
 The M3 design follow-up aligns both clients with the selected mockups and gives the web client a full-window shell plus an optional full-screen button. See [shared application layout](ui-style.md) and [UI verification](../development/m3-ui-verification.md). This does not advance the authoring or guided-practice milestones below.
 
 Routine acceptance uses real loopback MIDI in the browser and test APK musical fixtures in the Android emulator. A piano and tablet are not required for those product checks. Live Android input uses the physical USB route. See [Local MIDI testing](local-midi-testing.md) for current coverage and hardware limits.
 
-Develop and test the backend, database, web client and Android emulator on the development machine through M7. NAS deployment is deferred to M8, after the complete workflow has passed local validation.
+Develop and test the backend, database, web client and Android emulator on the development machine through M7. Deploy to Hostinger VPS in M8 after the complete workflow has passed local validation.
 
 | Milestone | Outcome | Completion criterion |
 | --- | --- | --- |
@@ -20,18 +22,16 @@ Develop and test the backend, database, web client and Android emulator on the d
 | **M5 — Melody and additional input methods** | Lead sheets can include editable melody, with input beyond MIDI. | Separate chord/melody MIDI passes, manual editing, notes/rests/dots/ties, major/minor keys and supported meters work on both clients. MusicXML and ChordViewer JSON import use a preview and save as new; JSON export preserves exact score data. Chord-only sheets remain usable. **Complete**, with real LoopBe authoring, browser/native file roundtrips and code/security review. |
 | **M6 — Library and Practice** | Users can manage their sheets and practice with them. | Personal sheets/imports are findable and editable from Library. Practice offers manual movement, optional advance on a matching chord, live MIDI feedback and independent tutorial playback; playing does not change the sheet. **Complete locally**, with browser/native LoopBe Practice, Library organization, actual tutorial playback and code/security review. |
 | **M7 — Complete local validation** | The complete workflow is dependable under repeatable local testing. | Browser and native emulator tests cover creation through practice, temporary connection loss and the agreed draft/sync behavior against the local backend. Backup restoration, repeatable container releases and resource usage are checked locally. Hardware-specific behavior not covered by this setup is documented separately. **Complete locally**, with explicit Save and local recovery, conflict preservation, real LoopBe regressions, isolated backup restore and code/security review. |
-| **M8 — Private NAS deployment** | The locally validated product can run on a separate private host. | Compatible release containers run on the NAS with separate settings and data. Both clients reach the private deployment; updates, persistence and backup restoration are verified. Deployment resource measurements inform the later hosting choice. |
-| **M9 — Small paid public launch** | The product can serve and charge an initial public user base. | A reviewed hosting choice runs the compatible container deployment within an accepted budget. Account isolation, paid access, Android distribution, production backup/restore and service operation are validated before public access. |
+| **M8 — Public Hostinger VPS deployment** | Both clients use a secured public HTTPS service independently of the workstation. | Hardened Ubuntu, restricted SSH, verified firewalls, release containers and a signed Android APK are operational. Approved accounts can use both clients without a VPN. HTTPS authentication, account isolation, persistence, updates, rollback, independent backup restoration, monitoring and resource use are verified. |
 
 ## Sequence and release boundaries
 
-The main sequence is M0 through M9. Preservation precedes repository cleanup, and a working local MIDI test path precedes building the full editor. NAS availability is not a dependency of M1–M7. Focused setup and design work can overlap where it does not depend on an unresolved decision.
+The active sequence is M0 through M8. Preservation precedes repository cleanup, and a working local MIDI test path precedes building the full editor. Remote hosting is not a dependency of M1–M7. Focused setup and design work can overlap where it does not depend on an unresolved decision.
 
 - **First usable private alpha:** M4, for MIDI chord-sheet creation, testable entirely on the workstation.
 - **Full planned workflow available for local testing:** M6, including melody, Library and Practice.
 - **Complete local validation:** M7, before deploying beyond the development machine.
-- **Private NAS deployment:** M8, as a later deployment rehearsal.
-- **Ready for public users:** M9, after deployment validation and production preparation. The NAS remains private throughout.
+- **Public server deployment:** M8, with HTTPS access and operator-provisioned accounts for approved users. Commercial launch and unrestricted enrollment are not scheduled.
 
 ## Decisions needed along the way
 
@@ -43,11 +43,10 @@ The main sequence is M0 through M9. Preservation precedes repository cleanup, an
 | M4 | Resolved in the [chord authoring contract](chord-authoring.md): release every physical key to insert, sustain-independent capture, selected duration (one bar by default), shared naming alternatives and explicit correction. |
 | M5 | Resolved in [melody authoring](melody-authoring.md): one treble voice, MusicXML plus ChordViewer JSON, manual chord/note/rest editing, and v2 major/minor keys with meters of 1–12 beats over 2, 4 or 8. |
 | M7 | Resolved in [draft recovery](draft-recovery.md): automatic local copies, explicit Save, retained baseline revisions and deliberate conflict resolution. Repeated browser/emulator acceptance and local backup/resource evidence are in the [verification record](../development/m7-verification.md). |
-| M8 | NAS memory/capacity, DSM/Container Manager state, private HTTPS/access arrangement and deployment-specific settings. |
-| M9 | Cloud region/provider, current full hosting cost and reputation, account/subscription model, payment approach and Android distribution channel. |
+| M8 | Hostinger VPS is selected. Confirm the tier, region, full recurring cost, domain, administrator access, independent backup destination and alert owner. Complete the installation, security and release gates in the [M8 plan](m8-execution-plan.md). |
 
-DigitalOcean and OVHcloud remain hosting candidates, not selections. The USD 10 figure is a hosting target; confirm which operating costs fit within it before committing to a provider or commercial launch.
+The roughly USD 10 monthly figure remains a hosting target. Confirm Hostinger renewal pricing, tax, domain and backup costs before purchasing or upgrading the selected VPS.
 
 ## Later scope
 
-Sharing/community features, simultaneous melody-and-accompaniment capture, automatic video synchronization and performance grading are outside these initial delivery milestones. Advanced notation beyond the agreed first-release scope can follow later. Migration of legacy browser charts is intentionally excluded: the rebuilt product starts with an empty library.
+Subscriptions, payments, unrestricted public signup and app-store publication are deferred without a scheduled milestone. Sharing/community features, simultaneous melody-and-accompaniment capture, automatic video synchronization and performance grading are also later scope. Advanced notation beyond the agreed first-release scope can follow later. Migration of legacy browser charts is intentionally excluded: the rebuilt product starts with an empty library.

@@ -6,7 +6,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | --- | --- |
 | [Architecture decision records](../ADRs/README.md) | Short records of accepted decisions, their reasons and relationships. |
 | [Product and architecture plan](product-plan.md) | Accepted scope, Library/Create/Practice behavior, the three application parts, deployment direction and open decisions. |
-| [Development setup and repository cleanup](setup-and-cleanup.md) | Workstation audit, Android tooling, local development, later private NAS deployment, preservation and cleanup boundaries. |
+| [Development setup and repository cleanup](setup-and-cleanup.md) | Workstation audit, Android tooling, local development, later Hostinger deployment, preservation and cleanup boundaries. |
 | [Local MIDI testing](local-midi-testing.md) | Verified Windows loopback/web test and the proposed bridge to the Android emulator, without a piano or tablet. |
 | [USB MIDI connection design](usb-midi-connection.md) | Verified Windows-to-tablet native USB MIDI receipt and the design for LoopBe routing, automatic input discovery, connection health and backend forwarding. |
 | [Milestone roadmap](milestones.md) | Delivery outcomes, completion criteria and decisions needed before each stage. |
@@ -28,6 +28,7 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 | [Local draft recovery](draft-recovery.md) | Explicit Save, device-local copies, conflict resolution, account isolation and limits. |
 | [Local backup and restore](../development/local-backup-restore.md) | Private archives, fresh isolated restore targets and cleanup commands. |
 | [M7 verification record](../development/m7-verification.md) | Restart/outage/conflict checks, backup comparison, release/resource validation and evidence. |
+| [M8 execution and server security plan](m8-execution-plan.md) | Public Hostinger VPS installation, hardening, HTTPS, release work, backups, monitoring and acceptance. |
 | [Score layout verification](../development/score-layout-verification.md) | Mockup-aligned chord and melody systems, responsive layouts and actual application screenshots. |
 | [Backend and persistence contract](backend-contract.md) | Local authentication, sheet revisions, limits, security boundaries and migration policy. |
 | [Local backend containers](../development/m3-containers.md) | Start/stop commands, private settings, separate test data and container resources. |
@@ -44,13 +45,13 @@ Planning baseline: 2026-09-20. This folder records agreed direction, proposed be
 - Create sheets directly from a connected digital piano on either client. Start with automatic MIDI step entry, easy corrections and separate chord/melody passes.
 - Keep personal sheets and imports in Library. Practice uses manual navigation by default, with optional advance on a matching chord and independently controlled YouTube playback.
 - Use the selected balanced layout: tutorial and played-chord feedback on the left, lead sheet on the right. Support chord-only sheets and optional melody notation without lyrics.
-- Develop and validate the complete workflow on the local machine first. Deploy privately to the Synology NAS at a later milestone, then move a compatible container deployment to public hosting with an approximately USD 10 monthly hosting target.
+- Develop and validate the complete workflow locally, then deploy publicly on Hostinger VPS in M8 with an approximately USD 10 monthly hosting target. The active roadmap ends at M8; subscriptions and payments remain deferred.
 - Install Android development tools, preserve a recoverable baseline, remove obsolete repository work and start with an empty user library.
 - Use the computer's MIDI loopback setup for routine testing in the web browser and Android emulator. A physical piano or tablet is not a development prerequisite.
 
 ## How to read this plan
 
-The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Chord and melody authoring contracts record the M4/M5 decisions, including MusicXML and JSON import. Cloud provider and billing remain open. The milestone roadmap includes those later decision points.
+The product plan distinguishes accepted direction from proposed interaction details. The implementation uses React/VexFlow, native Kotlin/Compose Canvas, Fastify, PostgreSQL and Better Auth. Chord and melody authoring contracts record the M4/M5 decisions, including MusicXML and JSON import. Hostinger VPS is the deployment target; its tier, region and domain remain open. Billing is deferred without a scheduled milestone.
 
 Mockups are layout references, not specifications for every label or music glyph. The older Create image still contains an **Insert** button; the later decision to insert automatically takes precedence. The gallery explains this difference beside the image.
 
