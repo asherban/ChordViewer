@@ -15,6 +15,7 @@ fun checkedOrigin(value: String, production: Boolean): String {
     require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null && uri.path.isNullOrEmpty()) { "API URL must be an origin without a path, credentials, query or fragment." }
     require(uri.port == -1 || uri.port in 1..65535)
     if (production) {
+        require(value == "https://chordviewer.app") { "Release builds must use https://chordviewer.app." }
         require(uri.scheme == "https" && uri.host.contains('.') && !uri.host.matches(Regex("[0-9.]+")) &&
             !uri.host.endsWith(".local") && !uri.host.endsWith(".localhost") && !uri.host.endsWith(".test") &&
             !uri.host.endsWith(".invalid") && !uri.host.endsWith(".example") && uri.host != "example.com") { "Approve a real production HTTPS hostname, never a development IP or placeholder." }
