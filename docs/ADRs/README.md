@@ -16,13 +16,14 @@ Numbered ADRs are immutable after their first commit. This index is editable: ad
 | [0008](0008-persistent-android-sessions.md) | Persist Android sessions securely across restarts | Accepted; endpoint isolation is covered by [0011](0011-development-and-release-endpoints.md) |
 | [0009](0009-native-usb-midi.md) | Use native USB MIDI and automatic input selection | Accepted |
 | [0010](0010-structured-harmony-and-logical-chords.md) | Store structured harmony and logical cross-bar chords | Accepted; extends [0004](0004-versioned-score-contract.md) |
-| [0011](0011-development-and-release-endpoints.md) | Select development endpoints at build time and guard releases | Accepted; the public M8 target is defined by [0015](0015-public-hostinger-deployment.md) |
+| [0011](0011-development-and-release-endpoints.md) | Select development endpoints at build time and guard releases | Release isolation and build-time local address remain; local/public selection is superseded by [0018](0018-debug-android-backend-switch.md); public target defined by [0015](0015-public-hostinger-deployment.md) |
 | [0012](0012-android-practice-and-sounding-notes.md) | Advance Android Practice on completed gestures; show sounding chords | Accepted; metronome remains future work |
 | [0013](0013-immutable-architecture-decisions.md) | Keep short, linked, immutable decision records | Accepted |
 | [0014](0014-private-vpn-access-for-m8.md) | Reach the private NAS from home and remotely through a VPN | Superseded by [0015](0015-public-hostinger-deployment.md); this deployment was not implemented |
 | [0015](0015-public-hostinger-deployment.md) | Deploy M8 publicly on Hostinger VPS; defer commercial launch | Accepted; supersedes [0014](0014-private-vpn-access-for-m8.md) and the deployment sequence in [0003](0003-local-first-development-and-portable-deployment.md); first-release boundaries are recorded in [0016](0016-first-public-release-boundaries.md) |
 | [0016](0016-first-public-release-boundaries.md) | One HTTPS origin and operator-managed enrollment for the first release | Accepted; extends [0015](0015-public-hostinger-deployment.md) and [0011](0011-development-and-release-endpoints.md); recovery and full M8 acceptance remain pending |
 | [0017](0017-compile-score-validators-at-build-time.md) | Compile shared score validators at build time | Accepted; supports the strict browser CSP in [0016](0016-first-public-release-boundaries.md) while preserving [0004](0004-versioned-score-contract.md) |
+| [0018](0018-debug-android-backend-switch.md) | Switch Android debug builds between local and public backends | Accepted; partially supersedes [0011](0011-development-and-release-endpoints.md), preserves origin-bound sessions and release isolation |
 
 ## Historical sources
 

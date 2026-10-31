@@ -14,7 +14,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chordviewer.ui.*
 import com.chordviewer.score.*
-import com.chordviewer.BuildConfig
+import com.chordviewer.ApiConfiguration
 
 @Composable
 fun AccountLanding(state: LibraryState, authenticate: (String, String, String?) -> Unit, preview: () -> Unit) {
@@ -32,8 +32,15 @@ fun AccountLanding(state: LibraryState, authenticate: (String, String, String?) 
 }
 
 @Composable
-fun AccountDialog(state: LibraryState, authenticate: (String, String, String?) -> Unit, signOut: () -> Unit, close: () -> Unit) {
-    AlertDialog(onDismissRequest = close, title = { Text(if (state.user == null) "Your account" else state.user.name) },
+fun AccountDialog(state: LibraryState, authenticate: (String, String, String?) -> Unit, signOut: () -> Unit, close: () -> Unit,
+    titleAction: @Composable () -> Unit = {}) {
+    AlertDialog(onDismissRequest = close, title = {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (state.user == null) "Your account" else state.user.name, Modifier.weight(1f))
+            // The slot is identical in both variants; debug controls cannot resize the dialog.
+            Box(Modifier.size(48.dp)) { titleAction() }
+        }
+    },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (state.user == null && state.configured) AccountFields(state.busy, authenticate)
             else if (state.user != null) {
@@ -62,8 +69,8 @@ private fun AccountFields(busy: Boolean, authenticate: (String, String, String?)
         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
     Button(onClick = { val submitted = password; password = ""; authenticate(email, submitted, if (create) name else null) }, enabled = !busy,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) { Text(if (create) "Create account" else "Sign in") }
-    if (!BuildConfig.DEBUG) Text("Contact the operator for an account or help resetting your password.", color = MutedColor)
-    if (BuildConfig.DEBUG) TextButton(onClick = { create = !create; password = "" }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
+    if (!ApiConfiguration.allowsRegistration) Text("Contact the operator for an account or help resetting your password.", color = MutedColor)
+    if (ApiConfiguration.allowsRegistration) TextButton(onClick = { create = !create; password = "" }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
         Text(if (create) "Use an existing account" else "Create an account")
     }
 }

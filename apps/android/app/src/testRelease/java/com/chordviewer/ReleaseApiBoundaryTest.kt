@@ -5,6 +5,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ReleaseApiBoundaryTest {
+    @Test fun releaseIsFixedToChordViewer() {
+        assertEquals("https://chordviewer.app", BuildConfig.APPROVED_API_ORIGIN)
+        assertFalse(ApiConfiguration.allowLoopbackHttp)
+        assertFalse(ApiConfiguration.allowsRegistration)
+    }
+
     @Test fun developmentOptInCannotEnableHttpInRelease() {
         for (origin in listOf("http://127.0.0.1:3000", "http://192.168.1.50:3000")) {
             // The constructor must reject the destination before a credential can be sent.

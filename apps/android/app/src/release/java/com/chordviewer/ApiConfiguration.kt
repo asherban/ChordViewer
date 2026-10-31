@@ -6,6 +6,7 @@ internal object ApiConfiguration {
     var baseUrl: String? = null
         private set
     const val allowLoopbackHttp: Boolean = false
+    const val allowsRegistration: Boolean = false
 
     fun initialize(context: Context) {
         baseUrl = EndpointPolicy.requireProductionOrigin(

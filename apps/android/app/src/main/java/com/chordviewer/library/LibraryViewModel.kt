@@ -849,7 +849,10 @@ class LibraryViewModel(
         }
     }
 
-    fun signOut() {
+    fun signOut() = signOut { }
+
+    /** Report local credential deletion after accepted recovery writes and server revocation finish. */
+    fun signOut(onComplete: (Boolean) -> Unit) {
         rememberPositions()
         val previous = session
         invalidate()
@@ -860,6 +863,7 @@ class LibraryViewModel(
         val request = generation
         val deletion = storeSession(null)
         active = viewModelScope.launch {
+            recoveryJob?.join()
             val cleared = try { deletion?.await(); true }
             catch (error: Exception) { if (error is CancellationException) throw error; false }
             var message = if (cleared) "Signed out on this device." else "Could not remove the saved sign-in. Check device storage and sign out again."
@@ -868,7 +872,10 @@ class LibraryViewModel(
                 if (error is CancellationException) throw error
                 if (cleared) message = "Signed out on this device. The server could not confirm session revocation; the old session will expire automatically."
             }
-            if (request == generation) mutableState.value = mutableState.value.copy(busy = false, message = message)
+            if (request == generation) {
+                mutableState.value = mutableState.value.copy(busy = false, message = message)
+                onComplete(cleared)
+            }
         }
     }
 
@@ -903,7 +910,7 @@ class LibraryViewModel(
         practiceCapture.pause()
         val message = (error as? ApiFailure)?.userMessage
             ?: if (error is IllegalArgumentException) "The title or server response was invalid. Check your input and try again."
-            else "Could not reach the local service. Check that it is running and the Android API connection is set up."
+            else "Could not reach the server. Check your connection and try again."
         if (error is ApiFailure && error.status == 401) {
             session = null
             clearEditor()

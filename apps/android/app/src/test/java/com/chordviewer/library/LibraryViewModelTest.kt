@@ -144,6 +144,37 @@ class LibraryViewModelTest {
         assertNull(restarted.state.value.user); assertNull(store.saved)
     }
 
+    @Test fun signOutCompletionReportsCredentialDeletionEvenWhenOffline() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore(); val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        gateway.revokeFailure = java.io.IOException("Offline")
+        var result: Boolean? = null
+        model.signOut { cleared ->
+            assertNull(store.saved)
+            assertNull(model.state.value.user)
+            assertFalse(model.state.value.busy)
+            result = cleared
+        }
+        assertNull(result)
+        advanceUntilIdle()
+        assertEquals(true, result)
+    }
+
+    @Test fun signOutCompletionReportsFailedCredentialDeletion() = runTest(dispatcher) {
+        val gateway = FakeGateway(); val store = MemorySessionStore(); val model = LibraryViewModel(gateway, dispatcher)
+        model.configureSession(store); advanceUntilIdle()
+        model.authenticate("one@example.test", "a-long-password", null); advanceUntilIdle()
+        store.onClear = { throw java.io.IOException("Storage unavailable") }
+        var result: Boolean? = null
+        model.signOut { result = it }
+        advanceUntilIdle()
+        assertEquals(false, result)
+        assertNotNull(store.saved)
+        assertNull(model.state.value.user)
+        assertFalse(model.state.value.busy)
+    }
+
     @Test fun unreadableSessionReturnsToSignInAndFailedSaveIsReported() = runTest(dispatcher) {
         val gateway = FakeGateway(); val store = MemorySessionStore()
         store.onLoad = { throw java.security.GeneralSecurityException("Unavailable key") }
@@ -162,9 +193,10 @@ class LibraryViewModelTest {
         var saved: AccountSession? = null
         var onSave: () -> Unit = {}
         var onLoad: () -> Unit = {}
+        var onClear: () -> Unit = {}
         override fun load(): AccountSession? { val value = saved; onLoad(); return value }
         override fun save(session: AccountSession) { onSave(); saved = session }
-        override fun clear() { saved = null }
+        override fun clear() { onClear(); saved = null }
     }
 
     private fun configure(model: LibraryViewModel) {
