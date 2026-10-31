@@ -75,6 +75,16 @@ jobs:
         shell: bash
         run: |
           if [ -n "$(tr -d '[:space:]' < apps/android/production-api-origin.txt)" ]; then
+            # Validate release packaging with a disposable key, without production signing secrets.
+            export CHORDVIEWER_KEYSTORE="$RUNNER_TEMP/chordviewer-ci-signing.p12"
+            export CHORDVIEWER_STORE_PASSWORD="$(openssl rand -hex 32)"
+            export CHORDVIEWER_KEY_PASSWORD="$CHORDVIEWER_STORE_PASSWORD"
+            echo "::add-mask::$CHORDVIEWER_STORE_PASSWORD"
+            trap 'rm -f "$CHORDVIEWER_KEYSTORE"' EXIT
+            keytool -genkeypair -noprompt -storetype PKCS12 \
+              -keystore "$CHORDVIEWER_KEYSTORE" \
+              -storepass:env CHORDVIEWER_STORE_PASSWORD -keypass:env CHORDVIEWER_KEY_PASSWORD \
+              -alias chordviewer -dname "CN=ChordViewer CI" -keyalg RSA -keysize 2048 -validity 2
             bash apps/android/gradlew -p apps/android --no-daemon :app:assembleRelease :app:bundleRelease -PdevApiUrl=http://192.168.254.253:3000
           else
             for task in assembleRelease bundleRelease; do

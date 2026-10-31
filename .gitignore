@@ -26,6 +26,7 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+/contracts/src/generated/
 
 # Android tooling, machine paths and signing material
 **/.gradle/

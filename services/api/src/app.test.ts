@@ -8,6 +8,7 @@ vi.mock('./auth.js', () => ({ createAuth: () => ({ handler: authentication.handl
 
 const origin = 'http://127.0.0.1:5173';
 const config: Configuration = {
+  deployment: 'local',
   databaseUrl: 'postgres://unused', authSecret: 'unused-in-authentication-stub',
   authBaseUrl: 'http://127.0.0.1:3000', trustedOrigins: [origin], host: '127.0.0.1', port: 3000,
 };
@@ -103,7 +104,7 @@ describe('HTTP security boundary', () => {
     query.mockRejectedValue(new Error('postgres://secret:password@database SQL SELECT sensitive-data'));
     const response = await app.inject('/api/v1/sheets');
     expect(response.statusCode).toBe(503);
-    expect(response.json()).toEqual({ error: 'temporarily_unavailable', message: 'The local backend is temporarily unavailable. Retry after it is ready.' });
+    expect(response.json()).toEqual({ error: 'temporarily_unavailable', message: 'The backend is temporarily unavailable. Retry after it is ready.' });
   });
 });
 
@@ -133,5 +134,43 @@ describe('authentication HTTP adapter', () => {
     const response = await app.inject({ method: 'POST', url: '/api/auth/sign-in/email', payload: { email: user.email, password: 'a-long-password' } });
     expect(response.statusCode).toBe(429);
     expect(response.headers['retry-after']).toBe('45');
+  });
+});
+
+describe('deployed gateway and enrollment boundary', () => {
+  const secret = 'b'.repeat(64);
+  const gateway = { 'x-chordviewer-gateway': secret, 'x-chordviewer-client-ip': '198.51.100.7' };
+  beforeEach(async () => {
+    await app.close();
+    app = buildApp({ query } as unknown as Pool, { ...config, deployment: 'https', gatewaySecret: secret,
+      authBaseUrl: 'https://chordviewer.app', trustedOrigins: ['https://chordviewer.app'] });
+  });
+  it.each([{}, { 'x-chordviewer-client-ip': '198.51.100.7' }, { ...gateway, 'x-chordviewer-gateway': 'c'.repeat(64) },
+    { ...gateway, 'x-chordviewer-client-ip': '198.51.100.7, 198.51.100.8' }])('rejects unverified proxy identity: %j', async headers => {
+    expect((await app.inject({ url: '/api/v1/me', headers })).statusCode).toBe(403);
+    expect(authentication.getSession).not.toHaveBeenCalled();
+  });
+  it('disables enrollment before calling the authentication provider', async () => {
+    const response = await app.inject({ method: 'POST', url: '/api/auth/sign-up/email', headers: gateway, payload: {} });
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error).toBe('enrollment_closed');
+    expect(authentication.handler).not.toHaveBeenCalled();
+  });
+  it('keeps different verified clients distinct and strips gateway credentials', async () => {
+    for (const ip of ['198.51.100.7', '198.51.100.8', '198.51.100.7']) {
+      const response = await app.inject({ url: '/api/v1/me', headers: { ...gateway, 'x-chordviewer-client-ip': ip, 'x-forwarded-for': 'spoofed' } });
+      expect(response.statusCode).toBe(200);
+      const headers = authentication.getSession.mock.lastCall![0].headers as Headers;
+      expect(headers.get('x-chordviewer-client-ip')).toBe(ip);
+      expect(headers.has('x-forwarded-for')).toBe(false);
+      expect(headers.has('x-chordviewer-gateway')).toBe(false);
+    }
+  });
+  it('still requires the exact trusted origin for cookie writes', async () => {
+    for (const origin of [undefined, 'https://www.chordviewer.app', 'https://evil.com']) {
+      const response = await app.inject({ method: 'POST', url: sheetPath, payload: {},
+        headers: { ...gateway, cookie: 'session=secret', ...(origin ? { origin } : {}) } });
+      expect(response.statusCode).toBe(403);
+    }
   });
 });

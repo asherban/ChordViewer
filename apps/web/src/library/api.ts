@@ -35,6 +35,7 @@ export async function request(
       method,
       credentials: "same-origin",
       cache: "no-store",
+      redirect: "error",
       headers:
         body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),

@@ -1,4 +1,6 @@
 import Fastify, { type FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Pool } from 'pg';
 import { ScoreValidationError, parseScore } from '@chordviewer/contracts';
@@ -17,13 +19,23 @@ export function buildApp(pool: Pool, config: Configuration) {
   const authHeaders = (request: FastifyRequest) => {
     const headers = fromNodeHeaders(request.headers);
     // Caller-supplied forwarding headers cannot choose their own authentication rate-limit identity.
-    headers.set('x-chordviewer-client-ip', request.ip);
+    headers.set('x-chordviewer-client-ip', config.deployment === 'https' ? request.headers['x-chordviewer-client-ip'] as string : request.ip);
+    headers.delete('x-chordviewer-gateway');
     for (const name of ['x-forwarded-for', 'x-real-ip', 'forwarded', 'x-forwarded-host', 'x-forwarded-proto']) headers.delete(name);
     return headers;
   };
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     if (!request.url.startsWith('/api/')) return;
+    if (config.deployment === 'https') {
+      const supplied = request.headers['x-chordviewer-gateway'];
+      const expected = config.gatewaySecret;
+      const clientIp = request.headers['x-chordviewer-client-ip'];
+      if (typeof supplied !== 'string' || !expected || Buffer.byteLength(supplied) !== Buffer.byteLength(expected) ||
+          !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected)) || typeof clientIp !== 'string' || !isIP(clientIp)) {
+        return reply.code(403).send(code('gateway_required', 'Use the HTTPS gateway.'));
+      }
+    }
     const origin = request.headers.origin;
     if ((origin && !trusted.has(origin)) || request.headers['sec-fetch-site'] === 'cross-site') {
       return reply.code(403).send(code('untrusted_origin', 'This request origin is not allowed.'));
@@ -46,7 +58,7 @@ export function buildApp(pool: Pool, config: Configuration) {
     const status = (error as { statusCode?: number }).statusCode;
     if (status === 413) return reply.code(413).send(code('too_large', 'A sheet request must be no larger than 1 MiB.'));
     if (status && status >= 400 && status < 500) return reply.code(status).send(code('invalid_request', 'The request could not be read.'));
-    return reply.code(503).send(code('temporarily_unavailable', 'The local backend is temporarily unavailable. Retry after it is ready.'));
+    return reply.code(503).send(code('temporarily_unavailable', 'The backend is temporarily unavailable. Retry after it is ready.'));
   });
   app.get('/health', async (_request, reply) => {
     try {
@@ -57,6 +69,9 @@ export function buildApp(pool: Pool, config: Configuration) {
   app.get('/api/v1/score-example', async () => parseScore(example));
   app.route({ method: ['GET', 'POST'], url: '/api/auth/*', handler: async (request, reply) => {
     const path = request.url.split('?')[0]!;
+    if (config.deployment === 'https' && path === '/api/auth/sign-up/email') {
+      return reply.code(403).send(code('enrollment_closed', 'Contact the operator for account access.'));
+    }
     if (request.method !== 'POST' || !authenticationPaths.has(path) || request.url.includes('?')) {
       return reply.code(404).send(code('not_found', 'Endpoint not found.'));
     }

@@ -60,7 +60,7 @@ abstract class VerifyReleaseIsolation : DefaultTask() {
         val document = factory.newDocumentBuilder().parse(manifest.get().asFile)
         val app = document.getElementsByTagName("application").item(0) as org.w3c.dom.Element
         val namespace = "http://schemas.android.com/apk/res/android"
-        check(app.getAttributeNS(namespace, "debuggable") == "false") { "Release must not be debuggable." }
+        check(app.getAttributeNS(namespace, "debuggable") in setOf("", "false")) { "Release must not be debuggable." }
         check(app.getAttributeNS(namespace, "usesCleartextTraffic") == "false") { "Release must prohibit HTTP." }
         check(!app.hasAttributeNS(namespace, "networkSecurityConfig")) { "Release must use platform TLS trust with no network policy overrides." }
         check(assets.file("api-origin.txt").get().asFile.readText().trim() == approvedOrigin.get()) { "Development endpoint leaked into release assets." }
@@ -88,7 +88,9 @@ abstract class VerifyReleaseArchive : DefaultTask() {
                 val manifest = process.inputStream.bufferedReader().use { it.readText() }
                 check(process.waitFor() == 0) { "Could not inspect packaged release manifest." }
                 for (attribute in listOf("debuggable", "usesCleartextTraffic")) {
-                    check(manifest.lineSequence().any { it.contains("android:$attribute(") && it.trim().endsWith("(type 0x12)0x0") }) { "Packaged release $attribute must be false." }
+                    val declaration = manifest.lineSequence().firstOrNull { it.contains("android:$attribute(") }
+                    val explicitlyFalse = declaration?.trim()?.let { it.endsWith("(type 0x12)0x0") || it.endsWith("=false") } == true
+                    check((attribute == "debuggable" && declaration == null) || explicitlyFalse) { "Packaged release $attribute must be false." }
                 }
                 check(!manifest.contains("android:networkSecurityConfig(")) { "Packaged release contains a network policy override." }
             }
@@ -104,6 +106,16 @@ val verifyProductionOrigin = tasks.register("verifyProductionOrigin") {
     inputs.property("approvedOrigin", approvedApiOrigin)
     doLast { checkedOrigin(approvedApiOrigin.get(), production = true) }
 }
+val releaseKeystore = providers.environmentVariable("CHORDVIEWER_KEYSTORE")
+val releaseStorePassword = providers.environmentVariable("CHORDVIEWER_STORE_PASSWORD")
+val releaseKeyPassword = providers.environmentVariable("CHORDVIEWER_KEY_PASSWORD")
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    doLast {
+        check(releaseKeystore.isPresent && releaseStorePassword.isPresent && releaseKeyPassword.isPresent) {
+            "Release packaging requires CHORDVIEWER_KEYSTORE, CHORDVIEWER_STORE_PASSWORD and CHORDVIEWER_KEY_PASSWORD. Keep signing material outside Git."
+        }
+    }
+}
 
 android {
     namespace = "com.chordviewer"
@@ -114,17 +126,27 @@ android {
         applicationId = "com.chordviewer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseKeystore.isPresent) storeFile = file(releaseKeystore.get())
+            storePassword = releaseStorePassword.orNull
+            keyAlias = "chordviewer"
+            keyPassword = releaseKeyPassword.orNull
+        }
+    }
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "APPROVED_API_ORIGIN", "\"${approvedApiOrigin.get().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -176,7 +198,7 @@ androidComponents {
                 aapt2.set(androidComponents.sdkComponents.sdkDirectory.map { it.file("build-tools/35.0.0/" + if (System.getProperty("os.name").startsWith("Windows")) "aapt2.exe" else "aapt2") })
             }
             tasks.configureEach {
-                if (name in setOf("packageRelease", "packageReleaseBundle", "signReleaseBundle")) dependsOn(verifyProductionOrigin, isolation)
+                if (name in setOf("packageRelease", "packageReleaseBundle", "signReleaseBundle")) dependsOn(verifyProductionOrigin, isolation, verifyReleaseSigning)
                 if (name == "assembleRelease") dependsOn(apkCheck)
                 if (name == "bundleRelease") dependsOn(bundleCheck)
             }

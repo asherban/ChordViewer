@@ -8,11 +8,11 @@ export function createAuth(pool: Pool, config: Configuration) {
     appName: 'ChordViewer', baseURL: config.authBaseUrl, basePath: '/api/auth',
     secret: config.authSecret, database: pool,
     trustedOrigins: config.trustedOrigins,
-    emailAndPassword: { enabled: true, minPasswordLength: 12, maxPasswordLength: 128, requireEmailVerification: false },
+    emailAndPassword: { enabled: true, disableSignUp: config.deployment === 'https', minPasswordLength: 12, maxPasswordLength: 128, requireEmailVerification: false },
     session: { expiresIn: 86_400, updateAge: 3_600, cookieCache: { enabled: false } },
     plugins: [bearer({ requireSignature: true })],
     advanced: {
-      useSecureCookies: false, // Explicit local HTTP deployment only; public HTTPS hosting remains unconfigured.
+      useSecureCookies: config.deployment === 'https',
       cookiePrefix: 'chordviewer', defaultCookieAttributes: { httpOnly: true, sameSite: 'lax', path: '/' },
       ipAddress: { ipAddressHeaders: ['x-chordviewer-client-ip'] },
     },
