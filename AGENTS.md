@@ -1,5 +1,9 @@
 # Repository instructions
 
+## Visual evidence
+
+- Whenever making a visual change to any frontend, use the project [frontend visual evidence skill](.agents/skills/frontend-visual-evidence/SKILL.md). Provide actual images or video in the final response proving the implemented change, including any requested layout comparisons.
+
 ## Architecture decisions
 
 - Whenever an architecture decision is made, add a short ADR in `docs/ADRs` as part of the same work. Record the decision and its reason; keep implementation plans in the existing architecture documents.
