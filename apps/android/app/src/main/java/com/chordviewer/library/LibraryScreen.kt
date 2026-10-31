@@ -23,6 +23,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import com.chordviewer.MidiInputState
+import com.chordviewer.BackendSelector
 import com.chordviewer.score.LeadSheetReader
 import com.chordviewer.ui.*
 
@@ -121,9 +122,11 @@ fun LibraryScreen(state: LibraryState, model: LibraryViewModel, midi: MidiInputS
             }
         }
     }
-    if (showAccount) AccountDialog(state, model::authenticate, {
-        showAccount = false; leave { midi.clear(); model.signOut() }
-    }, { showAccount = false })
+    BackendSelector(state, model, midi) { backendAction ->
+        if (showAccount) AccountDialog(state, model::authenticate, {
+            showAccount = false; leave { midi.clear(); model.signOut() }
+        }, { showAccount = false }, backendAction)
+    }
     if (showNew) NewSheetDialog(state, model::create) { showNew = false }
     if (showDetails && state.selected != null) SheetDetailsDialog(state, model::updateDraftTitle, model::updateDraftTutorial,
         model::updateScoreSettings, documents.exportSheet, model::save) { showDetails = false }
