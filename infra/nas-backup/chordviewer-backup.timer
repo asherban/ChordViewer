@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly ChordViewer off-site backup at midnight UTC
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=chordviewer-backup.service
+
+[Install]
+WantedBy=timers.target

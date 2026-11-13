@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!rest-server
+!entrypoint.sh

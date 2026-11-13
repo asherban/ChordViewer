@@ -1,0 +1,48 @@
+name: chordviewer-backup
+services:
+  receiver:
+    image: chordviewer/rest-server:0.14.0-cv.20261031.2
+    container_name: chordviewer-backup-receiver
+    user: "1028:100"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpuset: "0"
+    environment:
+      GOMAXPROCS: "1"
+    ulimits:
+      nproc:
+        soft: 128
+        hard: 128
+      nofile:
+        soft: 1024
+        hard: 1024
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - type: bind
+        source: /volume1/ChordViewerBackups/repositories
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /volume1/@chordviewer-backup/receiver.htpasswd
+        target: /run/secrets/receiver.htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /volume1/ChordViewerBackups/receiver-socket
+        target: /run/receiver
+        bind:
+          create_host_path: false

@@ -1,0 +1,29 @@
+ChordViewer encrypted production bundle
+
+Use the separately stored recovery kit and restic to restore an explicitly selected
+snapshot into a new empty directory. Check SHA256SUMS before using its files.
+release.env contains production secrets: keep this directory private.
+
+backup-manifest.json records the database version, migration-table and full-table
+fingerprints taken in the same PostgreSQL transaction snapshot as database.dump.
+It also records the three running image identities and release name.
+
+For a clean rebuild, install Docker and Compose on a supported Linux host, load
+release-images.tar.gz, and confirm the image IDs against backup-manifest.json.
+Use the bundled Compose and database initialization script to create a NEW project
+and empty database volume with root-only environment configuration. Start the
+database, restore database.dump with pg_restore --exit-on-error into that empty
+database, and compare all table fingerprints using table-digest.sql. Start the API
+and gateway only after restoring successfully and checking migration compatibility.
+Restore runtime role permissions as included in the dump. Never point a rehearsal
+at the production project, volume, public domain or production ports.
+
+For a rehearsal, use fresh database/runtime secrets and a loopback-only HTTPS
+endpoint with a separately trusted local certificate. Validate existing account
+sign-in and saved scores, revisions, Library metadata and Trash through that copy.
+Do not publish restored production data. Do not change or delete the live volume.
+
+Rebuilding the public host additionally requires independent SSH/account recovery,
+the domain/DNS and firewall setup documented in docs/deployment/runbook.md, and
+restored backup credentials. Unsaved device-local drafts are not included. Keep
+the Android signing key in independent escrow; it is not present on the VPS.

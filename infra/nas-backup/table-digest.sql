@@ -1,0 +1,1 @@
+SELECT json_build_object('rows',count(*),'sha256',encode(sha256(convert_to(coalesce(string_agg(row_hash,'' ORDER BY row_hash),''),'UTF8')),'hex')) FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') AS row_hash FROM __TABLE__ AS t) AS rows;
